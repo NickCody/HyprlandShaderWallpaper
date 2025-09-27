@@ -1,5 +1,6 @@
 name = "Template Project"
 entry = "image"
+surface_alpha = "opaque"
 description = "Clone this project"
 tags = [
     "glsl"

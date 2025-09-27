@@ -1,5 +1,6 @@
 name = "Gray Day"
 entry = "image"
+surface_alpha = "opaque"
 description = "Moody grayscale background"
 tags = [
     "glsl"

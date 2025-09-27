@@ -1,5 +1,6 @@
 name = "Raymarching - Primitives"
 entry = "image"
+surface_alpha = "opaque"
 description = "A set of raw primitives. All except the ellipsoid are exact euclidean distances. More info here: [url=https://iquilezles.org/articles/distfunctions]https://iquilezles.org/articles/distfunctions[/url]"
 tags = [
     "procedural",

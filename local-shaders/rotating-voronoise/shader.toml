@@ -1,5 +1,6 @@
 name = "Rotating Voronoise"
 entry = "image"
+surface_alpha = "opaque"
 description = """
 Compliments the great Voronoise/noise combo algorithm by Inigo Quilez.
 

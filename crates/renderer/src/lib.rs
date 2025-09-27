@@ -98,6 +98,21 @@ pub enum RenderMode {
     Windowed,
 }
 
+/// Declares how the compositor should treat the swapchain alpha channel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SurfaceAlpha {
+    /// Frames fully cover the wallpaper surface without transparency.
+    Opaque,
+    /// Frames may contain transparency and should be blended by the compositor.
+    Transparent,
+}
+
+impl Default for SurfaceAlpha {
+    fn default() -> Self {
+        Self::Opaque
+    }
+}
+
 /// Anti-aliasing policy for the render pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Antialiasing {
@@ -136,6 +151,8 @@ pub struct RendererConfig {
     pub channel_bindings: ChannelBindings,
     /// Anti-aliasing mode requested by the caller.
     pub antialiasing: Antialiasing,
+    /// Alpha behaviour of the surface from the manifest or CLI.
+    pub surface_alpha: SurfaceAlpha,
 }
 
 impl Default for RendererConfig {
@@ -149,6 +166,7 @@ impl Default for RendererConfig {
             target_fps: None,
             channel_bindings: ChannelBindings::default(),
             antialiasing: Antialiasing::default(),
+            surface_alpha: SurfaceAlpha::Opaque,
         }
     }
 }
@@ -1192,7 +1210,7 @@ fn compile_vertex_shader(device: &wgpu::Device) -> Result<wgpu::ShaderModule> {
 }
 
 mod wallpaper {
-    use super::{Antialiasing, ChannelBindings, GpuState, RendererConfig};
+    use super::{Antialiasing, ChannelBindings, GpuState, RendererConfig, SurfaceAlpha};
     use anyhow::{Context, Result};
     use raw_window_handle::{
         DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
@@ -1204,7 +1222,7 @@ mod wallpaper {
         Connection, Proxy, QueueHandle,
     };
     use smithay_client_toolkit::{
-        compositor::{CompositorHandler, CompositorState},
+        compositor::{CompositorHandler, CompositorState, Region},
         delegate_compositor, delegate_layer, delegate_output, delegate_registry,
         output::{OutputHandler, OutputInfo, OutputState},
         registry::{ProvidesRegistryState, RegistryState},
@@ -1262,6 +1280,7 @@ mod wallpaper {
 
         let fallback_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
         let mut state = WallpaperState::new(
+            compositor,
             registry_state,
             output_state,
             layer_surface,
@@ -1272,6 +1291,7 @@ mod wallpaper {
             config.antialiasing,
             target_output,
             initial_output_size,
+            config.surface_alpha,
         );
 
         // Configure FPS cap if requested.
@@ -1296,6 +1316,7 @@ mod wallpaper {
     }
 
     struct WallpaperState {
+        compositor: CompositorState,
         registry_state: RegistryState,
         output_state: OutputState,
         layer_surface: LayerSurface,
@@ -1304,6 +1325,7 @@ mod wallpaper {
         fallback_size: PhysicalSize<u32>,
         channel_bindings: ChannelBindings,
         antialiasing: Antialiasing,
+        surface_alpha: SurfaceAlpha,
         gpu: Option<GpuState>,
         frame_scheduled: bool,
         should_exit: bool,
@@ -1318,6 +1340,7 @@ mod wallpaper {
 
     impl WallpaperState {
         fn new(
+            compositor: CompositorState,
             registry_state: RegistryState,
             output_state: OutputState,
             layer_surface: LayerSurface,
@@ -1328,8 +1351,10 @@ mod wallpaper {
             antialiasing: Antialiasing,
             target_output: Option<wl_output::WlOutput>,
             last_output_size: Option<PhysicalSize<u32>>,
+            surface_alpha: SurfaceAlpha,
         ) -> Self {
             Self {
+                compositor,
                 registry_state,
                 output_state,
                 layer_surface,
@@ -1338,6 +1363,7 @@ mod wallpaper {
                 fallback_size,
                 channel_bindings,
                 antialiasing,
+                surface_alpha,
                 gpu: None,
                 frame_scheduled: false,
                 should_exit: false,
@@ -1354,10 +1380,41 @@ mod wallpaper {
             self.should_exit
         }
 
+        fn apply_surface_alpha(&self, size: PhysicalSize<u32>) {
+            let surface = self.layer_surface.wl_surface();
+            match self.surface_alpha {
+                SurfaceAlpha::Opaque => {
+                    if size.width == 0 || size.height == 0 {
+                        surface.set_opaque_region(None);
+                        return;
+                    }
+                    let width = size.width.min(i32::MAX as u32) as i32;
+                    let height = size.height.min(i32::MAX as u32) as i32;
+                    match Region::new(&self.compositor) {
+                        Ok(region) => {
+                            region.add(0, 0, width, height);
+                            surface.set_opaque_region(Some(region.wl_region()));
+                        }
+                        Err(err) => {
+                            tracing::warn!(
+                                error = %err,
+                                "failed to declare opaque region for wallpaper surface"
+                            );
+                            surface.set_opaque_region(None);
+                        }
+                    }
+                }
+                SurfaceAlpha::Transparent => {
+                    surface.set_opaque_region(None);
+                }
+            }
+        }
+
         fn ensure_gpu(&mut self, conn: &Connection, size: PhysicalSize<u32>) -> Result<bool> {
             if let Some(gpu) = self.gpu.as_mut() {
                 gpu.resize(size);
                 tracing::debug!("resized GPU surface to {}x{}", size.width, size.height);
+                self.apply_surface_alpha(size);
                 return Ok(false);
             }
 
@@ -1371,6 +1428,7 @@ mod wallpaper {
             )?;
             tracing::info!("initialised GPU surface {}x{}", size.width, size.height);
             self.gpu = Some(gpu);
+            self.apply_surface_alpha(size);
             // Reset FPS pacing on (re)create
             self.accumulator = Duration::ZERO;
             self.last_tick = Some(Instant::now());
@@ -1562,6 +1620,7 @@ mod wallpaper {
             let size = self.resolve_configure_size(configure.new_size);
             self.layer_surface.set_size(size.width, size.height);
             self.last_output_size = Some(size);
+            self.apply_surface_alpha(size);
             tracing::info!(
                 "layer configure new_size={}x{} -> using {}x{}",
                 configure.new_size.0,

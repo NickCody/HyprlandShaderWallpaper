@@ -1,9 +1,12 @@
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use renderer::{Antialiasing, ChannelBindings, RenderMode, Renderer, RendererConfig};
+use renderer::{
+    Antialiasing, ChannelBindings, RenderMode, Renderer, RendererConfig,
+    SurfaceAlpha as RendererSurfaceAlpha,
+};
 use shadertoy::{
     load_entry_shader, InputSource, LocalPack, ShaderHandle, ShaderRepository, ShaderSource,
-    ShadertoyClient, ShadertoyConfig,
+    ShadertoyClient, ShadertoyConfig, SurfaceAlpha as ManifestSurfaceAlpha,
 };
 use tracing_subscriber::EnvFilter;
 
@@ -97,6 +100,12 @@ fn main() -> Result<()> {
         ShaderSource::Local(pack) => channel_bindings_from_pack(pack),
         ShaderSource::CachedRemote(remote) => channel_bindings_from_pack(&remote.pack),
     };
+    let surface_alpha = match &source {
+        ShaderSource::Local(pack) => map_manifest_alpha(pack.manifest().surface_alpha),
+        ShaderSource::CachedRemote(remote) => {
+            map_manifest_alpha(remote.pack.manifest().surface_alpha)
+        }
+    };
     let shader_path = load_entry_shader(&source)?;
 
     match &source {
@@ -140,6 +149,7 @@ fn main() -> Result<()> {
         },
         channel_bindings,
         antialiasing: args.antialias,
+        surface_alpha,
     };
 
     let mut renderer = Renderer::new(config);
@@ -207,6 +217,13 @@ fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindings {
     }
 
     bindings
+}
+
+fn map_manifest_alpha(alpha: ManifestSurfaceAlpha) -> RendererSurfaceAlpha {
+    match alpha {
+        ManifestSurfaceAlpha::Opaque => RendererSurfaceAlpha::Opaque,
+        ManifestSurfaceAlpha::Transparent => RendererSurfaceAlpha::Transparent,
+    }
 }
 
 fn resolve_shader_handle(args: &Args) -> Result<ShaderHandle> {

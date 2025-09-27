@@ -1,5 +1,6 @@
 name = "Fungal Apocalypse"
 entry = "image"
+surface_alpha = "opaque"
 description = "Spore-riddled skyline tinted by an underlying photograph"
 tags = [
     "glsl",

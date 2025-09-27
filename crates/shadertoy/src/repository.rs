@@ -165,7 +165,9 @@ pub fn load_entry_shader(source: &ShaderSource) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::{InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass};
+    use crate::manifest::{
+        InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+    };
     use crate::{
         materialize_shader, RenderInput, RenderOutput, RenderPass, ShaderHandle, ShaderInfo,
         ShaderPayload,
@@ -175,6 +177,7 @@ mod tests {
         let manifest = ShaderPackManifest {
             name: Some("Demo".into()),
             entry: "image".into(),
+            surface_alpha: SurfaceAlpha::Opaque,
             description: None,
             tags: vec![],
             passes: vec![ShaderPass {

@@ -107,7 +107,9 @@ pub fn ensure_glsl_sources(pack: &LocalPack) -> Result<Vec<PathBuf>, PackError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::{InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass};
+    use crate::manifest::{
+        InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+    };
 
     fn write_pack(dir: &Path, manifest: &ShaderPackManifest, extra_files: &[(&str, &str)]) {
         let manifest_str = toml::to_string(manifest).expect("serialize manifest");
@@ -125,6 +127,7 @@ mod tests {
         ShaderPackManifest {
             name: Some("Demo".into()),
             entry: "image".into(),
+            surface_alpha: SurfaceAlpha::Opaque,
             description: None,
             tags: vec![],
             passes: vec![ShaderPass {

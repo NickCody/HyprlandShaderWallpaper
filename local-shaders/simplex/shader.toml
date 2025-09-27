@@ -1,5 +1,6 @@
 name = "Simplex Noise Rotation"
 entry = "image"
+surface_alpha = "opaque"
 description = "Simplex noise applied to two rotating layers"
 tags = [
     "glsl",

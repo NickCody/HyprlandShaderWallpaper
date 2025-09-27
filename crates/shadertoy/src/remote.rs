@@ -8,7 +8,9 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-use crate::manifest::{InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass};
+use crate::manifest::{
+    InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+};
 use crate::pack::LocalPack;
 
 #[derive(Debug, Clone)]
@@ -423,6 +425,7 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
     let manifest = ShaderPackManifest {
         name: (!payload.info.name.trim().is_empty()).then(|| payload.info.name.clone()),
         entry,
+        surface_alpha: SurfaceAlpha::Opaque,
         description: payload.info.description.clone(),
         tags: payload.info.tags.clone(),
         passes: manifest_passes,

@@ -8,6 +8,8 @@ pub struct ShaderPackManifest {
     #[serde(default = "default_entry")]
     pub entry: String,
     #[serde(default)]
+    pub surface_alpha: SurfaceAlpha,
+    #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -45,6 +47,19 @@ pub enum PassKind {
 impl Default for PassKind {
     fn default() -> Self {
         Self::Image
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SurfaceAlpha {
+    Opaque,
+    Transparent,
+}
+
+impl Default for SurfaceAlpha {
+    fn default() -> Self {
+        Self::Opaque
     }
 }
 
