@@ -103,6 +103,16 @@ impl AntialiasSetting {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolvedItem {
+    pub handle: String,
+    pub duration: Duration,
+    pub fps: Option<f32>,
+    pub antialias: Option<AntialiasSetting>,
+    pub refresh_once: bool,
+    pub crossfade: Duration,
+}
+
 fn default_workspace_crossfade() -> Option<Duration> {
     Some(Duration::from_secs_f32(1.0))
 }
@@ -154,6 +164,16 @@ where
             }
         }
 
+        fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            if v < 0 {
+                return Err(E::custom("duration must be non-negative"));
+            }
+            Ok(Some(Duration::from_secs(v as u64)))
+        }
+
         fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
         where
             E: de::Error,
@@ -186,11 +206,26 @@ fn deserialize_antialias_opt<'de, D>(deserializer: D) -> Result<Option<Antialias
 where
     D: Deserializer<'de>,
 {
-    let value: Option<String> = Option::deserialize(deserializer)?;
-    Ok(match value {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Helper {
+        Str(String),
+        Num(i64),
+    }
+
+    let helper: Option<Helper> = Option::deserialize(deserializer)?;
+    let result = match helper {
         None => None,
-        Some(raw) => Some(parse_antialias(&raw).map_err(de::Error::custom)?),
-    })
+        Some(Helper::Str(raw)) => Some(parse_antialias(&raw).map_err(de::Error::custom)?),
+        Some(Helper::Num(value)) => {
+            if value < 0 {
+                return Err(de::Error::custom("antialias value must be non-negative"));
+            }
+            let raw = value.to_string();
+            Some(parse_antialias(&raw).map_err(de::Error::custom)?)
+        }
+    };
+    Ok(result)
 }
 
 fn parse_antialias(raw: &str) -> Result<AntialiasSetting, String> {
@@ -211,6 +246,19 @@ impl MultiConfig {
         let raw: MultiConfig = toml::from_str(input)?;
         raw.validate()?;
         Ok(raw)
+    }
+
+    pub fn playlist(&self, name: &str) -> Option<&Playlist> {
+        self.playlists.get(name)
+    }
+
+    pub fn default_playlist(&self) -> Option<&str> {
+        self.defaults.playlist.as_deref()
+    }
+
+    pub fn workspace_switch_crossfade(&self) -> Duration {
+        self.workspace_switch_crossfade
+            .unwrap_or_else(|| Duration::from_secs_f32(1.0))
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
@@ -315,6 +363,24 @@ impl MultiConfig {
     }
 }
 
+impl Playlist {
+    pub fn resolved_item(&self, index: usize, defaults: &Defaults) -> Option<ResolvedItem> {
+        let item = self.items.get(index)?;
+        let duration = item.duration.unwrap_or(self.item_duration);
+        let fps = item.fps.or(self.fps).or(defaults.fps);
+        let antialias = item.antialias.or(self.antialias).or(defaults.antialias);
+
+        Some(ResolvedItem {
+            handle: item.handle.clone(),
+            duration,
+            fps,
+            antialias,
+            refresh_once: item.refresh_once,
+            crossfade: self.crossfade,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,5 +469,35 @@ handle = "local-shaders/demo"
 "#;
         let err = MultiConfig::from_toml_str(config).unwrap_err();
         assert!(matches!(err, ConfigError::Invalid(_)));
+    }
+
+    #[test]
+    fn resolves_item_with_defaults() {
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[defaults]
+fps = 24
+antialias = "4"
+
+[playlists.main]
+mode = "continuous"
+item_duration = "5s"
+
+[[playlists.main.items]]
+handle = "local/demo"
+"#,
+        )
+        .unwrap();
+
+        let playlist = config.playlist("main").unwrap();
+        let resolved = playlist.resolved_item(0, &config.defaults).unwrap();
+        assert_eq!(resolved.handle, "local/demo");
+        assert_eq!(resolved.duration, Duration::from_secs(5));
+        assert_eq!(resolved.fps, Some(24.0));
+        assert_eq!(resolved.antialias, Some(AntialiasSetting::Samples4));
+        assert_eq!(resolved.crossfade, Duration::from_secs_f32(1.0));
+        assert!(!resolved.refresh_once);
     }
 }

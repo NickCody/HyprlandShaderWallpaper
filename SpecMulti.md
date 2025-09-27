@@ -120,7 +120,7 @@ handle = "local-shaders/rotating-voronoise"
   - `antialias` (string|number): `"auto" | "off" | 2 | 4 | 8 | 16`.
 - `[playlists.<name>]` (one or more):
   - `mode` (string): `"continuous" | "shuffle"`.
-  - `item_duration` (string|number): default duration per item.
+  - `item_duration` (string|number): default duration per item (defaults to `60s` when omitted).
   - `crossfade` (string|number, optional): duration for transitions between items in this playlist.
     Defaults to `"1s"`; `0` disables crossfade (hard cut).
   - `fps` (number >= 0, optional): playlist-level default FPS cap.
@@ -319,7 +319,7 @@ handle = "local-shaders/rotating-voronoise"
 
 To make the rollout manageable, the work will proceed in the following stages. Each stage should compile, include tests, and be validated before moving on.
 
-### Stage 1 – Configuration & Scheduling Foundations
+### Stage 1 – Configuration & Scheduling Foundations (complete)
 1. Finalize the `multiconfig` crate:
    - Ensure the schema matches this spec, including validation and field defaults.
    - Add exhaustive unit tests for TOML parsing, validation failures, and precedence helpers.

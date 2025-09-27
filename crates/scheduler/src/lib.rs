@@ -47,7 +47,12 @@ impl Scheduler {
         let playlists = config
             .playlists
             .iter()
-            .map(|(name, playlist)| (name.clone(), PlaylistRuntime::from_config(playlist)))
+            .map(|(name, playlist)| {
+                (
+                    name.clone(),
+                    PlaylistRuntime::from_config(playlist, &config.defaults),
+                )
+            })
             .collect();
         Self {
             playlists,
@@ -68,8 +73,8 @@ impl Scheduler {
             .ok_or_else(|| SchedulerError::UnknownPlaylist(playlist.to_string()))?
             .clone();
 
-        let mut state = TargetState::new(runtime, &mut self.rng);
-        let item = state.build_selection(now);
+        let state = TargetState::new(runtime, now, &mut self.rng);
+        let item = state.current_scheduled_item();
         self.targets.insert(target.clone(), state);
         Ok(SelectionChange {
             target,
@@ -85,8 +90,8 @@ impl Scheduler {
     pub fn tick(&mut self, now: Instant) -> Vec<SelectionChange> {
         let mut changes = Vec::new();
         for (target, state) in self.targets.iter_mut() {
-            if state.should_advance(now, &mut self.rng) {
-                let item = state.build_selection(now);
+            if state.advance_if_elapsed(now, &mut self.rng) {
+                let item = state.current_scheduled_item();
                 changes.push(SelectionChange {
                     target: target.clone(),
                     item,
@@ -106,15 +111,15 @@ struct PlaylistRuntime {
 }
 
 impl PlaylistRuntime {
-    fn from_config(src: &multiconfig::Playlist) -> Self {
+    fn from_config(src: &multiconfig::Playlist, defaults: &multiconfig::Defaults) -> Self {
         let items = src
             .items
             .iter()
             .map(|item| RuntimeItem {
                 handle: item.handle.clone(),
                 duration: item.duration.unwrap_or(src.item_duration),
-                fps: item.fps.or(src.fps),
-                antialias: item.antialias.or(src.antialias),
+                fps: item.fps.or(src.fps).or(defaults.fps),
+                antialias: item.antialias.or(src.antialias).or(defaults.antialias),
                 refresh_once: item.refresh_once,
             })
             .collect();
@@ -143,9 +148,8 @@ struct TargetState {
 }
 
 impl TargetState {
-    fn new(playlist: PlaylistRuntime, rng: &mut StdRng) -> Self {
+    fn new(playlist: PlaylistRuntime, now: Instant, rng: &mut StdRng) -> Self {
         let order = build_order(playlist.items.len(), &playlist.mode, rng);
-        let now = Instant::now();
         Self {
             playlist,
             order,
@@ -158,7 +162,7 @@ impl TargetState {
         self.order[self.cursor]
     }
 
-    fn should_advance(&mut self, now: Instant, rng: &mut StdRng) -> bool {
+    fn advance_if_elapsed(&mut self, now: Instant, rng: &mut StdRng) -> bool {
         let idx = self.current_index();
         let item = &self.playlist.items[idx];
         if now.duration_since(self.last_started) >= item.duration {
@@ -174,10 +178,9 @@ impl TargetState {
         }
     }
 
-    fn build_selection(&mut self, now: Instant) -> ScheduledItem {
+    fn current_scheduled_item(&self) -> ScheduledItem {
         let idx = self.current_index();
         let item = &self.playlist.items[idx];
-        self.last_started = now;
         ScheduledItem {
             handle: item.handle.clone(),
             duration: item.duration,
@@ -227,7 +230,7 @@ handle = "two"
         let mut now = Instant::now();
         let first = scheduler.set_target(target.clone(), "test", now).unwrap();
         assert_eq!(first.item.handle, "one");
-        now += Duration::from_secs(1);
+        now = now + Duration::from_secs(1);
         let changes = scheduler.tick(now);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].item.handle, "two");
@@ -261,5 +264,35 @@ handle = "three"
             first.item.handle.as_str(),
             "one" | "two" | "three"
         ));
+    }
+
+    #[test]
+    fn applies_global_defaults() {
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[defaults]
+fps = 48
+antialias = "8"
+
+[playlists.test]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.test.items]]
+handle = "local/demo"
+"#,
+        )
+        .unwrap();
+
+        let mut scheduler = Scheduler::new(&config, 7);
+        let target = TargetId::new("output:A");
+        let change = scheduler
+            .set_target(target.clone(), "test", Instant::now())
+            .unwrap();
+        assert_eq!(change.item.fps, Some(48.0));
+        assert_eq!(change.item.antialias, Some(AntialiasSetting::Samples8));
+        assert_eq!(change.item.crossfade, Duration::from_secs_f32(1.0));
     }
 }
