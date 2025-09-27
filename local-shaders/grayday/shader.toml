@@ -1,0 +1,12 @@
+name = "Gray Day"
+entry = "image"
+description = "Moody grayscale background"
+tags = [
+    "glsl"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

@@ -1,0 +1,12 @@
+name = "Template Project"
+entry = "image"
+description = "Clone this project"
+tags = [
+    "glsl"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

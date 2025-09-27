@@ -1,0 +1,13 @@
+name = "Simplex Noise Rotation"
+entry = "image"
+description = "Simplex noise applied to two rotating layers"
+tags = [
+    "glsl",
+    "simplexnoise",
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

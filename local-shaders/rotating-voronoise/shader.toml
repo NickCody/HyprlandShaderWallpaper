@@ -1,0 +1,16 @@
+name = "Rotating Voronoise"
+entry = "image"
+description = """
+Compliments the great Voronoise/noise combo algorithm by Inigo Quilez.
+
+Click on four qudrants to adjust u/v as in http://iquilezles.org/articles/voronoise/voronoise.htm"""
+tags = [
+    "noise",
+    "voronoise",
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

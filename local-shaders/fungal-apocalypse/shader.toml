@@ -1,0 +1,17 @@
+name = "Fungal Apocalypse"
+entry = "image"
+description = "Spore-riddled skyline tinted by an underlying photograph"
+tags = [
+    "glsl",
+    "texture",
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+
+[[passes.inputs]]
+channel = 0
+type = "texture"
+path = "00037-2759816.png"
