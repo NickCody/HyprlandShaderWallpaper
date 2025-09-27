@@ -1,0 +1,19 @@
+version = 1
+
+[defaults]
+playlist = "wallpapers"
+fps = 0
+antialias = "auto"
+
+[playlists.wallpapers]
+mode = "continuous"
+item_duration = "10s"
+
+[[playlists.wallpapers.items]]
+handle = "local-shaders/grayday"
+
+[[playlists.wallpapers.items]]
+handle = "local-shaders/simplex"
+
+[[playlists.wallpapers.items]]
+handle = "local-shaders/fungal-apocalypse"

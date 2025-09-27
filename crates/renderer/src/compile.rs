@@ -108,7 +108,8 @@ layout(std140, set = 0, binding = 0) uniform ShaderParams {
     vec4 _iMouse;
     vec4 _iDate;
     float _iSampleRate;
-    vec3 _padding1;
+    float _iFade;
+    vec2 _padding1;
     float _iChannelTime[4];
     vec3 _iChannelResolution[4];
 } ubo;
@@ -121,6 +122,7 @@ layout(std140, set = 0, binding = 0) uniform ShaderParams {
 #define iMouse ubo._iMouse
 #define iDate ubo._iDate
 #define iSampleRate ubo._iSampleRate
+#define shaderpaper_mix ubo._iFade
 #define iChannelTime ubo._iChannelTime
 #define iChannelResolution ubo._iChannelResolution
 
@@ -155,7 +157,7 @@ const FOOTER: &str = r"void main() {
 
     vec4 color = vec4(0.0);
     mainImage(color, fragCoord);
-    outColor = color;
+    outColor = vec4(color.rgb * shaderpaper_mix, shaderpaper_mix);
 }
 ";
 
@@ -196,6 +198,6 @@ mod tests {
         assert!(!wrapped.contains("uniform float iTime"));
         assert!(!wrapped.contains("uniform vec3 iResolution"));
         assert!(wrapped.contains("mainImage"));
-        assert!(wrapped.contains("outColor = color"));
+        assert!(wrapped.contains("shaderpaper_mix"));
     }
 }

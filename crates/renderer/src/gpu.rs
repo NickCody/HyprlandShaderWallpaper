@@ -1,12 +1,10 @@
-use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use bytemuck::{Pod, Zeroable};
 use chrono::{Datelike, Local, Timelike};
 use image::imageops::flip_vertical_in_place;
-use pollster::block_on;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::util::{DeviceExt, TextureDataOrder};
 use wgpu::TextureFormatFeatureFlags;
@@ -15,50 +13,37 @@ use winit::dpi::PhysicalSize;
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
 use crate::types::{Antialiasing, ChannelBindings, ChannelSource, CHANNEL_COUNT};
 
-/// Owns the GPU resources required to render the ShaderToy pipeline.
 pub(crate) struct GpuState {
-    /// `wgpu` instance that produced the surface; kept alive for the surface lifetime.
     _instance: wgpu::Instance,
-    /// Limits advertised by the adapter; used to validate resize requests.
     limits: wgpu::Limits,
-    /// Swapchain surface we render into each frame.
     surface: wgpu::Surface<'static>,
-    /// Logical device used for resource creation.
     device: wgpu::Device,
-    /// Submission queue accepting command buffers.
     queue: wgpu::Queue,
-    /// Swapchain configuration (format, present mode, dimensions).
     config: wgpu::SurfaceConfiguration,
-    /// Current swapchain size in physical pixels.
     size: PhysicalSize<u32>,
-    /// MSAA sample count used by the render pipeline.
     sample_count: u32,
-    /// Optional multisample color buffer when MSAA is enabled.
     multisample_target: Option<MultisampleTarget>,
-    /// Full-screen pipeline driving the fragment shader.
-    pipeline: wgpu::RenderPipeline,
-    /// GPU buffer containing the ShaderToy uniform block.
     uniform_buffer: wgpu::Buffer,
-    /// Bind group that exposes the uniform buffer to the shader.
     uniform_bind_group: wgpu::BindGroup,
-    /// Bind group containing channel textures/samplers.
-    channel_bind_group: wgpu::BindGroup,
-    /// Owned textures/samplers so the bind group remains valid.
-    _channel_resources: Vec<ChannelResources>,
-    /// CPU copy of the uniform data mirrored into the buffer each frame.
+    #[allow(dead_code)]
+    uniform_layout: wgpu::BindGroupLayout,
+    #[allow(dead_code)]
+    channel_layout: wgpu::BindGroupLayout,
+    #[allow(dead_code)]
+    pipeline_layout: wgpu::PipelineLayout,
+    #[allow(dead_code)]
+    vertex_module: wgpu::ShaderModule,
     uniforms: ShadertoyUniforms,
-    /// Instant captured when rendering begins.
+    current: ShaderPipeline,
+    previous: Option<ShaderPipeline>,
+    crossfade: Option<CrossfadeState>,
     start_time: Instant,
-    /// Timestamp of the previously presented frame.
     last_frame_time: Instant,
-    /// Monotonic frame counter used for `iFrame`.
     frame_count: u32,
-    /// Used to throttle debug logging.
     last_log_time: Instant,
 }
 
 impl GpuState {
-    /// Creates a GPU pipeline targeting the supplied surface and size.
     pub(crate) fn new<T>(
         target: &T,
         initial_size: PhysicalSize<u32>,
@@ -86,7 +71,7 @@ impl GpuState {
         }
         .context("failed to create rendering surface")?;
 
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             compatible_surface: Some(&surface),
             force_fallback_adapter: false,
@@ -188,24 +173,16 @@ impl GpuState {
             required_features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
         }
 
-        let device_descriptor = wgpu::DeviceDescriptor {
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("shaderpaper device"),
             required_features,
             required_limits: limits.clone(),
-            memory_hints: wgpu::MemoryHints::default(),
+            memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::default(),
-        };
-
-        let (device, queue) = pollster::block_on(adapter.request_device(&device_descriptor))
-            .context("failed to create GPU device")?;
+        }))
+        .context("failed to create GPU device")?;
 
         let size = PhysicalSize::new(requested_width, requested_height);
-        tracing::info!(
-            "initial surface size {}x{}, max_texture_dimension_2d={max_dimension}",
-            requested_width,
-            requested_height
-        );
-
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
@@ -218,12 +195,12 @@ impl GpuState {
         };
         surface.configure(&device, &config);
 
-        let shader_code = fs::read_to_string(shader_source)
-            .with_context(|| format!("failed to read shader at {}", shader_source.display()))?;
-
-        let fragment_module = compile_fragment_shader(&device, &shader_code)
-            .context("failed to compile shader fragment")?;
-        let vertex_module = compile_vertex_shader(&device)?;
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("uniform buffer"),
+            size: std::mem::size_of::<ShadertoyUniforms>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform layout"),
@@ -239,29 +216,9 @@ impl GpuState {
             }],
         });
 
-        let mut channel_layout_entries = Vec::with_capacity(CHANNEL_COUNT * 2);
-        for index in 0..CHANNEL_COUNT {
-            channel_layout_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: (index as u32) * 2,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            });
-            channel_layout_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: (index as u32) * 2 + 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            });
-        }
-
         let channel_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("channel layout"),
-            entries: &channel_layout_entries,
+            entries: &build_channel_layout_entries(),
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -270,65 +227,31 @@ impl GpuState {
             push_constant_ranges: &[],
         });
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("shader pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &vertex_module,
-                entry_point: Some("main"),
-                buffers: &[],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: sample_count,
-                ..wgpu::MultisampleState::default()
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &fragment_module,
-                entry_point: Some("main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview: None,
-            cache: None,
+        let vertex_module = compile_vertex_shader(&device)?;
+
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("uniform bind group"),
+            layout: &uniform_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
         });
 
-        let mut uniforms = ShadertoyUniforms::new(size.width, size.height);
+        let current = ShaderPipeline::new(
+            &device,
+            &queue,
+            &pipeline_layout,
+            &channel_layout,
+            &vertex_module,
+            surface_format,
+            sample_count,
+            shader_source,
+            channel_bindings,
+        )?;
 
-        let channel_resources =
-            create_channel_resources(&device, &queue, channel_bindings.slots())?;
-        let mut channel_entries = Vec::with_capacity(CHANNEL_COUNT * 2);
-        for (index, resource) in channel_resources.iter().enumerate() {
-            uniforms.i_channel_resolution[index] = resource.resolution;
-            channel_entries.push(wgpu::BindGroupEntry {
-                binding: (index as u32) * 2,
-                resource: wgpu::BindingResource::TextureView(&resource.view),
-            });
-            channel_entries.push(wgpu::BindGroupEntry {
-                binding: (index as u32) * 2 + 1,
-                resource: wgpu::BindingResource::Sampler(&resource.sampler),
-            });
-        }
-
-        let channel_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("channel bind group"),
-            layout: &channel_layout,
-            entries: &channel_entries,
-        });
+        let uniforms = ShadertoyUniforms::new(size.width, size.height);
+        queue.write_buffer(&uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
 
         let multisample_target = if sample_count > 1 {
             Some(MultisampleTarget::new(
@@ -341,21 +264,6 @@ impl GpuState {
             None
         };
 
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer"),
-            contents: bytemuck::bytes_of(&uniforms),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("uniform bind group"),
-            layout: &uniform_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
-
         Ok(Self {
             _instance: instance,
             limits,
@@ -366,12 +274,16 @@ impl GpuState {
             size,
             sample_count,
             multisample_target,
-            pipeline,
             uniform_buffer,
             uniform_bind_group,
-            channel_bind_group,
-            _channel_resources: channel_resources,
+            uniform_layout,
+            channel_layout,
+            pipeline_layout,
+            vertex_module,
             uniforms,
+            current,
+            previous: None,
+            crossfade: None,
             start_time: Instant::now(),
             last_frame_time: Instant::now(),
             frame_count: 0,
@@ -379,12 +291,10 @@ impl GpuState {
         })
     }
 
-    /// Returns the current surface size.
     pub(crate) fn size(&self) -> PhysicalSize<u32> {
         self.size
     }
 
-    /// Reconfigures the swapchain to match the new size.
     pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width == 0 || new_size.height == 0 {
             return;
@@ -392,13 +302,13 @@ impl GpuState {
 
         let max_dimension = self.limits.max_texture_dimension_2d;
         if new_size.width > max_dimension || new_size.height > max_dimension {
-            eprintln!(
-                "requested resize to {new_width}x{new_height} exceeds GPU max texture dimension {max_dimension}; keeping previous size {old_width}x{old_height}",
+            tracing::warn!(
                 new_width = new_size.width,
                 new_height = new_size.height,
-                max_dimension = max_dimension,
+                max_dimension,
                 old_width = self.size.width,
-                old_height = self.size.height
+                old_height = self.size.height,
+                "requested resize exceeds GPU limits; keeping previous size"
             );
             return;
         }
@@ -421,9 +331,182 @@ impl GpuState {
             .set_resolution(new_size.width as f32, new_size.height as f32);
     }
 
-    /// Advances the ShaderToy uniform block and uploads it to the GPU.
-    fn update_uniforms(&mut self, mouse: [f32; 4]) {
+    #[allow(dead_code)]
+    pub(crate) fn set_shader(
+        &mut self,
+        shader_source: &Path,
+        channel_bindings: &ChannelBindings,
+        crossfade: Duration,
+        now: Instant,
+    ) -> Result<()> {
+        let new_pipeline = ShaderPipeline::new(
+            &self.device,
+            &self.queue,
+            &self.pipeline_layout,
+            &self.channel_layout,
+            &self.vertex_module,
+            self.config.format,
+            self.sample_count,
+            shader_source,
+            channel_bindings,
+        )?;
+
+        let crossfade = if crossfade < Duration::from_millis(16) {
+            Duration::ZERO
+        } else {
+            crossfade
+        };
+
+        tracing::info!(
+            shader = %shader_source.display(),
+            crossfade_ms = crossfade.as_millis(),
+            "swapping shader pipeline"
+        );
+
+        if crossfade.is_zero() {
+            self.current = new_pipeline;
+            self.previous = None;
+            self.crossfade = None;
+        } else {
+            let previous = std::mem::replace(&mut self.current, new_pipeline);
+            self.previous = Some(previous);
+            self.crossfade = Some(CrossfadeState::new(now, crossfade));
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn render(&mut self, mouse: [f32; 4]) -> Result<(), wgpu::SurfaceError> {
         let now = Instant::now();
+        self.update_time(mouse, now);
+
+        let mut mix_prev = None;
+        if let Some(fade) = self.crossfade.as_mut() {
+            if fade.is_finished(now) || self.previous.is_none() {
+                self.previous = None;
+                self.crossfade = None;
+            } else {
+                mix_prev = Some((fade.previous_mix(now), fade.current_mix(now)));
+            }
+        }
+
+        let frame = self.surface.get_current_texture()?;
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("render encoder"),
+            });
+
+        let mut load = wgpu::LoadOp::Clear(wgpu::Color::BLACK);
+
+        let mut previous_pipeline = self.previous.take();
+        let current_pipeline_ptr = &self.current as *const ShaderPipeline;
+
+        if let Some((prev_mix, curr_mix)) = mix_prev {
+            if prev_mix > 0.0 {
+                if let Some(prev) = previous_pipeline.as_ref() {
+                    self.render_with_pipeline(&mut encoder, &view, prev, prev_mix, load);
+                    load = wgpu::LoadOp::Load;
+                }
+            } else {
+                previous_pipeline = None;
+                self.crossfade = None;
+            }
+
+            if curr_mix > 0.0 {
+                unsafe {
+                    self.render_with_pipeline(
+                        &mut encoder,
+                        &view,
+                        &*current_pipeline_ptr,
+                        curr_mix,
+                        load,
+                    );
+                }
+            }
+
+            if self
+                .crossfade
+                .as_ref()
+                .map(|fade| fade.is_finished(now))
+                .unwrap_or(false)
+                || curr_mix >= 1.0
+            {
+                previous_pipeline = None;
+                self.crossfade = None;
+            }
+        } else {
+            unsafe {
+                self.render_with_pipeline(&mut encoder, &view, &*current_pipeline_ptr, 1.0, load);
+            }
+        }
+
+        self.previous = previous_pipeline;
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        frame.present();
+        tracing::trace!(
+            "presented frame size={}x{}",
+            self.size.width,
+            self.size.height
+        );
+        Ok(())
+    }
+
+    fn render_with_pipeline(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        pipeline: &ShaderPipeline,
+        mix: f32,
+        load: wgpu::LoadOp<wgpu::Color>,
+    ) {
+        if mix <= 0.0 {
+            return;
+        }
+
+        for (index, resource) in pipeline.channel_resources.iter().enumerate() {
+            self.uniforms.i_channel_resolution[index] = resource.resolution;
+        }
+        self.uniforms.i_fade = mix;
+        self.queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniforms));
+
+        let (attachment_view, resolve_target) = if self.sample_count > 1 {
+            let msaa = self
+                .multisample_target
+                .as_ref()
+                .expect("MSAA target missing despite sample_count > 1");
+            (&msaa.view, Some(view))
+        } else {
+            (view, None)
+        };
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: attachment_view,
+                depth_slice: None,
+                resolve_target,
+                ops: wgpu::Operations {
+                    load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
+        });
+        render_pass.set_pipeline(&pipeline.pipeline);
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        render_pass.set_bind_group(1, &pipeline.channel_bind_group, &[]);
+        render_pass.draw(0..3, 0..1);
+    }
+
+    fn update_time(&mut self, mouse: [f32; 4], now: Instant) {
         if self.frame_count == 0 {
             self.start_time = now;
             self.last_frame_time = now;
@@ -436,7 +519,6 @@ impl GpuState {
         for channel in &mut self.uniforms.i_channel_time {
             channel[0] = self.uniforms.i_time;
         }
-        // Mirror time into the spare resolution slot to paper over drivers that drop std140 padding.
         self.uniforms.i_resolution[3] = self.uniforms.i_time;
         self.uniforms.i_mouse = mouse;
 
@@ -451,8 +533,6 @@ impl GpuState {
         ];
         self.last_frame_time = now;
         self.frame_count = self.frame_count.saturating_add(1);
-        self.queue
-            .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniforms));
 
         if now.duration_since(self.last_log_time) >= Duration::from_secs(1) {
             eprintln!(
@@ -469,61 +549,140 @@ impl GpuState {
             self.last_log_time = now;
         }
     }
+}
 
-    /// Records and submits a frame to the GPU.
-    pub(crate) fn render_frame(&mut self, mouse: [f32; 4]) -> Result<(), wgpu::SurfaceError> {
-        self.update_uniforms(mouse);
+struct ShaderPipeline {
+    #[allow(dead_code)]
+    shader_path: PathBuf,
+    pipeline: wgpu::RenderPipeline,
+    channel_bind_group: wgpu::BindGroup,
+    channel_resources: Vec<ChannelResources>,
+}
 
-        let frame = self.surface.get_current_texture()?;
-        let view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("render encoder"),
+impl ShaderPipeline {
+    fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        pipeline_layout: &wgpu::PipelineLayout,
+        channel_layout: &wgpu::BindGroupLayout,
+        vertex_module: &wgpu::ShaderModule,
+        surface_format: wgpu::TextureFormat,
+        sample_count: u32,
+        shader_path: &Path,
+        channel_bindings: &ChannelBindings,
+    ) -> Result<Self> {
+        let shader_code = std::fs::read_to_string(shader_path)
+            .with_context(|| format!("failed to read shader at {}", shader_path.display()))?;
+        let fragment_module =
+            compile_fragment_shader(device, &shader_code).context("failed to compile shader")?;
+
+        let channel_resources = create_channel_resources(device, queue, channel_bindings.slots())?;
+        let mut channel_entries = Vec::with_capacity(CHANNEL_COUNT * 2);
+        for (index, resource) in channel_resources.iter().enumerate() {
+            channel_entries.push(wgpu::BindGroupEntry {
+                binding: (index as u32) * 2,
+                resource: wgpu::BindingResource::TextureView(&resource.view),
             });
-
-        let (attachment_view, resolve_target) = if self.sample_count > 1 {
-            let msaa = self
-                .multisample_target
-                .as_ref()
-                .expect("multisample target should exist when MSAA is enabled");
-            (&msaa.view, Some(&view))
-        } else {
-            (&view, None)
-        };
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: attachment_view,
-                    depth_slice: None,
-                    resolve_target,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
+            channel_entries.push(wgpu::BindGroupEntry {
+                binding: (index as u32) * 2 + 1,
+                resource: wgpu::BindingResource::Sampler(&resource.sampler),
             });
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.channel_bind_group, &[]);
-            render_pass.draw(0..3, 0..1);
         }
 
-        self.queue.submit(std::iter::once(encoder.finish()));
-        frame.present();
-        tracing::trace!(
-            "presented frame size={}x{}",
-            self.size.width,
-            self.size.height
-        );
-        Ok(())
+        let channel_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("channel bind group"),
+            layout: channel_layout,
+            entries: &channel_entries,
+        });
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("shader pipeline"),
+            layout: Some(pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: vertex_module,
+                entry_point: Some("main"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: sample_count,
+                ..Default::default()
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &fragment_module,
+                entry_point: Some("main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            multiview: None,
+            cache: None,
+        });
+
+        Ok(Self {
+            shader_path: shader_path.to_path_buf(),
+            pipeline,
+            channel_bind_group,
+            channel_resources,
+        })
+    }
+}
+
+struct CrossfadeState {
+    start: Instant,
+    duration: Duration,
+}
+
+impl CrossfadeState {
+    #[allow(dead_code)]
+    fn new(start: Instant, duration: Duration) -> Self {
+        Self { start, duration }
+    }
+
+    fn progress(&self, now: Instant) -> f32 {
+        if self.duration.is_zero() {
+            1.0
+        } else {
+            ((now.saturating_duration_since(self.start).as_secs_f32())
+                / self.duration.as_secs_f32())
+            .clamp(0.0, 1.0)
+        }
+    }
+
+    fn previous_mix(&self, now: Instant) -> f32 {
+        1.0 - self.progress(now)
+    }
+
+    fn current_mix(&self, now: Instant) -> f32 {
+        self.progress(now)
+    }
+
+    fn is_finished(&self, now: Instant) -> bool {
+        self.progress(now) >= 1.0
     }
 }
 
@@ -544,9 +703,8 @@ impl MultisampleTarget {
             height: size.height.max(1),
             depth_or_array_layers: 1,
         };
-
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("shaderpaper msaa color"),
+            label: Some("msaa color buffer"),
             size: extent,
             mip_level_count: 1,
             sample_count,
@@ -563,12 +721,92 @@ impl MultisampleTarget {
     }
 }
 
-/// Builds 1×1 placeholder textures for the ShaderToy channels.
-///
-/// ShaderToy shaders expect `iChannelResolution` to contain meaningful data
-/// even when no external texture is plugged in. We upload a single opaque pixel
-/// per channel and remember the resolution so the uniform block stays
-/// consistent.
+#[repr(C, align(8))]
+#[derive(Clone, Copy)]
+struct Std140Vec2 {
+    value: [f32; 2],
+}
+
+unsafe impl Zeroable for Std140Vec2 {}
+unsafe impl Pod for Std140Vec2 {}
+
+#[repr(C, align(16))]
+#[derive(Clone, Copy)]
+struct ShadertoyUniforms {
+    i_resolution: [f32; 4],
+    i_time: f32,
+    i_time_delta: f32,
+    i_frame: i32,
+    _padding0: f32,
+    i_mouse: [f32; 4],
+    i_date: [f32; 4],
+    i_sample_rate: f32,
+    i_fade: f32,
+    _padding1: Std140Vec2,
+    i_channel_time: [[f32; 4]; CHANNEL_COUNT],
+    i_channel_resolution: [[f32; 4]; CHANNEL_COUNT],
+}
+
+unsafe impl Zeroable for ShadertoyUniforms {}
+unsafe impl Pod for ShadertoyUniforms {}
+
+impl ShadertoyUniforms {
+    fn new(width: u32, height: u32) -> Self {
+        let mut uniforms = Self {
+            i_resolution: [width as f32, height as f32, 0.0, 0.0],
+            i_time: 0.0,
+            i_time_delta: 0.0,
+            i_frame: 0,
+            _padding0: 0.0,
+            i_mouse: [0.0; 4],
+            i_date: [0.0; 4],
+            i_sample_rate: 44100.0,
+            i_fade: 1.0,
+            _padding1: Std140Vec2 { value: [0.0; 2] },
+            i_channel_time: [[0.0; 4]; CHANNEL_COUNT],
+            i_channel_resolution: [[0.0; 4]; CHANNEL_COUNT],
+        };
+
+        uniforms.set_resolution(width as f32, height as f32);
+        uniforms
+    }
+
+    fn set_resolution(&mut self, width: f32, height: f32) {
+        self.i_resolution[0] = width;
+        self.i_resolution[1] = height;
+    }
+}
+
+fn build_channel_layout_entries() -> Vec<wgpu::BindGroupLayoutEntry> {
+    let mut entries = Vec::with_capacity(CHANNEL_COUNT * 2);
+    for index in 0..CHANNEL_COUNT {
+        entries.push(wgpu::BindGroupLayoutEntry {
+            binding: (index as u32) * 2,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        });
+        entries.push(wgpu::BindGroupLayoutEntry {
+            binding: (index as u32) * 2 + 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        });
+    }
+    entries
+}
+
+struct ChannelResources {
+    _texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    sampler: wgpu::Sampler,
+    resolution: [f32; 4],
+}
+
 fn create_channel_resources(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -719,92 +957,11 @@ fn load_texture_channel(
     })
 }
 
-/// Placeholder textures/samplers for the four ShaderToy channels.
-struct ChannelResources {
-    _texture: wgpu::Texture,
-    view: wgpu::TextureView,
-    sampler: wgpu::Sampler,
-    resolution: [f32; 4],
-}
-
-/// Convenience wrapper that forces a vec3-sized slot to occupy a full 16 bytes.
-#[repr(C, align(16))]
-/// Convenience wrapper that forces a vec3-sized slot to occupy a full 16 bytes.
-#[repr(C, align(16))]
-#[derive(Clone, Copy)]
-struct Std140Vec3 {
-    value: [f32; 3],
-    _pad: f32,
-}
-
-impl Std140Vec3 {
-    /// A zero-initialised constant used to seed uniform padding.
-    const ZERO: Self = Self {
-        value: [0.0; 3],
-        _pad: 0.0,
-    };
-}
-
-unsafe impl Zeroable for Std140Vec3 {}
-unsafe impl Pod for Std140Vec3 {}
-
-/// CPU-side mirror of the ShaderToy uniform block.
-///
-/// The layout matches the GLSL prelude injected by [`wrap_shadertoy_fragment`]
-/// and therefore must observe std140 alignment rules. The fourth component of
-/// `i_resolution` doubles as spare storage for `iTime` so GLSL front-ends that
-/// drop vec3 padding still see an animating value.
-#[repr(C, align(16))]
-#[derive(Clone, Copy)]
-struct ShadertoyUniforms {
-    i_resolution: [f32; 4],
-    i_time: f32,
-    i_time_delta: f32,
-    i_frame: i32,
-    _padding0: f32,
-    i_mouse: [f32; 4],
-    i_date: [f32; 4],
-    i_sample_rate: f32,
-    _padding1: Std140Vec3,
-    i_channel_time: [[f32; 4]; CHANNEL_COUNT],
-    i_channel_resolution: [[f32; 4]; CHANNEL_COUNT],
-}
-
-unsafe impl Zeroable for ShadertoyUniforms {}
-unsafe impl Pod for ShadertoyUniforms {}
-
-impl ShadertoyUniforms {
-    /// Prepares a uniform block sized to the current surface.
-    fn new(width: u32, height: u32) -> Self {
-        let mut uniforms = Self {
-            i_resolution: [width as f32, height as f32, 0.0, 0.0],
-            i_time: 0.0,
-            i_time_delta: 0.0,
-            i_frame: 0,
-            _padding0: 0.0,
-            i_mouse: [0.0; 4],
-            i_date: [0.0; 4],
-            i_sample_rate: 44100.0,
-            _padding1: Std140Vec3::ZERO,
-            i_channel_time: [[0.0; 4]; CHANNEL_COUNT],
-            i_channel_resolution: [[0.0; 4]; CHANNEL_COUNT],
-        };
-
-        uniforms.set_resolution(width as f32, height as f32);
-        uniforms
-    }
-
-    /// Writes the current surface dimensions into `iResolution`.
-    fn set_resolution(&mut self, width: f32, height: f32) {
-        self.i_resolution[0] = width;
-        self.i_resolution[1] = height;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::mem::{align_of, size_of};
+    use std::time::{Duration, Instant};
 
     #[test]
     fn shadertoy_uniforms_follow_std140_layout() {
@@ -812,17 +969,43 @@ mod tests {
         let base = &uniforms as *const _ as usize;
 
         assert_eq!(align_of::<ShadertoyUniforms>(), 16);
-        assert_eq!(size_of::<ShadertoyUniforms>(), 224);
+        assert_eq!(size_of::<ShadertoyUniforms>(), 208);
         assert_eq!((&uniforms.i_resolution as *const _ as usize) - base, 0);
         assert_eq!((&uniforms.i_time as *const _ as usize) - base, 16);
         assert_eq!((&uniforms.i_mouse as *const _ as usize) - base, 32);
         assert_eq!((&uniforms.i_date as *const _ as usize) - base, 48);
         assert_eq!((&uniforms.i_sample_rate as *const _ as usize) - base, 64);
-        assert_eq!((&uniforms._padding1 as *const _ as usize) - base, 80);
-        assert_eq!((&uniforms.i_channel_time as *const _ as usize) - base, 96);
+        assert_eq!((&uniforms.i_fade as *const _ as usize) - base, 68);
+        assert_eq!((&uniforms.i_channel_time as *const _ as usize) - base, 80);
         assert_eq!(
             (&uniforms.i_channel_resolution as *const _ as usize) - base,
-            160
+            144
         );
+    }
+
+    #[test]
+    fn crossfade_weights_sum_to_one() {
+        let start = Instant::now();
+        let fade = CrossfadeState::new(start, Duration::from_secs(2));
+        let midpoint = start + Duration::from_secs(1);
+
+        let prev = fade.previous_mix(midpoint);
+        let curr = fade.current_mix(midpoint);
+
+        assert!((prev + curr - 1.0).abs() < 1e-5);
+        assert!((prev - 0.5).abs() < 1e-5);
+        assert!((curr - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn zero_duration_crossfade_is_hard_cut() {
+        let start = Instant::now();
+        let fade = CrossfadeState::new(start, Duration::ZERO);
+        let later = start + Duration::from_millis(5);
+
+        assert!(fade.is_finished(start));
+        assert!(fade.is_finished(later));
+        assert_eq!(fade.previous_mix(later), 0.0);
+        assert_eq!(fade.current_mix(later), 1.0);
     }
 }

@@ -48,7 +48,7 @@ impl WindowState {
 
     pub(crate) fn render_frame(&mut self) -> Result<(), SurfaceError> {
         let mouse_uniform = self.mouse.as_uniform(self.size().height.max(1) as f32);
-        self.gpu.render_frame(mouse_uniform)
+        self.gpu.render(mouse_uniform)
     }
 
     pub(crate) fn handle_cursor_moved(&mut self, position: PhysicalPosition<f64>) {

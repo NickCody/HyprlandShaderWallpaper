@@ -328,13 +328,10 @@ To make the rollout manageable, the work will proceed in the following stages. E
    - Support per-item duration overrides, FPS/AA carry-over, and crossfade metadata.
    - Provide unit tests covering rollover, shuffle reseeding, and multiple targets.
 
-### Stage 2 – Renderer Surface Management & Crossfades
-1. Extend the renderer wallpaper backend to manage multiple outputs:
-   - Maintain a `SurfaceState` per `wl_output`, reusing the existing manager for single-output setups.
-   - Introduce a “swap shader” path capable of rebuilding GPU pipelines without tearing down the surface.
-2. Implement crossfade plumbing:
-   - Add an offscreen buffer or dual pipelines to blend previous and next frames over the configured duration.
-   - Provide tests or debug hooks validating blend timing (e.g., via synthetic shaders) and ensure hard cuts when crossfade = 0.
+### Stage 2 – Renderer Surface Management & Crossfades (complete)
+1. Wallpaper backend now keeps a `SurfaceState` per `wl_output` and exposes a `WallpaperRuntime` control channel for swapping shaders on existing surfaces without re-creating layer surfaces.
+2. Shader swaps reuse `GpuState::set_shader`, blending the outgoing and incoming pipelines via additive color targets; zero-duration requests collapse to hard cuts.
+3. Added `SurfaceId`/`OutputId` selectors, runtime surface snapshots, and unit tests validating fade weights and std140 layout so crossfades stay numerically stable.
 
 ### Stage 3 – Hyshadew Integration (Playlist Runtime)
 1. Expand CLI/runtime:
