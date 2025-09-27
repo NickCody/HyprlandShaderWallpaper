@@ -1,0 +1,143 @@
+use anyhow::{Context, Result};
+use renderer::{RenderMode, Renderer, RendererConfig};
+use shadertoy::{
+    load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient,
+    ShadertoyConfig,
+};
+use tracing_subscriber::EnvFilter;
+
+use crate::bindings::{channel_bindings_from_pack, map_manifest_alpha};
+use crate::bootstrap::{parse_surface_size, resolve_shader_handle, SingleRunConfig};
+use crate::cli::Args;
+
+pub fn run(args: Args) -> Result<()> {
+    initialise_tracing();
+
+    let repo = ShaderRepository::with_defaults();
+    let handle = resolve_shader_handle(&args)?;
+    tracing::info!(?handle, "bootstrapping hyshadew wallpaper daemon");
+
+    let client = build_client(&args)?;
+    log_handle_warnings(&args, &handle, client.as_ref());
+
+    let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
+    match RuntimeMode::Single(context) {
+        RuntimeMode::Single(config) => run_single(config),
+        RuntimeMode::Multi => unreachable!("multi mode not yet implemented"),
+    }
+}
+
+enum RuntimeMode {
+    Single(SingleRunConfig),
+    #[allow(dead_code)]
+    Multi,
+}
+
+fn initialise_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .init();
+}
+
+fn build_client(args: &Args) -> Result<Option<ShadertoyClient>> {
+    if args.cache_only {
+        tracing::info!("remote fetch disabled (--cache-only)");
+        return Ok(None);
+    }
+
+    if let Some(ref key) = args.shadertoy_api_key {
+        let config = ShadertoyConfig::new(key.as_str())
+            .context("invalid Shadertoy API key configuration")?;
+        Ok(Some(
+            ShadertoyClient::new(config).context("failed to construct Shadertoy client")?,
+        ))
+    } else {
+        Ok(None)
+    }
+}
+
+fn log_handle_warnings(args: &Args, handle: &ShaderHandle, client: Option<&ShadertoyClient>) {
+    if matches!(handle, ShaderHandle::ShadertoyId(_)) {
+        if args.refresh && (args.cache_only || client.is_none()) {
+            tracing::warn!("refresh requested but no Shadertoy client available; using cache only");
+        }
+        if !args.cache_only && client.is_none() {
+            tracing::info!(
+                "Shadertoy API key not provided; relying on cached shader data if present"
+            );
+        }
+    }
+}
+
+fn prepare_single_run(
+    args: &Args,
+    repo: &ShaderRepository,
+    client: Option<&ShadertoyClient>,
+    handle: ShaderHandle,
+) -> Result<SingleRunConfig> {
+    let source = repo.resolve(&handle, client, args.refresh)?;
+    let channel_bindings = match &source {
+        ShaderSource::Local(pack) => channel_bindings_from_pack(pack),
+        ShaderSource::CachedRemote(remote) => channel_bindings_from_pack(&remote.pack),
+    };
+    let surface_alpha = match &source {
+        ShaderSource::Local(pack) => map_manifest_alpha(pack.manifest().surface_alpha),
+        ShaderSource::CachedRemote(remote) => {
+            map_manifest_alpha(remote.pack.manifest().surface_alpha)
+        }
+    };
+    let shader_path = load_entry_shader(&source)?;
+
+    match &source {
+        ShaderSource::Local(pack) => {
+            tracing::info!(root = %pack.root().display(), "loaded local shader pack");
+        }
+        ShaderSource::CachedRemote(remote) => {
+            tracing::info!(
+                shader = %remote.id,
+                cache = %remote.cache_dir.display(),
+                root = %remote.pack.root().display(),
+                refreshed = args.refresh,
+                "loaded Shadertoy shader"
+            );
+        }
+    }
+
+    tracing::debug!(path = %shader_path.display(), window = args.window, "resolved entry shader");
+
+    let requested_size = args
+        .size
+        .as_ref()
+        .map(|value| parse_surface_size(value))
+        .transpose()?;
+
+    let fallback_surface = requested_size.unwrap_or((1920, 1080));
+
+    let renderer_config = RendererConfig {
+        surface_size: fallback_surface,
+        shader_source: shader_path,
+        mode: if args.window {
+            tracing::info!("windowed rendering mode requested (placeholder implementation)");
+            RenderMode::Windowed
+        } else {
+            RenderMode::Wallpaper
+        },
+        requested_size,
+        target_fps: match args.fps {
+            Some(v) if v > 0.0 => Some(v),
+            _ => None,
+        },
+        channel_bindings,
+        antialiasing: args.antialias,
+        surface_alpha,
+    };
+
+    Ok(SingleRunConfig { renderer_config })
+}
+
+fn run_single(config: SingleRunConfig) -> Result<()> {
+    let mut renderer = Renderer::new(config.renderer_config);
+    renderer.run()
+}
