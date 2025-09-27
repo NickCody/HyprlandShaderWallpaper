@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "crates/hyshadew",
-    "crates/renderer",
+    "crates/hyshadew", "crates/multiconfig",
+    "crates/renderer", "crates/scheduler",
     "crates/shadertoy",
 ]
 resolver = "2"

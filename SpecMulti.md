@@ -198,8 +198,8 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
 
 - `--window` with `--multi` is a playlist tester. Only the default playlist from `[defaults].playlist` is used; all `[targets]` mappings are ignored.
 - If the default playlist is missing or misspelled, startup fails with a helpful error instructing the user to configure one.
- - Transitions apply in window mode as specified: playlist `crossfade` between items; no workspace
-   switch transitions since targets are ignored.
+- Transitions apply in window mode as specified: playlist `crossfade` between items; no workspace
+  switch transitions since targets are ignored.
 
 ## Renderer Application
 
@@ -241,9 +241,9 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
 
 ## Open Questions
 
- - Shuffle reseed controls: add CLI/IPC to reseed or jump.
- - Live reload: file-watch `--multi` for hot reload of playlists.
- - Per-playlist overrides for future features (fill method, uniforms).
+- Shuffle reseed controls: add CLI/IPC to reseed or jump.
+- Live reload: file-watch `--multi` for hot reload of playlists.
+- Per-playlist overrides for future features (fill method, uniforms).
 
 ## Future Enhancements
 
@@ -314,3 +314,41 @@ handle = "local-shaders/rotating-voronoise"
 "output:DP-1" = "ambient"
 "_default" = "ambient"
 ```
+
+## Implementation Plan
+
+To make the rollout manageable, the work will proceed in the following stages. Each stage should compile, include tests, and be validated before moving on.
+
+### Stage 1 – Configuration & Scheduling Foundations
+1. Finalize the `multiconfig` crate:
+   - Ensure the schema matches this spec, including validation and field defaults.
+   - Add exhaustive unit tests for TOML parsing, validation failures, and precedence helpers.
+2. Complete the `scheduler` crate:
+   - Implement deterministic playlist iteration (continuous + shuffle) and per-target state tracking.
+   - Support per-item duration overrides, FPS/AA carry-over, and crossfade metadata.
+   - Provide unit tests covering rollover, shuffle reseeding, and multiple targets.
+
+### Stage 2 – Renderer Surface Management & Crossfades
+1. Extend the renderer wallpaper backend to manage multiple outputs:
+   - Maintain a `SurfaceState` per `wl_output`, reusing the existing manager for single-output setups.
+   - Introduce a “swap shader” path capable of rebuilding GPU pipelines without tearing down the surface.
+2. Implement crossfade plumbing:
+   - Add an offscreen buffer or dual pipelines to blend previous and next frames over the configured duration.
+   - Provide tests or debug hooks validating blend timing (e.g., via synthetic shaders) and ensure hard cuts when crossfade = 0.
+
+### Stage 3 – Hyshadew Integration (Playlist Runtime)
+1. Expand CLI/runtime:
+   - Add `--multi` flag handling and enforce default playlist requirements in window mode.
+   - Build a target resolver (Wayland-only first) and a simple Hyprland-aware variant when available.
+2. Wire scheduler + renderer:
+   - Instantiate scheduler, map targets, drive `tick` loop, and request shader swaps as selections change.
+   - Implement refresh-once semantics using the scheduler’s metadata and existing repository caching flags.
+   - Add integration tests (or smoke tests) that simulate playlist progression using the window mode.
+
+### Stage 4 – Enhancements & Validation
+1. Implement workspace-switch crossfade preemption and confirm transitions abort/resume correctly.
+2. Add logging/telemetry to record playlist decisions and transitions for troubleshooting.
+3. Document configuration usage (README/AGENTS.md) and provide sample configs under `multi/`.
+4. Optional: Add file-watch or reload commands if time permits.
+
+Each stage builds on the previous one; stick to the sequence to minimize merge conflicts and keep the behavior testable throughout the implementation.
