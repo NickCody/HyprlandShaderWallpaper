@@ -2,36 +2,78 @@ version = 1
 workspace_switch_crossfade = "1500ms"
 
 [defaults]
-playlist = "ambient"
+playlist = "vibes"
 fps = 0
 antialias = "auto"
 
-[playlists.ambient]
+[playlists.vibes]
 mode = "continuous"
-item_duration = "5m"
-crossfade = "2s"
+item_duration = "7s"
+crossfade = "4s"
 
-[[playlists.ambient.items]]
+[[playlists.vibes.items]]
 handle = "local-shaders/vibe-grayday"
 
-[[playlists.ambient.items]]
-handle = "local-shaders/fungal-apocalypse"
-refresh_once = true
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-aurora"
 
-[playlists.focus]
-mode = "shuffle"
-item_duration = "90s"
-crossfade = "1500ms"
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-neonrise"
 
-[[playlists.focus.items]]
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-coralbloom"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-lilacglow"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-midnightjazz"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-solarflare"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-deepcurrent"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-sakurastream"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-mojitomist"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-emberdream"
+
+[playlists.grayday]
+mode = "continuous"
+item_duration = "10m"
+
+[[playlists.grayday.items]]
+handle = "local-shaders/vibe-grayday"
+
+[playlists.simplex]
+mode = "continuous"
+item_duration = "10m"
+
+[[playlists.simplex.items]]
 handle = "local-shaders/simplex"
-fps = 60
 
-[[playlists.focus.items]]
-handle = "local-shaders/vibe-grayday"
+[playlists.kaleidoscope]
+mode = "continuous"
+item_duration = "30s"
+crossfade = "3s"
+
+[[playlists.kaleidoscope.items]]
+handle = "local-shaders/kal-prismflux"
+
+[[playlists.kaleidoscope.items]]
+handle = "local-shaders/kal-petalspire"
+
+[[playlists.kaleidoscope.items]]
+handle = "local-shaders/kal-starweave"
 
 [targets]
-"workspace:1" = "focus"
-"workspace:code" = "focus"
-"output:DP-1" = "ambient"
-"_default" = "ambient"
+"workspace:1" = "grayday"
+"workspace:2" = "simplex"
+"workspace:3" = "kaleidoscope"
+"_default" = "vibes"
