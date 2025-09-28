@@ -1,0 +1,37 @@
+version = 1
+workspace_switch_crossfade = "1500ms"
+
+[defaults]
+playlist = "ambient"
+fps = 0
+antialias = "auto"
+
+[playlists.ambient]
+mode = "continuous"
+item_duration = "5m"
+crossfade = "2s"
+
+[[playlists.ambient.items]]
+handle = "local-shaders/grayday"
+
+[[playlists.ambient.items]]
+handle = "local-shaders/fungal-apocalypse"
+refresh_once = true
+
+[playlists.focus]
+mode = "shuffle"
+item_duration = "90s"
+crossfade = "1500ms"
+
+[[playlists.focus.items]]
+handle = "local-shaders/simplex"
+fps = 60
+
+[[playlists.focus.items]]
+handle = "local-shaders/grayday"
+
+[targets]
+"workspace:1" = "focus"
+"workspace:code" = "focus"
+"output:DP-1" = "ambient"
+"_default" = "ambient"

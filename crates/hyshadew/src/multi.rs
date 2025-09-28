@@ -16,7 +16,7 @@ use renderer::{
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
 use shadertoy::{load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::bindings::{channel_bindings_from_pack, map_manifest_alpha};
 use crate::bootstrap::parse_surface_size;
@@ -180,7 +180,15 @@ fn main_wallpaper_loop(runtime: WallpaperRuntime, engine: &mut PlaylistEngine<'_
 
 fn apply_actions(runtime: &WallpaperRuntime, actions: Vec<SwapAction>) -> Result<()> {
     for action in actions {
-        info!(target = %action.target_display, handle = %action.handle, "swapping shader");
+        info!(
+            target = %action.target_display,
+            handle = %action.handle,
+            crossfade_ms = action.request.crossfade.as_millis(),
+            warmup_ms = action.request.warmup.as_millis(),
+            fps = action.request.target_fps,
+            antialias = ?action.request.antialiasing,
+            "swapping shader"
+        );
         if let Err(err) = runtime.swap_shader(action.selector, action.request) {
             error!(target = %action.target_display, error = ?err, "failed to swap shader");
         }
@@ -190,7 +198,15 @@ fn apply_actions(runtime: &WallpaperRuntime, actions: Vec<SwapAction>) -> Result
 
 fn apply_window_actions(runtime: &WindowRuntime, actions: Vec<SwapAction>) -> Result<bool> {
     for action in actions {
-        info!(target = %action.target_display, handle = %action.handle, "swapping shader");
+        info!(
+            target = %action.target_display,
+            handle = %action.handle,
+            crossfade_ms = action.request.crossfade.as_millis(),
+            warmup_ms = action.request.warmup.as_millis(),
+            fps = action.request.target_fps,
+            antialias = ?action.request.antialiasing,
+            "swapping shader"
+        );
         let SwapRequest {
             shader_source,
             channel_bindings,
@@ -269,6 +285,7 @@ impl<'a> ShaderCache<'a> {
     fn resolve(&mut self, handle: &str, refresh: bool) -> Result<ShaderAssets> {
         if !refresh {
             if let Some(cached) = self.entries.get(handle) {
+                debug!(handle, "using cached shader assets");
                 return Ok(ShaderAssets {
                     shader_path: cached.shader_path.clone(),
                     channel_bindings: cached.channel_bindings.clone(),
@@ -278,6 +295,7 @@ impl<'a> ShaderCache<'a> {
         }
 
         let shader_handle = ShaderHandle::from_input(handle);
+        debug!(handle = %handle, refresh, "resolving shader handle");
         let source = self
             .repo
             .resolve(&shader_handle, self.client, refresh && !self.cache_only)
@@ -301,6 +319,7 @@ impl<'a> ShaderCache<'a> {
                 surface_alpha,
             },
         );
+        debug!(handle = %handle, "cached shader assets");
         Ok(ShaderAssets {
             shader_path,
             channel_bindings,
@@ -416,20 +435,39 @@ impl<'a> PlaylistEngine<'a> {
             let entry = self.targets.entry(target_id.clone());
             let change = match entry {
                 std::collections::hash_map::Entry::Vacant(slot) => {
-                    let change =
-                        self.scheduler
-                            .set_target(target_id.clone(), &resolved.playlist, now)?;
-                    slot.insert(EngineTarget {
-                        surface_id: surface.surface_id,
-                        output_id: surface.output_id,
-                        output_name: surface.output_name.clone(),
-                        selector: resolved.selector.clone(),
-                        playlist: resolved.playlist.clone(),
-                        playlist_len: resolved.playlist_len,
-                        crossfade_override: Some(Duration::ZERO),
-                        last_size: surface.size,
-                    });
-                    Some(change)
+                    match self
+                        .scheduler
+                        .set_target(target_id.clone(), &resolved.playlist, now)
+                    {
+                        Ok(change) => {
+                            slot.insert(EngineTarget {
+                                surface_id: surface.surface_id,
+                                output_id: surface.output_id,
+                                output_name: surface.output_name.clone(),
+                                selector: resolved.selector.clone(),
+                                playlist: resolved.playlist.clone(),
+                                playlist_len: resolved.playlist_len,
+                                crossfade_override: Some(Duration::ZERO),
+                                last_size: surface.size,
+                            });
+                            info!(
+                                target = %target_id.0,
+                                selector = ?resolved.selector,
+                                playlist = %resolved.playlist,
+                                "registered new playlist target"
+                            );
+                            Some(change)
+                        }
+                        Err(err) => {
+                            warn!(
+                                target = %target_id.0,
+                                playlist = %resolved.playlist,
+                                error = %err,
+                                "failed to initialize target playlist"
+                            );
+                            None
+                        }
+                    }
                 }
                 std::collections::hash_map::Entry::Occupied(mut slot) => {
                     let target = slot.get_mut();
@@ -438,20 +476,52 @@ impl<'a> PlaylistEngine<'a> {
                     target.last_size = surface.size;
                     if target.selector != resolved.selector || target.playlist != resolved.playlist
                     {
-                        let change = self.scheduler.set_target(
+                        let previous_selector = target.selector.clone();
+                        let previous_playlist = target.playlist.clone();
+                        let was_workspace =
+                            matches!(target.selector, TargetSelectorKind::Workspace(_));
+                        let change = match self.scheduler.set_target(
                             target_id.clone(),
                             &resolved.playlist,
                             now,
-                        )?;
+                        ) {
+                            Ok(change) => change,
+                            Err(err) => {
+                                warn!(
+                                    target = %target_id.0,
+                                    playlist = %resolved.playlist,
+                                    error = %err,
+                                    "failed to retarget playlist"
+                                );
+                                continue;
+                            }
+                        };
+                        let is_workspace =
+                            matches!(resolved.selector, TargetSelectorKind::Workspace(_));
+                        let workspace_switch = was_workspace || is_workspace;
+                        let crossfade_override = if workspace_switch {
+                            Some(self.workspace_crossfade)
+                        } else {
+                            None
+                        };
                         target.selector = resolved.selector.clone();
                         target.playlist = resolved.playlist.clone();
                         target.playlist_len = resolved.playlist_len;
-                        target.crossfade_override =
-                            if matches!(resolved.selector, TargetSelectorKind::Workspace(_)) {
-                                Some(self.workspace_crossfade)
-                            } else {
-                                None
-                            };
+                        target.crossfade_override = crossfade_override;
+                        let crossfade_override_ms = target
+                            .crossfade_override
+                            .map(|d| d.as_millis())
+                            .unwrap_or(0);
+                        info!(
+                            target = %target_id.0,
+                            from_selector = ?previous_selector,
+                            to_selector = ?target.selector,
+                            from_playlist = %previous_playlist,
+                            to_playlist = %target.playlist,
+                            workspace_switch,
+                            crossfade_override_ms,
+                            "retargeted playlist"
+                        );
                         Some(change)
                     } else {
                         None
@@ -518,7 +588,6 @@ impl<'a> PlaylistEngine<'a> {
                             error = ?err,
                             "failed to load shader; skipping"
                         );
-                        target.crossfade_override = Some(Duration::ZERO);
                         Err(())
                     }
                 };
@@ -530,6 +599,15 @@ impl<'a> PlaylistEngine<'a> {
                     if needs_refresh {
                         self.refreshed.insert(handle.clone());
                     }
+
+                    debug!(
+                        target = %target_id.0,
+                        handle = %handle,
+                        duration_ms = change.item.duration.as_millis(),
+                        crossfade_ms = crossfade.as_millis(),
+                        refresh = needs_refresh,
+                        "prepared swap action"
+                    );
 
                     let request = build_swap_request(
                         &change.item,
@@ -718,7 +796,13 @@ impl HyprlandResolver {
     }
 
     fn snapshot(&mut self) -> Option<HyprlandSnapshot> {
-        HyprlandSnapshot::fetch().ok()
+        match HyprlandSnapshot::fetch() {
+            Ok(snapshot) => Some(snapshot),
+            Err(err) => {
+                debug!(error = ?err, "failed to fetch hyprland snapshot");
+                None
+            }
+        }
     }
 }
 
@@ -772,7 +856,21 @@ struct MonitorPayload {
 mod tests {
     use super::*;
     use crate::cli::Args;
+    use std::path::Path;
     use tempfile::tempdir;
+
+    fn write_pack(root: &Path, name: &str) {
+        let pack_dir = root.join(name);
+        fs::create_dir_all(&pack_dir).unwrap();
+        fs::write(
+            pack_dir.join("shader.toml"),
+            format!(
+                "name = \"{name}\"\nentry = \"image\"\nsurface_alpha = \"opaque\"\n\n[[passes]]\nname = \"image\"\nkind = \"image\"\nsource = \"image.glsl\"\n"
+            ),
+        )
+        .unwrap();
+        fs::write(pack_dir.join("image.glsl"), "void main() {}").unwrap();
+    }
 
     fn base_config() -> MultiConfig {
         MultiConfig::from_toml_str(
@@ -975,6 +1073,151 @@ handle = "alt"
             .expect("tick");
         assert_eq!(advances.len(), 1);
         assert_eq!(advances[0].handle, "alt");
+    }
+
+    #[test]
+    fn workspace_switch_applies_crossfade_override() {
+        let temp = tempdir().unwrap();
+        let packs_root = temp.path().join("packs");
+        let cache_root = temp.path().join("cache");
+        write_pack(&packs_root, "ambient-pack");
+        write_pack(&packs_root, "focus-pack");
+
+        let repo = ShaderRepository::new(vec![packs_root.clone()], cache_root);
+        let cache = ShaderCache::new(&repo, None, false);
+
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+workspace_switch_crossfade = "2s"
+
+[defaults]
+playlist = "ambient"
+
+[playlists.ambient]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.ambient.items]]
+handle = "ambient-pack"
+
+[playlists.focus]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.focus.items]]
+handle = "focus-pack"
+
+[targets]
+"workspace:1" = "focus"
+"_default" = "ambient"
+"#,
+        )
+        .unwrap();
+
+        let options = EngineOptions {
+            cache_only: false,
+            refresh_all: false,
+            global_fps: None,
+            global_antialias: Antialiasing::Auto,
+            prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+        };
+        let mut engine = PlaylistEngine::new(config, cache, 7, options);
+
+        let surface = SurfaceInfo {
+            surface_id: SurfaceId::from(11u64),
+            output_id: Some(OutputId::from(5u64)),
+            output_name: Some("HDMI-A-1".to_string()),
+            size: None,
+        };
+
+        let mut workspaces = HashMap::new();
+        workspaces.insert(
+            "HDMI-A-1".to_string(),
+            WorkspaceInfo {
+                id: 1,
+                name: "1".to_string(),
+            },
+        );
+        let snapshot = HyprlandSnapshot { workspaces };
+
+        let now = Instant::now();
+        let initial = engine
+            .sync_targets(&[surface.clone()], Some(&snapshot), now)
+            .expect("initial sync");
+        assert_eq!(initial.len(), 1);
+        assert_eq!(initial[0].handle, "focus-pack");
+        assert_eq!(initial[0].request.crossfade, Duration::ZERO);
+
+        let mut workspaces = HashMap::new();
+        workspaces.insert(
+            "HDMI-A-1".to_string(),
+            WorkspaceInfo {
+                id: 3,
+                name: "3".to_string(),
+            },
+        );
+        let snapshot = HyprlandSnapshot { workspaces };
+
+        let retarget = engine
+            .sync_targets(&[surface], Some(&snapshot), now + Duration::from_secs(1))
+            .expect("retarget sync");
+        assert_eq!(retarget.len(), 1);
+        assert_eq!(retarget[0].handle, "ambient-pack");
+        assert_eq!(retarget[0].request.crossfade, Duration::from_secs(2));
+    }
+
+    #[test]
+    fn engine_skips_missing_items_and_advances() {
+        let temp = tempdir().unwrap();
+        let packs_root = temp.path().join("packs");
+        let cache_root = temp.path().join("cache");
+        write_pack(&packs_root, "valid-pack");
+
+        let repo = ShaderRepository::new(vec![packs_root.clone()], cache_root);
+        let cache = ShaderCache::new(&repo, None, false);
+
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[defaults]
+playlist = "solo"
+
+[playlists.solo]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.solo.items]]
+handle = "missing-pack"
+
+[[playlists.solo.items]]
+handle = "valid-pack"
+"#,
+        )
+        .unwrap();
+
+        let options = EngineOptions {
+            cache_only: false,
+            refresh_all: false,
+            global_fps: None,
+            global_antialias: Antialiasing::Auto,
+            prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+        };
+        let mut engine = PlaylistEngine::new(config, cache, 55, options);
+
+        let surface = SurfaceInfo {
+            surface_id: SurfaceId::from(21u64),
+            output_id: None,
+            output_name: None,
+            size: None,
+        };
+        let actions = engine
+            .sync_targets(&[surface], None, Instant::now())
+            .expect("sync targets");
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].handle, "valid-pack");
+        assert_eq!(actions[0].request.crossfade, Duration::ZERO);
     }
 
     #[test]

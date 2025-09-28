@@ -26,7 +26,7 @@ pub(crate) fn compile_fragment_shader(
     let wrapped = wrap_shadertoy_fragment(source);
 
     if let Err(err) = std::fs::write("/tmp/shaderpaper_wrapped.frag", &wrapped) {
-        eprintln!("[shaderpaper] failed to dump wrapped shader: {err}");
+        eprintln!("[hyshadew] failed to dump wrapped shader: {err}");
     }
 
     Ok(device.create_shader_module(wgpu::ShaderModuleDescriptor {

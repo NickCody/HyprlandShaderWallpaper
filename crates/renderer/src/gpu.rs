@@ -556,7 +556,7 @@ impl GpuState {
 
         if now.duration_since(self.last_log_time) >= Duration::from_secs(1) {
             eprintln!(
-                "[shaderpaper] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
+                "[hyshadew] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
                 self.uniforms.i_time,
                 self.uniforms.i_frame,
                 self.uniforms.i_mouse[0],

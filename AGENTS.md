@@ -35,6 +35,19 @@ This Java/Scala opengl program provides a shadertoy-friendly environment for ren
 - Strips legacy `uniform` declarations (including `iTime`, `iChannel*`) from fetched GLSL before injecting wrapper code.
 - Debug mode currently replaces shader output with a full-screen pulse driven by `iTime`; wrapped GLSL dumps to `/tmp/shaderpaper_wrapped.frag` for inspection each compile.
 
+## Multi-Playlist Runtime Notes (Sept 26, 2025)
+
+- Stage 4 playlist work is complete: workspace switches now preempt in-flight transitions, reusing
+  `workspace_switch_crossfade` (set it to `0` for hard cuts).
+- The playlist engine emits info-level telemetry (`registered new playlist target`, `retargeted playlist`,
+  and `swapping shader`) detailing selectors, crossfade durations, warmup, and FPS overrides. Additional
+  diagnostics surface at `debug` when Hyprland snapshots fail or shader assets are reused.
+- Wall-clock diagnostics now use the `[hyshadew]` prefix instead of `[shaderpaper]`; tracing output goes
+  through `scripts/launch-local`.
+- Tests covering workspace crossfades and failure handling live in `crates/hyshadew/src/multi.rs` (`workspace_switch_applies_crossfade_override`
+  and `engine_skips_missing_items_and_advances`).
+- Sample playlists are in `multi/default.toml` and `multi/workspaces.toml`.
+
 ### To-Do for Next Agent
 
 - Run `cargo run -p hyshadew -- --shadertoy https://www.shadertoy.com/view/3dXyWj --window`, then inspect `/tmp/shaderpaper_wrapped.frag` to ensure no leftover `uniform iTime`/`iChannel*` lines remain and macros look correct.

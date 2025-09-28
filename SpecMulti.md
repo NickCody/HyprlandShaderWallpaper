@@ -346,9 +346,14 @@ To make the rollout manageable, the work will proceed in the following stages. E
 1. Implement workspace-switch crossfade preemption and confirm transitions abort/resume correctly.
 2. Add logging/telemetry to record playlist decisions and transitions for troubleshooting.
 3. Document configuration usage (README/AGENTS.md) and provide sample configs under `multi/`.
-4. Optional: Add file-watch or reload commands if time permits.
 
 Each stage builds on the previous one; stick to the sequence to minimize merge conflicts and keep the behavior testable throughout the implementation.
+
+### Stage 5 - IPC, 
+
+- Add file-watch
+- Reload commands and other IPC mechanisms
+- Add an "image" mode, which is a render pipeline which only shows an image. Then, enhance the multi spec and code to support playlists that can specify images. We should support single image, multipple
 
 ## TODO
 
