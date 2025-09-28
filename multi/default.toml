@@ -10,7 +10,7 @@ mode = "continuous"
 item_duration = "10s"
 
 [[playlists.wallpapers.items]]
-handle = "local-shaders/grayday"
+handle = "local-shaders/vibe-grayday"
 
 [[playlists.wallpapers.items]]
 handle = "local-shaders/simplex"

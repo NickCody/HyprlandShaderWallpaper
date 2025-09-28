@@ -1,0 +1,14 @@
+name = "Vibe Mojito Mist"
+entry = "image"
+surface_alpha = "opaque"
+description = "Cool mint gradients with lime shimmer pulses"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

@@ -1,0 +1,15 @@
+
+name = "Kal Honeycomn"
+entry = "image"
+surface_alpha = "opaque"
+description = "Equilateral three-mirror honeycomb kaleidoscope with hard-edged color tessellation"
+tags = [
+    "glsl",
+    "kaleidoscope"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

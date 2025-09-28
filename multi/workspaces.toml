@@ -12,7 +12,7 @@ item_duration = "5m"
 crossfade = "2s"
 
 [[playlists.ambient.items]]
-handle = "local-shaders/grayday"
+handle = "local-shaders/vibe-grayday"
 
 [[playlists.ambient.items]]
 handle = "local-shaders/fungal-apocalypse"
@@ -28,7 +28,7 @@ handle = "local-shaders/simplex"
 fps = 60
 
 [[playlists.focus.items]]
-handle = "local-shaders/grayday"
+handle = "local-shaders/vibe-grayday"
 
 [targets]
 "workspace:1" = "focus"

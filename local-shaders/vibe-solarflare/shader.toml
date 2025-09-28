@@ -1,0 +1,14 @@
+name = "Vibe Solar Flare"
+entry = "image"
+surface_alpha = "opaque"
+description = "Blazing orange flare with molten yellow edges"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

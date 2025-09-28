@@ -1,0 +1,14 @@
+name = "Vibe Neonrise"
+entry = "image"
+surface_alpha = "opaque"
+description = "Electric magenta sunrise bands with radiant peach flares"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

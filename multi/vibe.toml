@@ -1,0 +1,44 @@
+version = 1
+
+[defaults]
+playlist = "vibes"
+fps = 0
+antialias = "auto"
+
+[playlists.vibes]
+mode = "continuous"
+item_duration = "7s"
+crossfade = "4s"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-grayday"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-aurora"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-neonrise"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-coralbloom"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-lilacglow"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-midnightjazz"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-solarflare"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-deepcurrent"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-sakurastream"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-mojitomist"
+
+[[playlists.vibes.items]]
+handle = "local-shaders/vibe-emberdream"

@@ -1,0 +1,14 @@
+name = "Vibe Midnight Jazz"
+entry = "image"
+surface_alpha = "opaque"
+description = "Smoky midnight blues with brass-tinted sparkles"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

@@ -1,0 +1,14 @@
+name = "Vibe Lilac Glow"
+entry = "image"
+surface_alpha = "opaque"
+description = "Dreamy lilac gradients with lavender pulses"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

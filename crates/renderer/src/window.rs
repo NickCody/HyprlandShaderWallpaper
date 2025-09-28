@@ -5,11 +5,12 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
-use crossbeam_channel::{bounded, Sender};
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use wgpu::SurfaceError;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowBuilder};
 
 use tracing::error;
@@ -112,17 +113,24 @@ enum WindowCommand {
     Shutdown,
 }
 
+#[derive(Debug, Clone)]
+enum WindowSignal {
+    AdvancePlaylist,
+}
+
 pub struct WindowRuntime {
     proxy: EventLoopProxy<WindowCommand>,
+    events: Receiver<WindowSignal>,
     join_handle: Option<JoinHandle<Result<()>>>,
 }
 
 impl WindowRuntime {
     pub fn spawn(config: RendererConfig) -> Result<Self> {
         let (ready_tx, ready_rx) = bounded(1);
+        let (signal_tx, signal_rx) = unbounded();
         let handle = thread::Builder::new()
             .name("hyshadew-window".into())
-            .spawn(move || run_window_thread(config, ready_tx))
+            .spawn(move || run_window_thread(config, ready_tx, signal_tx))
             .map_err(|err| anyhow!("failed to spawn window thread: {err}"))?;
 
         let proxy = ready_rx
@@ -131,6 +139,7 @@ impl WindowRuntime {
 
         Ok(Self {
             proxy,
+            events: signal_rx,
             join_handle: Some(handle),
         })
     }
@@ -163,6 +172,13 @@ impl WindowRuntime {
         }
         Ok(())
     }
+
+    pub fn take_advance_requests(&self) -> usize {
+        self.events
+            .try_iter()
+            .filter(|signal| matches!(signal, WindowSignal::AdvancePlaylist))
+            .count()
+    }
 }
 
 impl Drop for WindowRuntime {
@@ -177,6 +193,7 @@ impl Drop for WindowRuntime {
 fn run_window_thread(
     config: RendererConfig,
     ready_tx: Sender<Result<EventLoopProxy<WindowCommand>, anyhow::Error>>,
+    signal_tx: Sender<WindowSignal>,
 ) -> Result<()> {
     let mut builder = EventLoopBuilder::<WindowCommand>::with_user_event();
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -253,6 +270,15 @@ fn run_window_thread(
                 match event {
                     WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                         elwt.exit();
+                    }
+                    WindowEvent::KeyboardInput { event, .. } => {
+                        if event.state == ElementState::Pressed && !event.repeat {
+                            let is_space = matches!(event.logical_key, Key::Named(NamedKey::Space))
+                                || matches!(event.logical_key, Key::Character(ref value) if value.as_str() == " ");
+                            if is_space {
+                                let _ = signal_tx.send(WindowSignal::AdvancePlaylist);
+                            }
+                        }
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         state.handle_cursor_moved(position);

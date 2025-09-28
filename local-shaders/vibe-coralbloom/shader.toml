@@ -1,0 +1,14 @@
+name = "Vibe Coral Bloom"
+entry = "image"
+surface_alpha = "opaque"
+description = "Tropical teal to coral wash with warm bloom highlights"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

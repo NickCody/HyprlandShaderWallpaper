@@ -1,0 +1,13 @@
+name = "Vibe Grayday"
+entry = "image"
+surface_alpha = "opaque"
+description = "Moody grayscale background with adjustable tone curve"
+tags = [
+    "glsl"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

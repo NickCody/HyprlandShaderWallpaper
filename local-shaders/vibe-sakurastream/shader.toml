@@ -1,0 +1,14 @@
+name = "Vibe Sakura Stream"
+entry = "image"
+surface_alpha = "opaque"
+description = "Petal pink ribbons with flowing ivory highlights"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

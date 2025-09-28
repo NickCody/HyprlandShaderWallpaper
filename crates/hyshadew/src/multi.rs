@@ -143,13 +143,28 @@ fn run_window_multi(
         output_name: None,
         size: requested_size,
     };
+    let surface_id = surface.surface_id;
 
     let initial_actions = engine.sync_targets(&[surface], None, Instant::now())?;
     if !apply_window_actions(&runtime, initial_actions)? {
         return runtime.shutdown();
     }
 
-    loop {
+    'main: loop {
+        let pending_advances = runtime.take_advance_requests();
+        if pending_advances > 0 {
+            info!(
+                requests = pending_advances,
+                "window advance requested via spacebar"
+            );
+        }
+        for _ in 0..pending_advances {
+            let actions = engine.skip_surface(surface_id, Instant::now())?;
+            if !apply_window_actions(&runtime, actions)? {
+                break 'main;
+            }
+        }
+
         std::thread::sleep(Duration::from_millis(120));
         let actions = engine.tick(Instant::now(), None)?;
         if !apply_window_actions(&runtime, actions)? {
@@ -552,6 +567,18 @@ impl<'a> PlaylistEngine<'a> {
             }
         }
         Ok(actions)
+    }
+
+    fn skip_surface(&mut self, surface_id: SurfaceId, now: Instant) -> Result<Vec<SwapAction>> {
+        let Some(target_id) = self.surface_map.get(&surface_id).cloned() else {
+            return Ok(Vec::new());
+        };
+        if let Some(change) = self.scheduler.skip_target(&target_id, now) {
+            if let Some(action) = self.activate_selection(target_id, change) {
+                return Ok(vec![action]);
+            }
+        }
+        Ok(Vec::new())
     }
 
     fn activate_selection(

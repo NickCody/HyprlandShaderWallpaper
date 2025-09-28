@@ -1,9 +1,10 @@
-name = "Gray Day"
+name = "Vibe Ember Dream"
 entry = "image"
 surface_alpha = "opaque"
-description = "Moody grayscale background"
+description = "Ember-toned waves with smoldering glow pulses"
 tags = [
-    "glsl"
+    "glsl",
+    "vibe"
 ]
 
 [[passes]]

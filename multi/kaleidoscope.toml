@@ -1,0 +1,20 @@
+version = 1
+
+[defaults]
+playlist = "kaleidoscope"
+fps = 0
+antialias = "auto"
+
+[playlists.kaleidoscope]
+mode = "continuous"
+item_duration = "30s"
+crossfade = "3s"
+
+[[playlists.kaleidoscope.items]]
+handle = "local-shaders/kal-prismflux"
+
+[[playlists.kaleidoscope.items]]
+handle = "local-shaders/kal-petalspire"
+
+[[playlists.kaleidoscope.items]]
+handle = "local-shaders/kal-starweave"

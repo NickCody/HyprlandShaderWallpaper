@@ -1,0 +1,14 @@
+name = "Vibe Deep Current"
+entry = "image"
+surface_alpha = "opaque"
+description = "Slow underwater currents with cyan flashes"
+tags = [
+    "glsl",
+    "vibe"
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []
