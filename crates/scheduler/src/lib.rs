@@ -93,6 +93,9 @@ impl Scheduler {
 
     pub fn skip_target(&mut self, target: &TargetId, now: Instant) -> Option<SelectionChange> {
         let state = self.targets.get_mut(target)?;
+        if state.playlist.items.len() <= 1 {
+            return None;
+        }
         state.advance_to_next(now, &mut self.rng);
         let item = state.current_scheduled_item();
         Some(SelectionChange {
@@ -180,6 +183,9 @@ impl TargetState {
     }
 
     fn advance_if_elapsed(&mut self, now: Instant, rng: &mut StdRng) -> bool {
+        if self.playlist.items.len() <= 1 {
+            return false;
+        }
         let idx = self.current_index();
         let item = &self.playlist.items[idx];
         if now.duration_since(self.last_started) >= item.duration {
@@ -191,6 +197,10 @@ impl TargetState {
     }
 
     fn advance_to_next(&mut self, now: Instant, rng: &mut StdRng) {
+        if self.playlist.items.len() <= 1 {
+            self.last_started = now;
+            return;
+        }
         self.cursor += 1;
         if self.cursor >= self.order.len() {
             self.order = build_order(self.playlist.items.len(), &self.playlist.mode, rng);

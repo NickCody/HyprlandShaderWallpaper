@@ -1,0 +1,14 @@
+name = "Simplex Noise Rotation Color Version"
+entry = "image"
+surface_alpha = "opaque"
+description = "Simplex noise applied to two rotating layers, in Technicolor!"
+tags = [
+    "glsl",
+    "simplexnoise",
+]
+
+[[passes]]
+name = "image"
+kind = "image"
+source = "image.glsl"
+inputs = []

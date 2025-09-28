@@ -1,13 +1,13 @@
 // kal-honeycomn — fixed: re-fold after parallax; no pre-clamp of barycentrics
 
 const float TRI_SCALE          = 5.0;
-const float TRI_ROT_SPEED      = 0.05;
+const float TRI_ROT_SPEED      = 0.01;
 const float ALIGN_EXTRA_ROT    = 0.0;
 
 const int   CELL_DIVS          = 8;
 
 const float OBJECT_THICKNESS   = 0.0;
-const float OBJECT_DRIFT_SPEED = 0.40;
+const float OBJECT_DRIFT_SPEED = 0.20;
 
 const float MIRROR_WIDTH       = 0.020;
 const vec3  MIRROR_ALIGN_BIAS  = vec3(0.0);
@@ -69,14 +69,17 @@ void triEdges(in vec2 A, in vec2 B, in vec2 C, out Edge E0,out Edge E1,out Edge 
 }
 
 vec2 foldIntoEquilateral(vec2 p, Edge E0, Edge E1, Edge E2, out vec3 finalSD){
+    // Inside should be d >= 0 with this edge/normal convention
     for(int i=0;i<12;++i){
-        float d0=sdEdge(E0,p), d1=sdEdge(E1,p), d2=sdEdge(E2,p);
-        if(d0<=0.0 && d1<=0.0 && d2<=0.0){ finalSD=vec3(d0,d1,d2); break; }
-        if(d0>0.0){ p=reflectAcross(E0,p); continue; }
-        if(d1>0.0){ p=reflectAcross(E1,p); continue; }
-        p=reflectAcross(E2,p);
+        float d0 = dot(E0.n, p) + E0.o;
+        float d1 = dot(E1.n, p) + E1.o;
+        float d2 = dot(E2.n, p) + E2.o;
+        if(d0 >= 0.0 && d1 >= 0.0 && d2 >= 0.0){ finalSD = vec3(d0,d1,d2); break; }
+        if(d0 < 0.0){ p -= 2.0*d0*E0.n; continue; }
+        if(d1 < 0.0){ p -= 2.0*d1*E1.n; continue; }
+        p -= 2.0*d2*E2.n;
     }
-    finalSD=vec3(sdEdge(E0,p), sdEdge(E1,p), sdEdge(E2,p));
+    finalSD = vec3(dot(E0.n,p)+E0.o, dot(E1.n,p)+E1.o, dot(E2.n,p)+E2.o);
     return p;
 }
 
@@ -157,7 +160,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     col = mix(col, vec3(0.0), subLines);
 
     // Mirror seams from the *mirror* fold (sd), not the object fold
-    vec3 edgeIn = -sd + MIRROR_ALIGN_BIAS;
+    vec3 edgeIn = sd - MIRROR_ALIGN_BIAS;
     float edgeDist = max(0.0, min(edgeIn.x, min(edgeIn.y, edgeIn.z)));
     float seam = 1.0 - smoothstep(0.0, MIRROR_WIDTH, edgeDist);
     col = mix(col, MIRROR_COLOR, seam);

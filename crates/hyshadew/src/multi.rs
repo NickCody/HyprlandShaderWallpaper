@@ -16,7 +16,7 @@ use renderer::{
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
 use shadertoy::{load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::bindings::{channel_bindings_from_pack, map_manifest_alpha};
 use crate::bootstrap::parse_surface_size;
@@ -440,12 +440,30 @@ impl<'a> PlaylistEngine<'a> {
                 Err(err) => {
                     warn!(
                         surface = surface.surface_id.raw(),
+                        output = ?surface.output_name,
+                        workspace = hyprland
+                            .and_then(|snapshot| surface.output_name.as_ref().and_then(|name| snapshot.workspaces.get(name)))
+                            .map(|ws| ws.name.clone()),
                         error = %err,
                         "failed to resolve playlist for surface"
                     );
                     continue;
                 }
             };
+            trace!(
+                surface = surface.surface_id.raw(),
+                selector = ?resolved.selector,
+                playlist = %resolved.playlist,
+                "resolved surface target"
+            );
+            if let TargetSelectorKind::Workspace(ref key) = resolved.selector {
+                trace!(
+                    surface = surface.surface_id.raw(),
+                    workspace = key,
+                    playlist = %resolved.playlist,
+                    "workspace selector applied"
+                );
+            }
 
             let entry = self.targets.entry(target_id.clone());
             let change = match entry {
@@ -495,6 +513,13 @@ impl<'a> PlaylistEngine<'a> {
                         let previous_playlist = target.playlist.clone();
                         let was_workspace =
                             matches!(target.selector, TargetSelectorKind::Workspace(_));
+                        if was_workspace {
+                            trace!(
+                                target = %target_id.0,
+                                workspace = ?target.selector,
+                                "previous workspace selector"
+                            );
+                        }
                         let change = match self.scheduler.set_target(
                             target_id.clone(),
                             &resolved.playlist,
@@ -600,10 +625,14 @@ impl<'a> PlaylistEngine<'a> {
                 let max_attempts = target.playlist_len.max(1);
                 let decision = match self.cache.resolve(&handle, needs_refresh) {
                     Ok(assets) => {
-                        let crossfade = target
-                            .crossfade_override
-                            .take()
-                            .unwrap_or(change.item.crossfade);
+                        let crossfade = if target.playlist_len <= 1 {
+                            Duration::ZERO
+                        } else {
+                            target
+                                .crossfade_override
+                                .take()
+                                .unwrap_or(change.item.crossfade)
+                        };
                         let display = describe_target(&target_id, target);
                         let selector = SurfaceSelector::Surface(target.surface_id);
                         Ok((assets, crossfade, display, selector))
@@ -772,6 +801,8 @@ impl<'a> TargetResolver<'a> {
         let mut candidates = Vec::new();
         candidates.push(format!("workspace:{}", workspace.name));
         candidates.push(format!("workspace:{}", workspace.id));
+        candidates.push(workspace.name.clone());
+        candidates.push(workspace.id.to_string());
         for key in candidates {
             if let Some(playlist) = self.config.targets.get(&key) {
                 return self.build_result(playlist, TargetSelectorKind::Workspace(key));
@@ -848,9 +879,45 @@ impl HyprlandSnapshot {
     fn fetch() -> Result<Self> {
         let signature = env::var("HYPRLAND_INSTANCE_SIGNATURE")
             .context("HYPRLAND_INSTANCE_SIGNATURE not set")?;
-        let path = format!("/tmp/hypr/{signature}/.socket.sock");
-        let mut stream =
-            UnixStream::connect(path).context("failed to connect to hyprland socket")?;
+
+        let mut candidates = Vec::new();
+        if let Ok(runtime_dir) = env::var("XDG_RUNTIME_DIR") {
+            candidates.push(PathBuf::from(runtime_dir).join("hypr"));
+        }
+        candidates.push(PathBuf::from("/tmp/hypr"));
+
+        let mut last_error = None;
+        let mut stream = None;
+        for base in candidates {
+            let candidate = base.join(&signature).join(".socket.sock");
+            match UnixStream::connect(&candidate) {
+                Ok(conn) => {
+                    stream = Some(conn);
+                    break;
+                }
+                Err(err) => {
+                    last_error = Some((candidate, err));
+                }
+            }
+        }
+
+        let mut stream = match stream {
+            Some(stream) => stream,
+            None => {
+                let (path, err) = last_error
+                    .map(|(path, err)| (path, anyhow::Error::new(err)))
+                    .unwrap_or_else(|| {
+                        (
+                            PathBuf::from("/tmp/hypr/.socket.sock"),
+                            anyhow::anyhow!("hyprland socket path resolution failed"),
+                        )
+                    });
+                return Err(err.context(format!(
+                    "failed to connect to hyprland socket at {}",
+                    path.display()
+                )));
+            }
+        };
         stream
             .write_all(b"j/monitors")
             .context("failed to request monitor data")?;

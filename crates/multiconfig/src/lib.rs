@@ -338,13 +338,10 @@ impl MultiConfig {
         }
 
         for (selector, playlist) in &self.targets {
-            if selector != "_default"
-                && !selector.starts_with("workspace:")
-                && !selector.starts_with("output:")
-            {
-                return Err(ConfigError::Invalid(format!(
-                    "invalid target selector '{selector}'"
-                )));
+            if selector.trim().is_empty() {
+                return Err(ConfigError::Invalid(
+                    "target selector may not be empty".into(),
+                ));
             }
             if !self.playlists.contains_key(playlist) {
                 return Err(ConfigError::Invalid(format!(
