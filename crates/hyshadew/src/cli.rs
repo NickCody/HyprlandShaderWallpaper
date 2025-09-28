@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use renderer::Antialiasing;
 
@@ -16,6 +18,10 @@ pub struct Args {
     /// Convenience flag for specifying a Shadertoy URL or ID.
     #[arg(long, value_name = "URL")]
     pub shadertoy: Option<String>,
+
+    /// Enable playlist mode using the supplied multi-config TOML file or directory.
+    #[arg(long, value_name = "PATH")]
+    pub multi: Option<PathBuf>,
 
     /// Render the shader in a desktop window instead of wallpaper mode.
     #[arg(long)]
@@ -49,6 +55,10 @@ pub struct Args {
         default_value = "auto"
     )]
     pub antialias: Antialiasing,
+
+    /// Warm-up interval (ms) to pre-render the next shader before crossfade.
+    #[arg(long, value_name = "MILLISECONDS")]
+    pub prewarm_ms: Option<u64>,
 }
 
 pub fn parse() -> Args {

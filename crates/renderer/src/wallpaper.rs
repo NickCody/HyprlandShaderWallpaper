@@ -84,12 +84,24 @@ pub enum SurfaceSelector {
 pub struct SurfaceInfo {
     pub surface_id: SurfaceId,
     pub output_id: Option<OutputId>,
+    pub output_name: Option<String>,
     pub size: Option<(u32, u32)>,
 }
 
 pub struct WallpaperRuntime {
     sender: Sender<WallpaperCommand>,
     join_handle: Option<JoinHandle<Result<()>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SwapRequest {
+    pub shader_source: PathBuf,
+    pub channel_bindings: ChannelBindings,
+    pub crossfade: Duration,
+    pub target_fps: Option<f32>,
+    pub antialiasing: Antialiasing,
+    pub surface_alpha: SurfaceAlpha,
+    pub warmup: Duration,
 }
 
 impl WallpaperRuntime {
@@ -115,35 +127,14 @@ impl WallpaperRuntime {
             .map_err(|err| anyhow!("failed to receive surface query response: {err}"))
     }
 
-    pub fn swap_shader(
-        &self,
-        selector: SurfaceSelector,
-        shader_source: PathBuf,
-        channel_bindings: ChannelBindings,
-        crossfade: Duration,
-    ) -> Result<()> {
+    pub fn swap_shader(&self, selector: SurfaceSelector, request: SwapRequest) -> Result<()> {
         self.sender
-            .send(WallpaperCommand::SwapShader {
-                selector,
-                shader_source,
-                channel_bindings,
-                crossfade,
-            })
+            .send(WallpaperCommand::SwapShader { selector, request })
             .map_err(|err| anyhow!("failed to send swap command: {err}"))
     }
 
-    pub fn swap_shader_all(
-        &self,
-        shader_source: PathBuf,
-        channel_bindings: ChannelBindings,
-        crossfade: Duration,
-    ) -> Result<()> {
-        self.swap_shader(
-            SurfaceSelector::All,
-            shader_source,
-            channel_bindings,
-            crossfade,
-        )
+    pub fn swap_shader_all(&self, request: SwapRequest) -> Result<()> {
+        self.swap_shader(SurfaceSelector::All, request)
     }
 
     pub fn shutdown(mut self) -> Result<()> {
@@ -171,9 +162,7 @@ impl Drop for WallpaperRuntime {
 enum WallpaperCommand {
     SwapShader {
         selector: SurfaceSelector,
-        shader_source: PathBuf,
-        channel_bindings: ChannelBindings,
-        crossfade: Duration,
+        request: SwapRequest,
     },
     QuerySurfaces {
         responder: Sender<Vec<SurfaceInfo>>,
@@ -411,15 +400,20 @@ impl WallpaperManager {
         qh: &QueueHandle<Self>,
     ) {
         match command {
-            WallpaperCommand::SwapShader {
-                selector,
-                shader_source,
-                channel_bindings,
-                crossfade,
-            } => {
+            WallpaperCommand::SwapShader { selector, request } => {
+                let SwapRequest {
+                    shader_source,
+                    channel_bindings,
+                    crossfade,
+                    target_fps,
+                    antialiasing,
+                    surface_alpha,
+                    warmup,
+                } = request;
                 let now = Instant::now();
                 for surface_id in self.target_surface_ids(&selector) {
                     if let Some(mut surface) = self.surfaces.remove(&surface_id) {
+                        surface.apply_render_preferences(target_fps, antialiasing, surface_alpha);
                         let size = surface.last_output_size.unwrap_or(self.fallback_size);
                         if let Err(err) = surface.ensure_gpu(conn, &self.compositor, size) {
                             tracing::error!(
@@ -431,6 +425,7 @@ impl WallpaperManager {
                             shader_source.as_path(),
                             &channel_bindings,
                             crossfade,
+                            warmup,
                         ) {
                             tracing::error!(
                                 error = ?err,
@@ -457,12 +452,23 @@ impl WallpaperManager {
     fn collect_surface_info(&self) -> Vec<SurfaceInfo> {
         self.surfaces
             .iter()
-            .map(|(surface_id, surface)| SurfaceInfo {
-                surface_id: *surface_id,
-                output_id: surface.output_key,
-                size: surface
-                    .last_output_size
-                    .map(|size| (size.width, size.height)),
+            .map(|(surface_id, surface)| {
+                let output_name = surface.output_key.and_then(|key| {
+                    self.output_state
+                        .outputs()
+                        .find(|candidate| proxy_key(candidate) == key)
+                        .and_then(|matched| self.output_state.info(&matched))
+                        .and_then(|info| info.name)
+                });
+
+                SurfaceInfo {
+                    surface_id: *surface_id,
+                    output_id: surface.output_key,
+                    output_name,
+                    size: surface
+                        .last_output_size
+                        .map(|size| (size.width, size.height)),
+                }
             })
             .collect()
     }
@@ -708,14 +714,31 @@ impl SurfaceState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         crossfade: Duration,
+        warmup: Duration,
     ) -> Result<()> {
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.set_shader(shader_source, channel_bindings, crossfade, now)?;
+            gpu.set_shader(shader_source, channel_bindings, crossfade, warmup, now)?;
         }
         self.shader_source = shader_source.to_path_buf();
         self.channel_bindings = channel_bindings.clone();
         self.crossfade = crossfade;
         Ok(())
+    }
+
+    fn apply_render_preferences(
+        &mut self,
+        target_fps: Option<f32>,
+        antialiasing: Antialiasing,
+        surface_alpha: SurfaceAlpha,
+    ) {
+        self.pacer.set_target_fps(target_fps);
+        if self.antialiasing != antialiasing {
+            self.antialiasing = antialiasing;
+            self.gpu = None;
+        }
+        if self.surface_alpha != surface_alpha {
+            self.surface_alpha = surface_alpha;
+        }
     }
 
     fn render(&mut self) -> Result<(), SurfaceError> {
@@ -823,6 +846,19 @@ impl FramePacer {
             last_tick: None,
             is_frame_scheduled: false,
         }
+    }
+
+    fn set_target_fps(&mut self, target_fps: Option<f32>) {
+        self.target_interval = target_fps.and_then(|fps| {
+            if fps > 0.0 {
+                Some(Duration::from_secs_f32(1.0 / fps))
+            } else {
+                None
+            }
+        });
+        self.accumulator = Duration::ZERO;
+        self.last_tick = None;
+        self.is_frame_scheduled = false;
     }
 
     fn reset(&mut self) {

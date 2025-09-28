@@ -1,6 +1,7 @@
 mod bindings;
 mod bootstrap;
 mod cli;
+mod multi;
 mod run;
 
 use anyhow::Result;

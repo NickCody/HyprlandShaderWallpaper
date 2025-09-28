@@ -37,6 +37,7 @@ pub(crate) struct GpuState {
     current: ShaderPipeline,
     previous: Option<ShaderPipeline>,
     crossfade: Option<CrossfadeState>,
+    pending: Option<PendingPipeline>,
     start_time: Instant,
     last_frame_time: Instant,
     frame_count: u32,
@@ -284,6 +285,7 @@ impl GpuState {
             current,
             previous: None,
             crossfade: None,
+            pending: None,
             start_time: Instant::now(),
             last_frame_time: Instant::now(),
             frame_count: 0,
@@ -337,6 +339,7 @@ impl GpuState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         crossfade: Duration,
+        warmup: Duration,
         now: Instant,
     ) -> Result<()> {
         let new_pipeline = ShaderPipeline::new(
@@ -351,26 +354,23 @@ impl GpuState {
             channel_bindings,
         )?;
 
-        let crossfade = if crossfade < Duration::from_millis(16) {
-            Duration::ZERO
-        } else {
-            crossfade
-        };
-
         tracing::info!(
             shader = %shader_source.display(),
             crossfade_ms = crossfade.as_millis(),
+            warmup_ms = warmup.as_millis(),
             "swapping shader pipeline"
         );
 
-        if crossfade.is_zero() {
-            self.current = new_pipeline;
-            self.previous = None;
-            self.crossfade = None;
+        self.pending = None;
+
+        if warmup < Duration::from_millis(1) {
+            self.begin_crossfade(new_pipeline, crossfade, now);
         } else {
-            let previous = std::mem::replace(&mut self.current, new_pipeline);
-            self.previous = Some(previous);
-            self.crossfade = Some(CrossfadeState::new(now, crossfade));
+            self.pending = Some(PendingPipeline {
+                pipeline: new_pipeline,
+                crossfade,
+                warmup_end: now + warmup,
+            });
         }
 
         Ok(())
@@ -379,6 +379,15 @@ impl GpuState {
     pub(crate) fn render(&mut self, mouse: [f32; 4]) -> Result<(), wgpu::SurfaceError> {
         let now = Instant::now();
         self.update_time(mouse, now);
+
+        let mut warmup_state = None;
+        if let Some(pending) = self.pending.take() {
+            if now >= pending.warmup_end {
+                self.begin_crossfade(pending.pipeline, pending.crossfade, now);
+            } else {
+                warmup_state = Some(pending);
+            }
+        }
 
         let mut mix_prev = None;
         if let Some(fade) = self.crossfade.as_mut() {
@@ -442,6 +451,17 @@ impl GpuState {
             unsafe {
                 self.render_with_pipeline(&mut encoder, &view, &*current_pipeline_ptr, 1.0, load);
             }
+        }
+
+        if let Some(pending) = warmup_state {
+            self.render_with_pipeline(
+                &mut encoder,
+                &view,
+                &pending.pipeline,
+                0.0,
+                wgpu::LoadOp::Load,
+            );
+            self.pending = Some(pending);
         }
 
         self.previous = previous_pipeline;
@@ -547,6 +567,24 @@ impl GpuState {
                 self.size.height
             );
             self.last_log_time = now;
+        }
+    }
+
+    fn begin_crossfade(&mut self, pipeline: ShaderPipeline, crossfade: Duration, now: Instant) {
+        let crossfade = if crossfade < Duration::from_millis(16) {
+            Duration::ZERO
+        } else {
+            crossfade
+        };
+
+        if crossfade.is_zero() {
+            self.current = pipeline;
+            self.previous = None;
+            self.crossfade = None;
+        } else {
+            let previous = std::mem::replace(&mut self.current, pipeline);
+            self.previous = Some(previous);
+            self.crossfade = Some(CrossfadeState::new(now, crossfade));
         }
     }
 }
@@ -684,6 +722,12 @@ impl CrossfadeState {
     fn is_finished(&self, now: Instant) -> bool {
         self.progress(now) >= 1.0
     }
+}
+
+struct PendingPipeline {
+    pipeline: ShaderPipeline,
+    crossfade: Duration,
+    warmup_end: Instant,
 }
 
 struct MultisampleTarget {

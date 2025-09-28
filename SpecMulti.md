@@ -333,7 +333,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 2. Shader swaps reuse `GpuState::set_shader`, blending the outgoing and incoming pipelines via additive color targets; zero-duration requests collapse to hard cuts.
 3. Added `SurfaceId`/`OutputId` selectors, runtime surface snapshots, and unit tests validating fade weights and std140 layout so crossfades stay numerically stable.
 
-### Stage 3 – Hyshadew Integration (Playlist Runtime)
+### Stage 3 – Hyshadew Integration (Playlist Runtime) (complete)
 1. Expand CLI/runtime:
    - Add `--multi` flag handling and enforce default playlist requirements in window mode.
    - Build a target resolver (Wayland-only first) and a simple Hyprland-aware variant when available.
@@ -349,3 +349,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 4. Optional: Add file-watch or reload commands if time permits.
 
 Each stage builds on the previous one; stick to the sequence to minimize merge conflicts and keep the behavior testable throughout the implementation.
+
+## TODO
+
+- Revisit crossfade warm-up behaviour to eliminate residual frame jitter once additional profiling data is available.

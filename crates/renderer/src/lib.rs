@@ -27,7 +27,10 @@ mod window;
 pub use types::{
     Antialiasing, ChannelBindings, ChannelSource, RenderMode, RendererConfig, SurfaceAlpha,
 };
-pub use wallpaper::{OutputId, SurfaceId, SurfaceInfo, SurfaceSelector, WallpaperRuntime};
+pub use wallpaper::{
+    OutputId, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime,
+};
+pub use window::WindowRuntime;
 
 use std::sync::Arc;
 

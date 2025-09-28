@@ -9,28 +9,22 @@ use tracing_subscriber::EnvFilter;
 use crate::bindings::{channel_bindings_from_pack, map_manifest_alpha};
 use crate::bootstrap::{parse_surface_size, resolve_shader_handle, SingleRunConfig};
 use crate::cli::Args;
+use crate::multi;
 
 pub fn run(args: Args) -> Result<()> {
     initialise_tracing();
 
     let repo = ShaderRepository::with_defaults();
-    let handle = resolve_shader_handle(&args)?;
-    tracing::info!(?handle, "bootstrapping hyshadew wallpaper daemon");
-
     let client = build_client(&args)?;
-    log_handle_warnings(&args, &handle, client.as_ref());
-
-    let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
-    match RuntimeMode::Single(context) {
-        RuntimeMode::Single(config) => run_single(config),
-        RuntimeMode::Multi => unreachable!("multi mode not yet implemented"),
+    if let Some(path) = args.multi.as_ref() {
+        multi::run_multi(&args, &repo, client.as_ref(), path)
+    } else {
+        let handle = resolve_shader_handle(&args)?;
+        tracing::info!(?handle, "bootstrapping hyshadew wallpaper daemon");
+        log_handle_warnings(&args, &handle, client.as_ref());
+        let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
+        run_single(context)
     }
-}
-
-enum RuntimeMode {
-    Single(SingleRunConfig),
-    #[allow(dead_code)]
-    Multi,
 }
 
 fn initialise_tracing() {

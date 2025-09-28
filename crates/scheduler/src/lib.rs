@@ -42,6 +42,10 @@ pub struct Scheduler {
     rng: StdRng,
 }
 
+fn normalize_fps(value: Option<f32>) -> Option<f32> {
+    value.and_then(|fps| if fps > 0.0 { Some(fps) } else { None })
+}
+
 impl Scheduler {
     pub fn new(config: &MultiConfig, seed: u64) -> Self {
         let playlists = config
@@ -87,6 +91,17 @@ impl Scheduler {
         self.targets.remove(target);
     }
 
+    pub fn skip_target(&mut self, target: &TargetId, now: Instant) -> Option<SelectionChange> {
+        let state = self.targets.get_mut(target)?;
+        state.advance_to_next(now, &mut self.rng);
+        let item = state.current_scheduled_item();
+        Some(SelectionChange {
+            target: target.clone(),
+            item,
+            started_at: now,
+        })
+    }
+
     pub fn tick(&mut self, now: Instant) -> Vec<SelectionChange> {
         let mut changes = Vec::new();
         for (target, state) in self.targets.iter_mut() {
@@ -118,7 +133,9 @@ impl PlaylistRuntime {
             .map(|item| RuntimeItem {
                 handle: item.handle.clone(),
                 duration: item.duration.unwrap_or(src.item_duration),
-                fps: item.fps.or(src.fps).or(defaults.fps),
+                fps: normalize_fps(item.fps)
+                    .or_else(|| normalize_fps(src.fps))
+                    .or_else(|| normalize_fps(defaults.fps)),
                 antialias: item.antialias.or(src.antialias).or(defaults.antialias),
                 refresh_once: item.refresh_once,
             })
@@ -166,16 +183,20 @@ impl TargetState {
         let idx = self.current_index();
         let item = &self.playlist.items[idx];
         if now.duration_since(self.last_started) >= item.duration {
-            self.cursor += 1;
-            if self.cursor >= self.order.len() {
-                self.order = build_order(self.playlist.items.len(), &self.playlist.mode, rng);
-                self.cursor = 0;
-            }
-            self.last_started = now;
+            self.advance_to_next(now, rng);
             true
         } else {
             false
         }
+    }
+
+    fn advance_to_next(&mut self, now: Instant, rng: &mut StdRng) {
+        self.cursor += 1;
+        if self.cursor >= self.order.len() {
+            self.order = build_order(self.playlist.items.len(), &self.playlist.mode, rng);
+            self.cursor = 0;
+        }
+        self.last_started = now;
     }
 
     fn current_scheduled_item(&self) -> ScheduledItem {
@@ -294,5 +315,62 @@ handle = "local/demo"
         assert_eq!(change.item.fps, Some(48.0));
         assert_eq!(change.item.antialias, Some(AntialiasSetting::Samples8));
         assert_eq!(change.item.crossfade, Duration::from_secs_f32(1.0));
+    }
+
+    #[test]
+    fn zero_fps_treated_as_uncapped() {
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[playlists.test]
+mode = "continuous"
+item_duration = 1
+fps = 0
+
+[[playlists.test.items]]
+handle = "local/demo"
+fps = 0
+"#,
+        )
+        .unwrap();
+
+        let mut scheduler = Scheduler::new(&config, 3);
+        let target = TargetId::new("surface:1");
+        let change = scheduler
+            .set_target(target.clone(), "test", Instant::now())
+            .unwrap();
+        assert_eq!(change.item.fps, None, "fps=0 should map to uncapped");
+    }
+
+    #[test]
+    fn skip_advances_playlist() {
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[playlists.test]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.test.items]]
+handle = "one"
+
+[[playlists.test.items]]
+handle = "two"
+"#,
+        )
+        .unwrap();
+
+        let mut scheduler = Scheduler::new(&config, 11);
+        let target = TargetId::new("output:A");
+        let first = scheduler
+            .set_target(target.clone(), "test", Instant::now())
+            .unwrap();
+        assert_eq!(first.item.handle, "one");
+        let skipped = scheduler
+            .skip_target(&target, Instant::now())
+            .expect("skip result");
+        assert_eq!(skipped.item.handle, "two");
     }
 }
