@@ -624,13 +624,14 @@ impl<'a> PlaylistEngine<'a> {
                 let max_attempts = target.playlist_len.max(1);
                 let decision = match self.cache.resolve(&handle, needs_refresh) {
                     Ok(assets) => {
-                        let crossfade = if target.playlist_len <= 1 {
+                        let crossfade = if let Some(override_duration) =
+                            target.crossfade_override.take()
+                        {
+                            override_duration
+                        } else if target.playlist_len <= 1 {
                             Duration::ZERO
                         } else {
-                            target
-                                .crossfade_override
-                                .take()
-                                .unwrap_or(change.item.crossfade)
+                            change.item.crossfade
                         };
                         let display = describe_target(&target_id, target);
                         let selector = SurfaceSelector::Surface(target.surface_id);
