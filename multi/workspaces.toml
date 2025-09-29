@@ -62,7 +62,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.simplex.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex"
+handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex-color"
 
 # Fungal Apocalypse
 #

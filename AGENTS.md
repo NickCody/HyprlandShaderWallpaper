@@ -16,11 +16,6 @@ Hyprland Shader Wallpaper (hyshadew) is a Rust-based wallpaper engine focused on
 - **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
 - **CLI-driven daemon**: `hyshadew` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 
-## Inspiration
-
-This Java/Scala opengl program provides a shadertoy-friendly environment for rendering: https://github.com/NickCody/graphics
-
-
 ## Next Steps
 
 1. Harden the Wayland wallpaper path (recover from surface loss, validate config edge cases).

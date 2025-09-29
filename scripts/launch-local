@@ -1,7 +1,4 @@
 #!/bin/bash
 
 pkill hyshadew
-LOCAL_SHADER=${1:-local-shaders/simplex}
-shift
-
-hyshadew "$@" "${LOCAL_SHADER}"
+hyshadew "$@"

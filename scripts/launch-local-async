@@ -1,10 +1,7 @@
 #!/bin/bash
 
 pkill hyshadew
-LOCAL_SHADER=${1:-local-shaders/simplex}
-shift
-
 trap '' HUP
-hyshadew "$@" "${LOCAL_SHADER}" </dev/null >/dev/null 2>&1 &
+hyshadew "$@" </dev/null >/dev/null 2>&1 &
 pid=$!
 disown "$pid"

@@ -1,0 +1,33 @@
+version = 1
+workspace_switch_crossfade = "1500ms"
+
+[defaults]
+playlist = "simplex"
+fps = 0
+antialias = "auto"
+
+# Template
+#
+[playlists.template]
+mode = "continuous"
+
+[[playlists.template.items]]
+handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/template"
+
+# Simplex
+#
+[playlists.simplex]
+mode = "continuous"
+
+[[playlists.simplex.items]]
+handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex"
+
+[playlists.simplex-color]
+mode = "continuous"
+
+[[playlists.simplex-color.items]]
+handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex-color"
+
+[targets]
+"_default" = "template"
+"1" = "simplex"
