@@ -343,6 +343,9 @@ impl MultiConfig {
                     "target selector may not be empty".into(),
                 ));
             }
+
+            validate_target_selector(selector)?;
+
             if !self.playlists.contains_key(playlist) {
                 return Err(ConfigError::Invalid(format!(
                     "target '{selector}' references unknown playlist '{playlist}'"
@@ -358,6 +361,38 @@ impl MultiConfig {
 
         Ok(())
     }
+}
+
+fn validate_target_selector(selector: &str) -> Result<(), ConfigError> {
+    if selector == "_default" {
+        return Ok(());
+    }
+
+    if let Some(rest) = selector.strip_prefix("workspace:") {
+        if rest.is_empty() {
+            return Err(ConfigError::Invalid(
+                "workspace selector must include a name or id".into(),
+            ));
+        }
+        return Ok(());
+    }
+
+    if let Some(rest) = selector.strip_prefix("output:") {
+        if rest.is_empty() {
+            return Err(ConfigError::Invalid(
+                "output selector must include an output name".into(),
+            ));
+        }
+        return Ok(());
+    }
+
+    if selector.chars().all(|ch| ch.is_ascii_digit()) {
+        return Ok(());
+    }
+
+    Err(ConfigError::Invalid(format!(
+        "target selector '{selector}' is invalid; expected 'workspace:<name-or-id>', 'output:<name>', '_default', or a numeric workspace id"
+    )))
 }
 
 impl Playlist {
