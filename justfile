@@ -17,3 +17,8 @@ run-demo:
 # Run the multi-workspace sample configuration
 run-multi:
 	cargo run -p hyshadew -- --multi multi/workspaces.toml
+
+# Mirror the GitHub Actions workflow (build + tests)
+validate:
+	cargo build --verbose
+	cargo test --verbose
