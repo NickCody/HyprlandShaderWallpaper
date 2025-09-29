@@ -1,18 +1,25 @@
 use std::borrow::Cow;
 
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use wgpu::naga::ShaderStage;
 
+use crate::types::ShaderCompiler;
+
+#[cfg(feature = "shaderc")]
+use tracing::warn;
+
 /// Compiles the static full-screen triangle vertex shader.
-pub(crate) fn compile_vertex_shader(device: &wgpu::Device) -> Result<wgpu::ShaderModule> {
-    Ok(device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("fullscreen triangle vertex"),
-        source: wgpu::ShaderSource::Glsl {
-            shader: Cow::Borrowed(VERTEX_SHADER_GLSL),
-            stage: ShaderStage::Vertex,
-            defines: &[],
-        },
-    }))
+pub(crate) fn compile_vertex_shader(
+    device: &wgpu::Device,
+    compiler: ShaderCompiler,
+) -> Result<wgpu::ShaderModule> {
+    compile_glsl(
+        device,
+        VERTEX_SHADER_GLSL,
+        ShaderStage::Vertex,
+        "fullscreen triangle vertex",
+        compiler,
+    )
 }
 
 /// Wraps the user shader with our ShaderToy prelude and compiles it as GLSL.
@@ -22,6 +29,7 @@ pub(crate) fn compile_vertex_shader(device: &wgpu::Device) -> Result<wgpu::Shade
 pub(crate) fn compile_fragment_shader(
     device: &wgpu::Device,
     source: &str,
+    compiler: ShaderCompiler,
 ) -> Result<wgpu::ShaderModule> {
     let wrapped = wrap_shadertoy_fragment(source);
 
@@ -29,14 +37,14 @@ pub(crate) fn compile_fragment_shader(
         eprintln!("[hyshadew] failed to dump wrapped shader: {err}");
     }
 
-    Ok(device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("shaderpaper fragment"),
-        source: wgpu::ShaderSource::Glsl {
-            shader: Cow::Owned(wrapped),
-            stage: ShaderStage::Fragment,
-            defines: &[],
-        },
-    }))
+    compile_glsl(
+        device,
+        &wrapped,
+        ShaderStage::Fragment,
+        "shaderpaper fragment",
+        compiler,
+    )
+    .with_context(|| "failed to compile fragment shader")
 }
 
 /// Produces a self-contained GLSL fragment shader from raw ShaderToy code.
@@ -178,6 +186,84 @@ void main() {
     gl_Position = vec4(pos, 0.0, 1.0);
 }
 ";
+
+fn compile_glsl(
+    device: &wgpu::Device,
+    source: &str,
+    stage: ShaderStage,
+    label: &'static str,
+    compiler: ShaderCompiler,
+) -> Result<wgpu::ShaderModule> {
+    match compiler {
+        ShaderCompiler::Shaderc => compile_with_shaderc(device, source, stage, label),
+        ShaderCompiler::NagaGlsl => Ok(device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(label),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Owned(source.to_owned()),
+                stage,
+                defines: &[],
+            },
+        })),
+    }
+}
+
+#[cfg(feature = "shaderc")]
+fn compile_with_shaderc(
+    device: &wgpu::Device,
+    source: &str,
+    stage: ShaderStage,
+    label: &'static str,
+) -> Result<wgpu::ShaderModule> {
+    use shaderc::{
+        CompileOptions, Compiler, EnvVersion, OptimizationLevel, ShaderKind, SourceLanguage,
+        TargetEnv,
+    };
+
+    let compiler = Compiler::new().context("failed to create shaderc compiler")?;
+    let mut options = CompileOptions::new().context("failed to create shaderc options")?;
+    options.set_source_language(SourceLanguage::GLSL);
+    options.set_target_env(TargetEnv::Vulkan, EnvVersion::Vulkan1_1 as u32);
+    options.set_optimization_level(if cfg!(debug_assertions) {
+        OptimizationLevel::Zero
+    } else {
+        OptimizationLevel::Performance
+    });
+
+    let shader_kind = match stage {
+        ShaderStage::Vertex => ShaderKind::Vertex,
+        ShaderStage::Fragment => ShaderKind::Fragment,
+        ShaderStage::Compute => ShaderKind::Compute,
+        other => return Err(anyhow!("unsupported shader stage: {other:?}")),
+    };
+
+    let artifact = compiler
+        .compile_into_spirv(source, shader_kind, label, "main", Some(&options))
+        .with_context(|| format!("shaderc failed to compile {label}"))?;
+
+    let warnings = artifact.get_warning_messages();
+    if !warnings.is_empty() {
+        warn!(label = label, warnings = %warnings, "shaderc emitted warnings");
+    }
+
+    let spirv = artifact.as_binary().to_vec();
+    Ok(device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(label),
+        source: wgpu::ShaderSource::SpirV(Cow::Owned(spirv)),
+    }))
+}
+
+#[cfg(not(feature = "shaderc"))]
+fn compile_with_shaderc(
+    _device: &wgpu::Device,
+    _source: &str,
+    _stage: ShaderStage,
+    label: &'static str,
+) -> Result<wgpu::ShaderModule> {
+    anyhow::bail!(
+        "shaderc support was not enabled at build time; cannot compile {}",
+        label
+    );
+}
 
 #[cfg(test)]
 mod tests {

@@ -126,6 +126,7 @@ fn prepare_single_run(
         channel_bindings,
         antialiasing: args.antialias,
         surface_alpha,
+        shader_compiler: args.shader_compiler,
     };
 
     Ok(SingleRunConfig { renderer_config })

@@ -50,6 +50,34 @@ impl Default for ChannelBindings {
     }
 }
 
+/// Shader compilation backend requested by the caller.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShaderCompiler {
+    /// Compile wrapped GLSL through shaderc into SPIR-V (preferred for ShaderToy shaders).
+    Shaderc,
+    /// Hand GLSL to naga's built-in frontend.
+    NagaGlsl,
+}
+
+impl Default for ShaderCompiler {
+    fn default() -> Self {
+        if cfg!(feature = "shaderc") {
+            ShaderCompiler::Shaderc
+        } else {
+            ShaderCompiler::NagaGlsl
+        }
+    }
+}
+
+impl std::fmt::Display for ShaderCompiler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShaderCompiler::Shaderc => f.write_str("shaderc"),
+            ShaderCompiler::NagaGlsl => f.write_str("naga"),
+        }
+    }
+}
+
 /// How the renderer should present frames.
 ///
 /// * `Wallpaper` will eventually stream frames directly into a Wayland layer
@@ -118,6 +146,8 @@ pub struct RendererConfig {
     pub antialiasing: Antialiasing,
     /// Alpha behaviour of the surface from the manifest or CLI.
     pub surface_alpha: SurfaceAlpha,
+    /// Shader compiler that should be used for wrapped GLSL.
+    pub shader_compiler: ShaderCompiler,
 }
 
 impl Default for RendererConfig {
@@ -132,6 +162,7 @@ impl Default for RendererConfig {
             channel_bindings: ChannelBindings::default(),
             antialiasing: Antialiasing::default(),
             surface_alpha: SurfaceAlpha::Opaque,
+            shader_compiler: ShaderCompiler::default(),
         }
     }
 }

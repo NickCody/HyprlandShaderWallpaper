@@ -29,7 +29,7 @@ use wgpu::SurfaceError;
 use winit::dpi::PhysicalSize;
 
 use crate::gpu::GpuState;
-use crate::types::{Antialiasing, ChannelBindings, RendererConfig, SurfaceAlpha};
+use crate::types::{Antialiasing, ChannelBindings, RendererConfig, ShaderCompiler, SurfaceAlpha};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SurfaceId(u64);
@@ -260,6 +260,7 @@ struct WallpaperManager {
     antialiasing: Antialiasing,
     surface_alpha: SurfaceAlpha,
     target_fps: Option<f32>,
+    shader_compiler: ShaderCompiler,
     should_exit: bool,
 }
 
@@ -284,6 +285,7 @@ impl WallpaperManager {
             antialiasing: config.antialiasing,
             surface_alpha: config.surface_alpha,
             target_fps: config.target_fps,
+            shader_compiler: config.shader_compiler,
             should_exit: false,
         }
     }
@@ -361,6 +363,7 @@ impl WallpaperManager {
             initial_size,
             self.antialiasing,
             self.surface_alpha,
+            self.shader_compiler,
         );
         self.surfaces.insert(key, surface_state);
 
@@ -654,6 +657,7 @@ struct SurfaceState {
     output_key: Option<OutputId>,
     antialiasing: Antialiasing,
     surface_alpha: SurfaceAlpha,
+    shader_compiler: ShaderCompiler,
 }
 
 impl SurfaceState {
@@ -667,6 +671,7 @@ impl SurfaceState {
         last_output_size: Option<PhysicalSize<u32>>,
         antialiasing: Antialiasing,
         surface_alpha: SurfaceAlpha,
+        shader_compiler: ShaderCompiler,
     ) -> Self {
         Self {
             layer_surface,
@@ -679,6 +684,7 @@ impl SurfaceState {
             output_key,
             antialiasing,
             surface_alpha,
+            shader_compiler,
         }
     }
 
@@ -701,6 +707,7 @@ impl SurfaceState {
             self.shader_source.as_path(),
             &self.channel_bindings,
             self.antialiasing,
+            self.shader_compiler,
         )?;
         self.apply_surface_alpha(compositor, size);
         self.pacer.reset();

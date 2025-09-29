@@ -77,6 +77,7 @@ fn run_wallpaper_multi(
         channel_bindings: bootstrap.channel_bindings.clone(),
         antialiasing: args.antialias,
         surface_alpha: bootstrap.surface_alpha,
+        shader_compiler: args.shader_compiler,
     };
 
     let runtime = WallpaperRuntime::spawn(renderer_config)?;
@@ -123,6 +124,7 @@ fn run_window_multi(
         channel_bindings: bootstrap.channel_bindings.clone(),
         antialiasing: args.antialias,
         surface_alpha: bootstrap.surface_alpha,
+        shader_compiler: args.shader_compiler,
     };
 
     let runtime = WindowRuntime::spawn(renderer_config)?;
@@ -1341,6 +1343,7 @@ handle = "demo"
             cache_only: false,
             shadertoy_api_key: None,
             antialias: Antialiasing::Auto,
+            shader_compiler: Default::default(),
             prewarm_ms: None,
         };
 

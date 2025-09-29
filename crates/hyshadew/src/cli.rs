@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use renderer::Antialiasing;
+use renderer::{Antialiasing, ShaderCompiler};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -56,6 +56,15 @@ pub struct Args {
     )]
     pub antialias: Antialiasing,
 
+    /// Shader compiler backend: `shaderc` (default) or `naga`.
+    #[arg(
+        long,
+        value_name = "COMPILER",
+        value_parser = parse_shader_compiler,
+        default_value_t = ShaderCompiler::default()
+    )]
+    pub shader_compiler: ShaderCompiler,
+
     /// Warm-up interval (ms) to pre-render the next shader before crossfade.
     #[arg(long, value_name = "MILLISECONDS")]
     pub prewarm_ms: Option<u64>,
@@ -92,5 +101,25 @@ pub fn parse_antialias(value: &str) -> Result<Antialiasing, String> {
 
             Ok(Antialiasing::Samples(samples))
         }
+    }
+}
+
+pub fn parse_shader_compiler(value: &str) -> Result<ShaderCompiler, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("shader compiler must not be empty".to_string());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "shaderc" => {
+            if cfg!(feature = "shaderc") {
+                Ok(ShaderCompiler::Shaderc)
+            } else {
+                Err("shaderc support is not enabled in this build".to_string())
+            }
+        }
+        "naga" | "naga-glsl" => Ok(ShaderCompiler::NagaGlsl),
+        _ => Err("unknown shader compiler (expected shaderc or naga)".to_string()),
     }
 }

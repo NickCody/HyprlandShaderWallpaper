@@ -10,6 +10,13 @@ description = "Wayland wallpaper daemon that renders ShaderToy-compatible GPU sh
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+default = ["shaderc"]
+shaderc = ["renderer/shaderc"]
+shaderc-build-from-source = ["renderer/shaderc-build-from-source"]
+shaderc-prefer-static-linking = ["renderer/shaderc-prefer-static-linking"]
+naga-glsl = ["renderer/naga-glsl"]
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true

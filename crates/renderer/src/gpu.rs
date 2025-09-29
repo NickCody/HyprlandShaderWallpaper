@@ -11,7 +11,7 @@ use wgpu::TextureFormatFeatureFlags;
 use winit::dpi::PhysicalSize;
 
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
-use crate::types::{Antialiasing, ChannelBindings, ChannelSource, CHANNEL_COUNT};
+use crate::types::{Antialiasing, ChannelBindings, ChannelSource, ShaderCompiler, CHANNEL_COUNT};
 
 pub(crate) struct GpuState {
     _instance: wgpu::Instance,
@@ -33,6 +33,7 @@ pub(crate) struct GpuState {
     pipeline_layout: wgpu::PipelineLayout,
     #[allow(dead_code)]
     vertex_module: wgpu::ShaderModule,
+    shader_compiler: ShaderCompiler,
     uniforms: ShadertoyUniforms,
     current: ShaderPipeline,
     previous: Option<ShaderPipeline>,
@@ -51,6 +52,7 @@ impl GpuState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         antialiasing: Antialiasing,
+        shader_compiler: ShaderCompiler,
     ) -> Result<Self>
     where
         T: HasDisplayHandle + HasWindowHandle,
@@ -228,7 +230,7 @@ impl GpuState {
             push_constant_ranges: &[],
         });
 
-        let vertex_module = compile_vertex_shader(&device)?;
+        let vertex_module = compile_vertex_shader(&device, shader_compiler)?;
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("uniform bind group"),
@@ -249,6 +251,7 @@ impl GpuState {
             sample_count,
             shader_source,
             channel_bindings,
+            shader_compiler,
         )?;
 
         let uniforms = ShadertoyUniforms::new(size.width, size.height);
@@ -281,6 +284,7 @@ impl GpuState {
             channel_layout,
             pipeline_layout,
             vertex_module,
+            shader_compiler,
             uniforms,
             current,
             previous: None,
@@ -352,6 +356,7 @@ impl GpuState {
             self.sample_count,
             shader_source,
             channel_bindings,
+            self.shader_compiler,
         )?;
 
         tracing::info!(
@@ -609,11 +614,12 @@ impl ShaderPipeline {
         sample_count: u32,
         shader_path: &Path,
         channel_bindings: &ChannelBindings,
+        shader_compiler: ShaderCompiler,
     ) -> Result<Self> {
         let shader_code = std::fs::read_to_string(shader_path)
             .with_context(|| format!("failed to read shader at {}", shader_path.display()))?;
-        let fragment_module =
-            compile_fragment_shader(device, &shader_code).context("failed to compile shader")?;
+        let fragment_module = compile_fragment_shader(device, &shader_code, shader_compiler)
+            .context("failed to compile shader")?;
 
         let channel_resources = create_channel_resources(device, queue, channel_bindings.slots())?;
         let mut channel_entries = Vec::with_capacity(CHANNEL_COUNT * 2);
