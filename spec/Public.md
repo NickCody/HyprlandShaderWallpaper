@@ -1,5 +1,5 @@
 - [x] Baseline repository setup for contributors
-- [ ] Publish `hyshadew` via Cargo install
+- [x] Publish `hyshadew` via Cargo install
 - [ ] Automate tagged releases with binaries
 - [ ] Package for popular Linux distributions
 - [ ] Provide an optional installer helper
@@ -9,7 +9,7 @@
 Pin the Rust toolchain (`rust-toolchain.toml`), list system dependencies (Wayland dev packages, GPU drivers) in `README.md`, and document the quick start commands (`git clone`, `cargo build --release`, `cargo run -p hyshadew -- --help`). Add a `justfile`/`Makefile` with `setup`, `check`, and demo targets so newcomers have reproducible entry points. Tag releases and maintain a `CHANGELOG.md` using Keep a Changelog plus semantic versioning for downstream consumers.
 
 ## Publish `hyshadew` via Cargo install
-Clean up the binary crate for crates.io, ensure it builds from a fresh checkout, and release tagged versions so users can `cargo install hyshadew`. Until crates.io publication, support `cargo install --git ... --tag vX.Y.Z hyshadew` and verify shader assets or configs are bundled appropriately for install-time use.
+Document the `cargo install --git https://github.com/<your-org>/HyprlandShaderWallpaper --locked hyshadew` path (with optional `--tag` once releases are tagged) and verify it builds from a clean checkout. When ready for crates.io, polish metadata and publish tagged versions so users can install without the `--git` flag.
 
 ## Automate tagged releases with binaries
 Set up GitHub Actions to run formatting, clippy, and tests, then use `cargo dist` (or similar) on version tags to produce tar/zip bundles that include the binary, default manifests, and sample shaders. Upload artifacts with checksums and document curl/tar install steps. Expand to Homebrew taps or `.deb`/`.rpm` outputs when `cargo-dist` support is ready.

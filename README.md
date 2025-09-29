@@ -27,6 +27,27 @@ so the first build runs quickly. The demo uses a ShaderToy URL; provide your own
 API key via `--shadertoy-api-key` or the `SHADERTOY_API_KEY` environment variable
 if the shader is not cached locally.
 
+## Install from Git
+
+Install the binary straight from this repository without cloning it:
+
+```bash
+cargo install --git https://github.com/<your-org>/HyprlandShaderWallpaper --locked hyshadew
+```
+
+Pin `--tag vX.Y.Z` once release tags exist; during development you can substitute
+`--branch main`. To reinstall after updates, add `--force`.
+
+If you already have the repository checked out, the same command works locally:
+
+```bash
+cargo install --path crates/hyshadew --locked --force hyshadew
+```
+
+The installed `hyshadew` binary accepts the same CLI flags documented below, so you
+can run `hyshadew --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from
+any directory.
+
 ## Workspace Layout
 
 - `crates/hyshadew`: Daemon entry point and CLI that orchestrates rendering.
