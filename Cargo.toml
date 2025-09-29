@@ -8,6 +8,12 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/NickCody/HyprlandShaderWallpaper"
+homepage = "https://github.com/NickCody/HyprlandShaderWallpaper"
+readme = "README.md"
+keywords = ["hyprland", "wallpaper", "shadertoy", "wayland"]
+categories = ["graphics", "command-line-utilities"]
 
 [workspace.dependencies]
 anyhow = "1"

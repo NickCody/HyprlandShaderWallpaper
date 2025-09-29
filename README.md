@@ -16,7 +16,7 @@ Install `just` via your package manager or with `cargo install just`.
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-org>/HyprlandShaderWallpaper.git
+git clone https://github.com/NickCody/HyprlandShaderWallpaper.git
 cd HyprlandShaderWallpaper
 just setup
 just run-demo
@@ -32,11 +32,15 @@ if the shader is not cached locally.
 Install the binary straight from this repository without cloning it:
 
 ```bash
-cargo install --git https://github.com/<your-org>/HyprlandShaderWallpaper --locked hyshadew
+cargo install \
+  --git https://github.com/NickCody/HyprlandShaderWallpaper \
+  --tag v0.9.1 \
+  --locked \
+  hyshadew
 ```
 
-Pin `--tag vX.Y.Z` once release tags exist; during development you can substitute
-`--branch main`. To reinstall after updates, add `--force`.
+During active development you can substitute `--branch main` to follow the latest
+changes. Add `--force` to reinstall after pulling a new tag.
 
 If you already have the repository checked out, the same command works locally:
 
