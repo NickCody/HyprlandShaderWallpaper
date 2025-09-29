@@ -350,7 +350,7 @@ impl WallpaperManager {
             .as_ref()
             .and_then(|out| self.output_state.info(out))
             .and_then(output_info_physical_size);
-        let output_key = output.as_ref().map(|o| proxy_key(o));
+        let output_key = output.as_ref().map(proxy_key);
         let key = surface_key(layer_surface.wl_surface());
         let surface_state = SurfaceState::new(
             layer_surface,
@@ -657,6 +657,7 @@ struct SurfaceState {
 }
 
 impl SurfaceState {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         layer_surface: LayerSurface,
         shader_source: PathBuf,

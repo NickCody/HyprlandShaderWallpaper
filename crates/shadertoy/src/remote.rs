@@ -496,7 +496,7 @@ fn make_unique_name(base: String, used: &mut HashSet<String>) -> String {
 }
 
 fn derive_filename(src: &str, fallback_base: &str, default_ext: &str) -> String {
-    let trimmed = src.split(|c| c == '?' || c == '#').next().unwrap_or(src);
+    let trimmed = src.split(&['?', '#'][..]).next().unwrap_or(src);
     let path_owned = if let Ok(url) = Url::parse(trimmed) {
         url.path().to_string()
     } else {

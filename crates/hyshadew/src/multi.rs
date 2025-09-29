@@ -617,10 +617,7 @@ impl<'a> PlaylistEngine<'a> {
             let needs_refresh = self.should_refresh(&handle, &change.item);
 
             let (result, playlist_name, max_attempts) = {
-                let target = match self.targets.get_mut(&target_id) {
-                    Some(target) => target,
-                    None => return None,
-                };
+                let target = self.targets.get_mut(&target_id)?;
                 let playlist_name = target.playlist.clone();
                 let max_attempts = target.playlist_len.max(1);
                 let decision = match self.cache.resolve(&handle, needs_refresh) {
@@ -1237,7 +1234,7 @@ handle = "focus-pack"
 
         let now = Instant::now();
         let initial = engine
-            .sync_targets(&[surface.clone()], Some(&snapshot), now)
+            .sync_targets(std::slice::from_ref(&surface), Some(&snapshot), now)
             .expect("initial sync");
         assert_eq!(initial.len(), 1);
         assert_eq!(initial[0].handle, "focus-pack");

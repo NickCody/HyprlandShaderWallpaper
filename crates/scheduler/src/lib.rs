@@ -261,7 +261,7 @@ handle = "two"
         let mut now = Instant::now();
         let first = scheduler.set_target(target.clone(), "test", now).unwrap();
         assert_eq!(first.item.handle, "one");
-        now = now + Duration::from_secs(1);
+        now += Duration::from_secs(1);
         let changes = scheduler.tick(now);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].item.handle, "two");

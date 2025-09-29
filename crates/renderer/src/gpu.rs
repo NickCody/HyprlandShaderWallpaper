@@ -598,6 +598,7 @@ struct ShaderPipeline {
 }
 
 impl ShaderPipeline {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

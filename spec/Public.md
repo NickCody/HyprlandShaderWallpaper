@@ -1,4 +1,4 @@
-- [ ] Baseline repository setup for contributors
+- [x] Baseline repository setup for contributors
 - [ ] Publish `hyshadew` via Cargo install
 - [ ] Automate tagged releases with binaries
 - [ ] Package for popular Linux distributions

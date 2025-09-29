@@ -37,12 +37,7 @@ pub fn normalize_shadertoy_reference(input: &str) -> Result<String> {
             .split('/')
             .rev()
             .find(|segment| !segment.is_empty())
-            .map(|segment| {
-                segment
-                    .split(|c| c == '?' || c == '#')
-                    .next()
-                    .unwrap_or(segment)
-            })
+            .map(|segment| segment.split(&['?', '#'][..]).next().unwrap_or(segment))
             .filter(|id| !id.is_empty());
 
         if let Some(id) = id_candidate {
