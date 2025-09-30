@@ -20,7 +20,8 @@ handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/template"
 mode = "continuous"
 
 [[playlists.clouds.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/cache/shadertoy/WXXcRn/
+handle = "/home/nic/repos/HyprlandShaderWallpaper/cache/shadertoy/WXXcRn/"
+fps = 20
 
 # Simplex
 #
