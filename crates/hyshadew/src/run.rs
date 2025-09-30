@@ -6,7 +6,9 @@ use shadertoy::{
 };
 use tracing_subscriber::EnvFilter;
 
-use crate::bindings::{channel_bindings_from_pack, map_manifest_alpha};
+use crate::bindings::{
+    channel_bindings_from_pack, map_manifest_alpha, map_manifest_color, resolve_color_space,
+};
 use crate::bootstrap::{parse_surface_size, resolve_shader_handle, SingleRunConfig};
 use crate::cli::Args;
 use crate::multi;
@@ -76,11 +78,15 @@ fn prepare_single_run(
         ShaderSource::Local(pack) => channel_bindings_from_pack(pack),
         ShaderSource::CachedRemote(remote) => channel_bindings_from_pack(&remote.pack),
     };
-    let surface_alpha = match &source {
-        ShaderSource::Local(pack) => map_manifest_alpha(pack.manifest().surface_alpha),
-        ShaderSource::CachedRemote(remote) => {
-            map_manifest_alpha(remote.pack.manifest().surface_alpha)
-        }
+    let (surface_alpha, manifest_color) = match &source {
+        ShaderSource::Local(pack) => (
+            map_manifest_alpha(pack.manifest().surface_alpha),
+            map_manifest_color(pack.manifest().color_space),
+        ),
+        ShaderSource::CachedRemote(remote) => (
+            map_manifest_alpha(remote.pack.manifest().surface_alpha),
+            map_manifest_color(remote.pack.manifest().color_space),
+        ),
     };
     let shader_path = load_entry_shader(&source)?;
 
@@ -109,6 +115,8 @@ fn prepare_single_run(
 
     let fallback_surface = requested_size.unwrap_or((1920, 1080));
 
+    let color_space = resolve_color_space(args.color_space, manifest_color);
+
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
         shader_source: shader_path,
@@ -127,6 +135,7 @@ fn prepare_single_run(
         antialiasing: args.antialias,
         surface_alpha,
         shader_compiler: args.shader_compiler,
+        color_space,
     };
 
     Ok(SingleRunConfig { renderer_config })

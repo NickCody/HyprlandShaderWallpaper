@@ -25,8 +25,8 @@ mod wallpaper;
 mod window;
 
 pub use types::{
-    Antialiasing, ChannelBindings, ChannelSource, RenderMode, RendererConfig, ShaderCompiler,
-    SurfaceAlpha,
+    Antialiasing, ChannelBindings, ChannelSource, ColorSpaceMode, RenderMode, RendererConfig,
+    ShaderCompiler, SurfaceAlpha,
 };
 pub use wallpaper::{
     OutputId, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime,

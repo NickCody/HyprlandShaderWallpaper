@@ -11,7 +11,15 @@ use wgpu::TextureFormatFeatureFlags;
 use winit::dpi::PhysicalSize;
 
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
-use crate::types::{Antialiasing, ChannelBindings, ChannelSource, ShaderCompiler, CHANNEL_COUNT};
+use crate::types::{
+    Antialiasing, ChannelBindings, ChannelSource, ColorSpaceMode, ShaderCompiler, CHANNEL_COUNT,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResolvedColorSpace {
+    Gamma,
+    Linear,
+}
 
 pub(crate) struct GpuState {
     _instance: wgpu::Instance,
@@ -33,6 +41,7 @@ pub(crate) struct GpuState {
     pipeline_layout: wgpu::PipelineLayout,
     #[allow(dead_code)]
     vertex_module: wgpu::ShaderModule,
+    color_space: ResolvedColorSpace,
     shader_compiler: ShaderCompiler,
     uniforms: ShadertoyUniforms,
     current: ShaderPipeline,
@@ -52,6 +61,7 @@ impl GpuState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         antialiasing: Antialiasing,
+        color_space: ColorSpaceMode,
         shader_compiler: ShaderCompiler,
     ) -> Result<Self>
     where
@@ -96,12 +106,45 @@ impl GpuState {
         }
 
         let surface_caps = surface.get_capabilities(&adapter);
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .copied()
-            .find(|format| format.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
+        let resolved_color = match color_space {
+            ColorSpaceMode::Auto | ColorSpaceMode::Gamma => ResolvedColorSpace::Gamma,
+            ColorSpaceMode::Linear => ResolvedColorSpace::Linear,
+        };
+
+        let surface_format = match resolved_color {
+            ResolvedColorSpace::Linear => surface_caps
+                .formats
+                .iter()
+                .copied()
+                .find(|format| format.is_srgb())
+                .unwrap_or_else(|| {
+                    let fallback = surface_caps.formats[0];
+                    if !fallback.is_srgb() {
+                        tracing::warn!(
+                            ?fallback,
+                            "no sRGB surface format available; falling back to {:?}",
+                            fallback
+                        );
+                    }
+                    fallback
+                }),
+            ResolvedColorSpace::Gamma => surface_caps
+                .formats
+                .iter()
+                .copied()
+                .find(|format| !format.is_srgb())
+                .unwrap_or_else(|| {
+                    let fallback = surface_caps.formats[0];
+                    if fallback.is_srgb() {
+                        tracing::warn!(
+                            ?fallback,
+                            "no linear (non-sRGB) surface format available; falling back to {:?}",
+                            fallback
+                        );
+                    }
+                    fallback
+                }),
+        };
 
         let format_features = adapter.get_texture_format_features(surface_format);
         let mut supported_samples = format_features.flags.supported_sample_counts();
@@ -251,6 +294,7 @@ impl GpuState {
             sample_count,
             shader_source,
             channel_bindings,
+            resolved_color,
             shader_compiler,
         )?;
 
@@ -284,6 +328,7 @@ impl GpuState {
             channel_layout,
             pipeline_layout,
             vertex_module,
+            color_space: resolved_color,
             shader_compiler,
             uniforms,
             current,
@@ -356,6 +401,7 @@ impl GpuState {
             self.sample_count,
             shader_source,
             channel_bindings,
+            self.color_space,
             self.shader_compiler,
         )?;
 
@@ -614,6 +660,7 @@ impl ShaderPipeline {
         sample_count: u32,
         shader_path: &Path,
         channel_bindings: &ChannelBindings,
+        color_space: ResolvedColorSpace,
         shader_compiler: ShaderCompiler,
     ) -> Result<Self> {
         let shader_code = std::fs::read_to_string(shader_path)
@@ -621,7 +668,8 @@ impl ShaderPipeline {
         let fragment_module = compile_fragment_shader(device, &shader_code, shader_compiler)
             .context("failed to compile shader")?;
 
-        let channel_resources = create_channel_resources(device, queue, channel_bindings.slots())?;
+        let channel_resources =
+            create_channel_resources(device, queue, channel_bindings.slots(), color_space)?;
         let mut channel_entries = Vec::with_capacity(CHANNEL_COUNT * 2);
         for (index, resource) in channel_resources.iter().enumerate() {
             channel_entries.push(wgpu::BindGroupEntry {
@@ -862,12 +910,13 @@ fn create_channel_resources(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     bindings: &[Option<ChannelSource>; CHANNEL_COUNT],
+    color_space: ResolvedColorSpace,
 ) -> Result<Vec<ChannelResources>> {
     let mut resources = Vec::with_capacity(CHANNEL_COUNT);
     for (index, binding) in bindings.iter().enumerate() {
         let resource = match binding {
             Some(ChannelSource::Texture { path }) => {
-                match load_texture_channel(device, queue, index, path) {
+                match load_texture_channel(device, queue, index, path, color_space) {
                     Ok(resource) => resource,
                     Err(err) => {
                         tracing::warn!(
@@ -876,11 +925,11 @@ fn create_channel_resources(
                             error = %err,
                             "failed to load texture channel; using placeholder"
                         );
-                        create_placeholder_channel(device, queue, index as u32)?
+                        create_placeholder_channel(device, queue, index as u32, color_space)?
                     }
                 }
             }
-            None => create_placeholder_channel(device, queue, index as u32)?,
+            None => create_placeholder_channel(device, queue, index as u32, color_space)?,
         };
         resources.push(resource);
     }
@@ -892,8 +941,13 @@ fn create_placeholder_channel(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     index: u32,
+    color_space: ResolvedColorSpace,
 ) -> Result<ChannelResources> {
     let data = [255u8, 255, 255, 255];
+    let texture_format = match color_space {
+        ResolvedColorSpace::Gamma => wgpu::TextureFormat::Rgba8Unorm,
+        ResolvedColorSpace::Linear => wgpu::TextureFormat::Rgba8UnormSrgb,
+    };
     let texture = device.create_texture_with_data(
         queue,
         &wgpu::TextureDescriptor {
@@ -906,7 +960,7 @@ fn create_placeholder_channel(
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: texture_format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         },
@@ -938,6 +992,7 @@ fn load_texture_channel(
     queue: &wgpu::Queue,
     index: usize,
     path: &Path,
+    color_space: ResolvedColorSpace,
 ) -> Result<ChannelResources> {
     let image = image::open(path).with_context(|| {
         format!(
@@ -961,6 +1016,11 @@ fn load_texture_channel(
 
     flip_vertical_in_place(&mut rgba);
 
+    let texture_format = match color_space {
+        ResolvedColorSpace::Gamma => wgpu::TextureFormat::Rgba8Unorm,
+        ResolvedColorSpace::Linear => wgpu::TextureFormat::Rgba8UnormSrgb,
+    };
+
     let texture = device.create_texture_with_data(
         queue,
         &wgpu::TextureDescriptor {
@@ -973,7 +1033,7 @@ fn load_texture_channel(
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: texture_format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         },

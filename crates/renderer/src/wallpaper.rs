@@ -29,7 +29,9 @@ use wgpu::SurfaceError;
 use winit::dpi::PhysicalSize;
 
 use crate::gpu::GpuState;
-use crate::types::{Antialiasing, ChannelBindings, RendererConfig, ShaderCompiler, SurfaceAlpha};
+use crate::types::{
+    Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler, SurfaceAlpha,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SurfaceId(u64);
@@ -101,6 +103,7 @@ pub struct SwapRequest {
     pub target_fps: Option<f32>,
     pub antialiasing: Antialiasing,
     pub surface_alpha: SurfaceAlpha,
+    pub color_space: ColorSpaceMode,
     pub warmup: Duration,
 }
 
@@ -260,6 +263,7 @@ struct WallpaperManager {
     antialiasing: Antialiasing,
     surface_alpha: SurfaceAlpha,
     target_fps: Option<f32>,
+    color_space: ColorSpaceMode,
     shader_compiler: ShaderCompiler,
     should_exit: bool,
 }
@@ -285,6 +289,7 @@ impl WallpaperManager {
             antialiasing: config.antialiasing,
             surface_alpha: config.surface_alpha,
             target_fps: config.target_fps,
+            color_space: config.color_space,
             shader_compiler: config.shader_compiler,
             should_exit: false,
         }
@@ -363,6 +368,7 @@ impl WallpaperManager {
             initial_size,
             self.antialiasing,
             self.surface_alpha,
+            self.color_space,
             self.shader_compiler,
         );
         self.surfaces.insert(key, surface_state);
@@ -411,12 +417,18 @@ impl WallpaperManager {
                     target_fps,
                     antialiasing,
                     surface_alpha,
+                    color_space,
                     warmup,
                 } = request;
                 let now = Instant::now();
                 for surface_id in self.target_surface_ids(&selector) {
                     if let Some(mut surface) = self.surfaces.remove(&surface_id) {
-                        surface.apply_render_preferences(target_fps, antialiasing, surface_alpha);
+                        surface.apply_render_preferences(
+                            target_fps,
+                            antialiasing,
+                            surface_alpha,
+                            color_space,
+                        );
                         let size = surface.last_output_size.unwrap_or(self.fallback_size);
                         if let Err(err) = surface.ensure_gpu(conn, &self.compositor, size) {
                             tracing::error!(
@@ -442,6 +454,7 @@ impl WallpaperManager {
                         self.surfaces.insert(surface_id, surface);
                     }
                 }
+                self.color_space = color_space;
             }
             WallpaperCommand::QuerySurfaces { responder } => {
                 let _ = responder.send(self.collect_surface_info());
@@ -657,6 +670,7 @@ struct SurfaceState {
     output_key: Option<OutputId>,
     antialiasing: Antialiasing,
     surface_alpha: SurfaceAlpha,
+    color_space: ColorSpaceMode,
     shader_compiler: ShaderCompiler,
 }
 
@@ -671,6 +685,7 @@ impl SurfaceState {
         last_output_size: Option<PhysicalSize<u32>>,
         antialiasing: Antialiasing,
         surface_alpha: SurfaceAlpha,
+        color_space: ColorSpaceMode,
         shader_compiler: ShaderCompiler,
     ) -> Self {
         Self {
@@ -684,6 +699,7 @@ impl SurfaceState {
             output_key,
             antialiasing,
             surface_alpha,
+            color_space,
             shader_compiler,
         }
     }
@@ -707,6 +723,7 @@ impl SurfaceState {
             self.shader_source.as_path(),
             &self.channel_bindings,
             self.antialiasing,
+            self.color_space,
             self.shader_compiler,
         )?;
         self.apply_surface_alpha(compositor, size);
@@ -738,6 +755,7 @@ impl SurfaceState {
         target_fps: Option<f32>,
         antialiasing: Antialiasing,
         surface_alpha: SurfaceAlpha,
+        color_space: ColorSpaceMode,
     ) {
         self.pacer.set_target_fps(target_fps);
         if self.antialiasing != antialiasing {
@@ -746,6 +764,10 @@ impl SurfaceState {
         }
         if self.surface_alpha != surface_alpha {
             self.surface_alpha = surface_alpha;
+        }
+        if self.color_space != color_space {
+            self.color_space = color_space;
+            self.gpu = None;
         }
     }
 

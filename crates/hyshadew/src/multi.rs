@@ -10,15 +10,18 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use multiconfig::{AntialiasSetting, MultiConfig};
 use renderer::{
-    Antialiasing, ChannelBindings, OutputId, RenderMode, RendererConfig, SurfaceAlpha, SurfaceId,
-    SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime, WindowRuntime,
+    Antialiasing, ChannelBindings, ColorSpaceMode, OutputId, RenderMode, RendererConfig,
+    SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime,
+    WindowRuntime,
 };
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
 use shadertoy::{load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient};
 use tracing::{debug, error, info, trace, warn};
 
-use crate::bindings::{channel_bindings_from_pack, map_manifest_alpha};
+use crate::bindings::{
+    channel_bindings_from_pack, map_manifest_alpha, map_manifest_color, resolve_color_space,
+};
 use crate::bootstrap::parse_surface_size;
 use crate::cli::Args;
 
@@ -68,6 +71,8 @@ fn run_wallpaper_multi(
     let mut cache = ShaderCache::new(repo, client, args.cache_only);
     let bootstrap = select_bootstrap_shader(&config, &mut cache)?;
 
+    let bootstrap_color = resolve_color_space(args.color_space, bootstrap.color_space);
+
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
         shader_source: bootstrap.shader_path.clone(),
@@ -77,6 +82,7 @@ fn run_wallpaper_multi(
         channel_bindings: bootstrap.channel_bindings.clone(),
         antialiasing: args.antialias,
         surface_alpha: bootstrap.surface_alpha,
+        color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
     };
 
@@ -88,6 +94,7 @@ fn run_wallpaper_multi(
         refresh_all: args.refresh,
         global_fps: normalize_fps(args.fps),
         global_antialias: args.antialias,
+        global_color_space: args.color_space,
         prewarm: Duration::from_millis(args.prewarm_ms.unwrap_or(DEFAULT_PREWARM_MS)),
     };
     let mut engine = PlaylistEngine::new(config, cache, seed, options);
@@ -115,6 +122,8 @@ fn run_window_multi(
     let mut cache = ShaderCache::new(repo, client, args.cache_only);
     let bootstrap = select_bootstrap_shader(&config, &mut cache)?;
 
+    let bootstrap_color = resolve_color_space(args.color_space, bootstrap.color_space);
+
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
         shader_source: bootstrap.shader_path.clone(),
@@ -124,6 +133,7 @@ fn run_window_multi(
         channel_bindings: bootstrap.channel_bindings.clone(),
         antialiasing: args.antialias,
         surface_alpha: bootstrap.surface_alpha,
+        color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
     };
 
@@ -135,6 +145,7 @@ fn run_window_multi(
         refresh_all: args.refresh,
         global_fps: None,
         global_antialias: args.antialias,
+        global_color_space: args.color_space,
         prewarm: Duration::from_millis(args.prewarm_ms.unwrap_or(DEFAULT_PREWARM_MS)),
     };
     let mut engine = PlaylistEngine::new(config, cache, seed, options);
@@ -262,6 +273,7 @@ struct EngineOptions {
     refresh_all: bool,
     global_fps: Option<f32>,
     global_antialias: Antialiasing,
+    global_color_space: ColorSpaceMode,
     prewarm: Duration,
 }
 
@@ -269,6 +281,7 @@ struct ShaderAssets {
     shader_path: PathBuf,
     channel_bindings: ChannelBindings,
     surface_alpha: SurfaceAlpha,
+    color_space: ColorSpaceMode,
 }
 
 #[derive(Clone)]
@@ -276,6 +289,7 @@ struct CachedShader {
     shader_path: PathBuf,
     channel_bindings: ChannelBindings,
     surface_alpha: SurfaceAlpha,
+    color_space: ColorSpaceMode,
 }
 
 struct ShaderCache<'a> {
@@ -307,6 +321,7 @@ impl<'a> ShaderCache<'a> {
                     shader_path: cached.shader_path.clone(),
                     channel_bindings: cached.channel_bindings.clone(),
                     surface_alpha: cached.surface_alpha,
+                    color_space: cached.color_space,
                 });
             }
         }
@@ -317,14 +332,16 @@ impl<'a> ShaderCache<'a> {
             .repo
             .resolve(&shader_handle, self.client, refresh && !self.cache_only)
             .with_context(|| format!("failed to resolve shader '{handle}'"))?;
-        let (channel_bindings, surface_alpha) = match &source {
+        let (channel_bindings, surface_alpha, color_space) = match &source {
             ShaderSource::Local(pack) => (
                 channel_bindings_from_pack(pack),
                 map_manifest_alpha(pack.manifest().surface_alpha),
+                map_manifest_color(pack.manifest().color_space),
             ),
             ShaderSource::CachedRemote(remote) => (
                 channel_bindings_from_pack(&remote.pack),
                 map_manifest_alpha(remote.pack.manifest().surface_alpha),
+                map_manifest_color(remote.pack.manifest().color_space),
             ),
         };
         let shader_path = load_entry_shader(&source)?;
@@ -334,6 +351,7 @@ impl<'a> ShaderCache<'a> {
                 shader_path: shader_path.clone(),
                 channel_bindings: channel_bindings.clone(),
                 surface_alpha,
+                color_space,
             },
         );
         debug!(handle = %handle, "cached shader assets");
@@ -341,6 +359,7 @@ impl<'a> ShaderCache<'a> {
             shader_path,
             channel_bindings,
             surface_alpha,
+            color_space,
         })
     }
 }
@@ -624,15 +643,14 @@ impl<'a> PlaylistEngine<'a> {
                 let max_attempts = target.playlist_len.max(1);
                 let decision = match self.cache.resolve(&handle, needs_refresh) {
                     Ok(assets) => {
-                        let crossfade = if let Some(override_duration) =
-                            target.crossfade_override.take()
-                        {
-                            override_duration
-                        } else if target.playlist_len <= 1 {
-                            Duration::ZERO
-                        } else {
-                            change.item.crossfade
-                        };
+                        let crossfade =
+                            if let Some(override_duration) = target.crossfade_override.take() {
+                                override_duration
+                            } else if target.playlist_len <= 1 {
+                                Duration::ZERO
+                            } else {
+                                change.item.crossfade
+                            };
                         let display = describe_target(&target_id, target);
                         let selector = SurfaceSelector::Surface(target.surface_id);
                         Ok((assets, crossfade, display, selector))
@@ -670,6 +688,7 @@ impl<'a> PlaylistEngine<'a> {
                         &assets,
                         self.options.global_fps,
                         self.options.global_antialias,
+                        self.options.global_color_space,
                         crossfade,
                         self.options.prewarm,
                     );
@@ -718,6 +737,7 @@ fn build_swap_request(
     assets: &ShaderAssets,
     global_fps: Option<f32>,
     global_antialias: Antialiasing,
+    global_color: ColorSpaceMode,
     crossfade: Duration,
     warmup: Duration,
 ) -> SwapRequest {
@@ -726,6 +746,7 @@ fn build_swap_request(
         .antialias
         .map(map_antialias)
         .unwrap_or(global_antialias);
+    let color_space = resolve_color_space(global_color, assets.color_space);
     SwapRequest {
         shader_source: assets.shader_path.clone(),
         channel_bindings: assets.channel_bindings.clone(),
@@ -733,6 +754,7 @@ fn build_swap_request(
         target_fps: fps,
         antialiasing,
         surface_alpha: assets.surface_alpha,
+        color_space,
         warmup,
     }
 }
@@ -1141,6 +1163,7 @@ handle = "alt"
             refresh_all: false,
             global_fps: None,
             global_antialias: Antialiasing::Auto,
+            global_color_space: ColorSpaceMode::Auto,
             prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
         };
         let mut engine = PlaylistEngine::new(config, cache, 99, options);
@@ -1214,6 +1237,7 @@ handle = "focus-pack"
             refresh_all: false,
             global_fps: None,
             global_antialias: Antialiasing::Auto,
+            global_color_space: ColorSpaceMode::Auto,
             prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
         };
         let mut engine = PlaylistEngine::new(config, cache, 7, options);
@@ -1296,6 +1320,7 @@ handle = "valid-pack"
             refresh_all: false,
             global_fps: None,
             global_antialias: Antialiasing::Auto,
+            global_color_space: ColorSpaceMode::Auto,
             prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
         };
         let mut engine = PlaylistEngine::new(config, cache, 55, options);
@@ -1345,6 +1370,7 @@ handle = "demo"
             shadertoy_api_key: None,
             antialias: Antialiasing::Auto,
             shader_compiler: Default::default(),
+            color_space: ColorSpaceMode::Auto,
             prewarm_ms: None,
         };
 

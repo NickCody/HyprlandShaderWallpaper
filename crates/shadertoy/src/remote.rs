@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 
 use crate::manifest::{
-    InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+    ColorSpace, InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
 };
 use crate::pack::LocalPack;
 
@@ -426,6 +426,7 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
         name: (!payload.info.name.trim().is_empty()).then(|| payload.info.name.clone()),
         entry,
         surface_alpha: SurfaceAlpha::Opaque,
+        color_space: ColorSpace::Auto,
         description: payload.info.description.clone(),
         tags: payload.info.tags.clone(),
         passes: manifest_passes,

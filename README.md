@@ -27,6 +27,23 @@ so the first build runs quickly. The demo uses a ShaderToy URL; provide your own
 API key via `--shadertoy-api-key` or the `SHADERTOY_API_KEY` environment variable
 if the shader is not cached locally.
 
+## Color Space & Gamma Handling
+
+By default Hyshadew assumes ShaderToy-style gamma output: it creates a non-sRGB
+swapchain and binds textures without automatic colour conversion, matching the
+WebGL defaults used on shadertoy.com. You can override this at several levels:
+
+- **CLI:** `--color-space {auto|gamma|linear}`. `auto` behaves like ShaderToy
+  (`gamma`), while `linear` requests sRGB swapchains/textures so physically based
+  shaders can output linear light.
+- **Manifest:** Local packs may set `color_space = "gamma"` (or `"linear"`) in
+  `shader.toml`. CLI overrides manifest; manifest overrides the default.
+- **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
+  dominates, otherwise each pack’s manifest decides the swapchain format.
+
+When switching between modes Hyshadew rebuilds GPU resources so playlists can mix
+gamma-authored and linear-authored content without restarting the daemon.
+
 ## Install from Git
 
 Install the binary straight from this repository without cloning it:

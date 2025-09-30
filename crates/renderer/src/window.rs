@@ -16,7 +16,7 @@ use winit::window::{Window, WindowBuilder};
 use tracing::error;
 
 use crate::gpu::GpuState;
-use crate::types::{Antialiasing, ChannelBindings, RendererConfig, ShaderCompiler};
+use crate::types::{Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler};
 
 /// Aggregates GPU state for the windowed preview path.
 pub(crate) struct WindowState {
@@ -25,6 +25,7 @@ pub(crate) struct WindowState {
     mouse: MouseState,
     antialiasing: Antialiasing,
     shader_compiler: ShaderCompiler,
+    color_space: ColorSpaceMode,
 }
 
 impl WindowState {
@@ -36,6 +37,7 @@ impl WindowState {
             &config.shader_source,
             &config.channel_bindings,
             config.antialiasing,
+            config.color_space,
             config.shader_compiler,
         )?;
 
@@ -45,6 +47,7 @@ impl WindowState {
             mouse: MouseState::default(),
             antialiasing: config.antialiasing,
             shader_compiler: config.shader_compiler,
+            color_space: config.color_space,
         })
     }
 
@@ -82,6 +85,7 @@ impl WindowState {
                 shader_source,
                 channel_bindings,
                 antialiasing,
+                self.color_space,
                 self.shader_compiler,
             )?;
         } else {

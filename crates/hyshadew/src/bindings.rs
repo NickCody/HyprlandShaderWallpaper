@@ -1,5 +1,7 @@
-use renderer::{ChannelBindings, SurfaceAlpha as RendererSurfaceAlpha};
-use shadertoy::{InputSource, LocalPack, SurfaceAlpha as ManifestSurfaceAlpha};
+use renderer::{ChannelBindings, ColorSpaceMode, SurfaceAlpha as RendererSurfaceAlpha};
+use shadertoy::{
+    ColorSpace as ManifestColorSpace, InputSource, LocalPack, SurfaceAlpha as ManifestSurfaceAlpha,
+};
 
 pub fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindings {
     let mut bindings = ChannelBindings::default();
@@ -68,5 +70,32 @@ pub fn map_manifest_alpha(alpha: ManifestSurfaceAlpha) -> RendererSurfaceAlpha {
     match alpha {
         ManifestSurfaceAlpha::Opaque => RendererSurfaceAlpha::Opaque,
         ManifestSurfaceAlpha::Transparent => RendererSurfaceAlpha::Transparent,
+    }
+}
+
+pub fn map_manifest_color(color: ManifestColorSpace) -> ColorSpaceMode {
+    match color {
+        ManifestColorSpace::Auto => ColorSpaceMode::Auto,
+        ManifestColorSpace::Gamma => ColorSpaceMode::Gamma,
+        ManifestColorSpace::Linear => ColorSpaceMode::Linear,
+    }
+}
+
+pub fn resolve_color_space(cli: ColorSpaceMode, manifest: ColorSpaceMode) -> ColorSpaceMode {
+    match cli {
+        ColorSpaceMode::Auto => match manifest {
+            ColorSpaceMode::Auto => {
+                tracing::debug!("color space auto -> gamma (Shadertoy default)");
+                ColorSpaceMode::Gamma
+            }
+            other => {
+                tracing::debug!(color_space = ?other, "using manifest color space preference");
+                other
+            }
+        },
+        other => {
+            tracing::debug!(color_space = ?other, "using CLI color space override");
+            other
+        }
     }
 }

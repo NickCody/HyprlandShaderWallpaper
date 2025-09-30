@@ -166,7 +166,7 @@ pub fn load_entry_shader(source: &ShaderSource) -> Result<PathBuf> {
 mod tests {
     use super::*;
     use crate::manifest::{
-        InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+        ColorSpace, InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
     };
     use crate::{
         materialize_shader, RenderInput, RenderOutput, RenderPass, ShaderHandle, ShaderInfo,
@@ -178,6 +178,7 @@ mod tests {
             name: Some("Demo".into()),
             entry: "image".into(),
             surface_alpha: SurfaceAlpha::Opaque,
+            color_space: ColorSpace::Auto,
             description: None,
             tags: vec![],
             passes: vec![ShaderPass {

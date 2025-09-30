@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use renderer::{Antialiasing, ShaderCompiler};
+use renderer::{Antialiasing, ColorSpaceMode, ShaderCompiler};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -65,6 +65,15 @@ pub struct Args {
     )]
     pub shader_compiler: ShaderCompiler,
 
+    /// Output color space handling: `auto`, `gamma`, or `linear`.
+    #[arg(
+        long,
+        value_name = "MODE",
+        value_parser = parse_color_space,
+        default_value = "auto"
+    )]
+    pub color_space: ColorSpaceMode,
+
     /// Warm-up interval (ms) to pre-render the next shader before crossfade.
     #[arg(long, value_name = "MILLISECONDS")]
     pub prewarm_ms: Option<u64>,
@@ -121,5 +130,22 @@ pub fn parse_shader_compiler(value: &str) -> Result<ShaderCompiler, String> {
         }
         "naga" | "naga-glsl" => Ok(ShaderCompiler::NagaGlsl),
         _ => Err("unknown shader compiler (expected shaderc or naga)".to_string()),
+    }
+}
+
+pub fn parse_color_space(value: &str) -> Result<ColorSpaceMode, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("color space must not be empty".to_string());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "auto" => Ok(ColorSpaceMode::Auto),
+        "gamma" | "srgb-off" | "shadertoy" => Ok(ColorSpaceMode::Gamma),
+        "linear" | "srgb" => Ok(ColorSpaceMode::Linear),
+        other => Err(format!(
+            "unknown color space '{other}'; expected auto, gamma, or linear"
+        )),
     }
 }

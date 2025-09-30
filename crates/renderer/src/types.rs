@@ -78,6 +78,18 @@ impl std::fmt::Display for ShaderCompiler {
     }
 }
 
+/// Output color handling for the renderer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ColorSpaceMode {
+    /// Choose a sensible default based on ShaderToy expectations (gamma-encoded swapchain).
+    #[default]
+    Auto,
+    /// Treat shader outputs/textures as gamma-encoded; use non-sRGB surfaces.
+    Gamma,
+    /// Treat shader outputs as linear and use sRGB swapchains/textures for conversion.
+    Linear,
+}
+
 /// How the renderer should present frames.
 ///
 /// * `Wallpaper` will eventually stream frames directly into a Wayland layer
@@ -148,6 +160,8 @@ pub struct RendererConfig {
     pub surface_alpha: SurfaceAlpha,
     /// Shader compiler that should be used for wrapped GLSL.
     pub shader_compiler: ShaderCompiler,
+    /// Desired color handling for swapchain/textures.
+    pub color_space: ColorSpaceMode,
 }
 
 impl Default for RendererConfig {
@@ -163,6 +177,7 @@ impl Default for RendererConfig {
             antialiasing: Antialiasing::default(),
             surface_alpha: SurfaceAlpha::Opaque,
             shader_compiler: ShaderCompiler::default(),
+            color_space: ColorSpaceMode::default(),
         }
     }
 }

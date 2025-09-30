@@ -10,6 +10,8 @@ pub struct ShaderPackManifest {
     #[serde(default)]
     pub surface_alpha: SurfaceAlpha,
     #[serde(default)]
+    pub color_space: ColorSpace,
+    #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -60,6 +62,20 @@ pub enum SurfaceAlpha {
 impl Default for SurfaceAlpha {
     fn default() -> Self {
         Self::Opaque
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorSpace {
+    Auto,
+    Gamma,
+    Linear,
+}
+
+impl Default for ColorSpace {
+    fn default() -> Self {
+        Self::Auto
     }
 }
 

@@ -4,7 +4,7 @@ mod remote;
 mod repository;
 
 pub use manifest::{
-    InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+    ColorSpace, InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
 };
 pub use pack::{ensure_glsl_sources, resolve_entry_source, LocalPack, PackError};
 pub use remote::{

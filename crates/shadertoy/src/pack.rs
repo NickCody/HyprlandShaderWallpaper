@@ -108,7 +108,7 @@ pub fn ensure_glsl_sources(pack: &LocalPack) -> Result<Vec<PathBuf>, PackError> 
 mod tests {
     use super::*;
     use crate::manifest::{
-        InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
+        ColorSpace, InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
     };
 
     fn write_pack(dir: &Path, manifest: &ShaderPackManifest, extra_files: &[(&str, &str)]) {
@@ -128,6 +128,7 @@ mod tests {
             name: Some("Demo".into()),
             entry: "image".into(),
             surface_alpha: SurfaceAlpha::Opaque,
+            color_space: ColorSpace::Auto,
             description: None,
             tags: vec![],
             passes: vec![ShaderPass {
