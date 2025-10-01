@@ -66,7 +66,7 @@ Implemented via `defaults::sync_defaults`: it scans the configured share directo
 
 Implemented: the CLI now exposes `hyshadew defaults sync|list|where`, including a dry-run mode, status reporting, and path overviews. The daemon path honours `--init-defaults` to bootstrap content and exit, and command handlers reuse the shared path/bootstrap logic so environment overrides behave consistently.
 
-### Phase 5 — Path Resolution Semantics
+### Phase 5 — Path Resolution Semantics *(complete)*
 1. Define resolution rules used across the app:
    - Absolute paths are honored verbatim.
    - Relative paths search the process working directory, user roots, then `/usr/share/hyshadew`.
@@ -76,6 +76,8 @@ Implemented: the CLI now exposes `hyshadew defaults sync|list|where`, including 
    - Run interpolation before resolution and reuse a shared error type for clarity.
 3. Record resolved paths in telemetry for troubleshooting.
 4. Add unit tests covering each rule and failure case.
+
+Implemented via `shadertoy::PathResolver` and `shadertoy::parse_shader_handle`: CLI and playlist handles now expand environment variables, respect `~`, prefer working-directory matches, and fall back to the configured search roots. Errors surface missing variables immediately, and new tests cover expansion success/failure. Multi-mode caches and the single-run bootstrap share the same resolver, keeping behaviour consistent.
 
 ### Phase 6 — Documentation & Telemetry
 1. Update `README.md`, `AGENTS.md`, and `spec/SpecMulti.md` with the directory layout, override mechanics, and CLI usage.

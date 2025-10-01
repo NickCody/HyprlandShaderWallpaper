@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Result};
 
 use crate::pack::{ensure_glsl_sources, resolve_entry_source, LocalPack, PackError};
+use crate::path::PathResolver;
 use crate::remote::ShadertoyClient;
 use crate::ShaderHandle;
 
@@ -32,6 +33,19 @@ impl ShaderRepository {
             local_roots,
             cache_root,
         }
+    }
+
+    pub fn build(local_roots: Vec<PathBuf>, cache_root: PathBuf) -> Result<(Self, PathResolver)> {
+        let repo = Self::new(local_roots, cache_root);
+        let resolver = PathResolver::new()?;
+        Ok((repo, resolver))
+    }
+
+    pub fn build_with_defaults() -> Result<(Self, PathResolver)> {
+        Self::build(
+            vec![PathBuf::from("local-shaders")],
+            PathBuf::from("cache/shadertoy"),
+        )
     }
 
     pub fn with_defaults() -> Self {

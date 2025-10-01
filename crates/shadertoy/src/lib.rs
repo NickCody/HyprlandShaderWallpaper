@@ -1,12 +1,16 @@
+mod handle;
 mod manifest;
 mod pack;
+mod path;
 mod remote;
 mod repository;
 
+pub use handle::{normalize_shadertoy_reference, parse_shader_handle};
 pub use manifest::{
     ColorSpace, InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
 };
 pub use pack::{ensure_glsl_sources, resolve_entry_source, LocalPack, PackError};
+pub use path::PathResolver;
 pub use remote::{
     materialize_shader, RenderInput, RenderOutput, RenderPass, ShaderInfo, ShaderPayload,
     ShadertoyClient, ShadertoyConfig,

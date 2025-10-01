@@ -16,7 +16,10 @@ use renderer::{
 };
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
-use shadertoy::{load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient};
+use shadertoy::{
+    load_entry_shader, parse_shader_handle, PathResolver, ShaderRepository, ShaderSource,
+    ShadertoyClient,
+};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::bindings::{
@@ -34,6 +37,7 @@ pub fn run_multi(
     client: Option<&ShadertoyClient>,
     path: &Path,
     paths: &AppPaths,
+    resolver: PathResolver,
 ) -> Result<()> {
     let (config, config_path) = load_config(path)?;
     info!(config = %config_path.display(), "loaded multi-playlist configuration");
@@ -46,9 +50,9 @@ pub fn run_multi(
     );
 
     if args.window {
-        run_window_multi(args, repo, client, config)
+        run_window_multi(args, repo, client, config, resolver)
     } else {
-        run_wallpaper_multi(args, repo, client, config)
+        run_wallpaper_multi(args, repo, client, config, resolver)
     }
 }
 
@@ -69,6 +73,7 @@ fn run_wallpaper_multi(
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     config: MultiConfig,
+    resolver: PathResolver,
 ) -> Result<()> {
     let requested_size = args
         .size
@@ -77,7 +82,7 @@ fn run_wallpaper_multi(
         .transpose()?;
     let fallback_surface = requested_size.unwrap_or((1920, 1080));
 
-    let mut cache = ShaderCache::new(repo, client, args.cache_only);
+    let mut cache = ShaderCache::new(repo, client, args.cache_only, resolver);
     let bootstrap = select_bootstrap_shader(&config, &mut cache)?;
 
     let bootstrap_color = resolve_color_space(args.color_space, bootstrap.color_space);
@@ -116,6 +121,7 @@ fn run_window_multi(
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     config: MultiConfig,
+    resolver: PathResolver,
 ) -> Result<()> {
     if config.default_playlist().is_none() {
         bail!("window mode requires defaults.playlist to be set");
@@ -128,7 +134,7 @@ fn run_window_multi(
         .transpose()?;
     let fallback_surface = requested_size.unwrap_or((1280, 720));
 
-    let mut cache = ShaderCache::new(repo, client, args.cache_only);
+    let mut cache = ShaderCache::new(repo, client, args.cache_only, resolver);
     let bootstrap = select_bootstrap_shader(&config, &mut cache)?;
 
     let bootstrap_color = resolve_color_space(args.color_space, bootstrap.color_space);
@@ -305,6 +311,7 @@ struct ShaderCache<'a> {
     repo: &'a ShaderRepository,
     client: Option<&'a ShadertoyClient>,
     cache_only: bool,
+    resolver: PathResolver,
     entries: HashMap<String, CachedShader>,
 }
 
@@ -313,11 +320,13 @@ impl<'a> ShaderCache<'a> {
         repo: &'a ShaderRepository,
         client: Option<&'a ShadertoyClient>,
         cache_only: bool,
+        resolver: PathResolver,
     ) -> Self {
         Self {
             repo,
             client,
             cache_only,
+            resolver,
             entries: HashMap::new(),
         }
     }
@@ -335,7 +344,8 @@ impl<'a> ShaderCache<'a> {
             }
         }
 
-        let shader_handle = ShaderHandle::from_input(handle);
+        let shader_handle = parse_shader_handle(&self.resolver, handle)
+            .with_context(|| format!("failed to parse shader handle '{handle}'"))?;
         debug!(handle = %handle, refresh, "resolving shader handle");
         let source = self
             .repo
@@ -1146,7 +1156,8 @@ handle = "local/a"
         }
 
         let repo = ShaderRepository::new(vec![packs_root.clone()], cache_root.clone());
-        let cache = ShaderCache::new(&repo, None, false);
+        let resolver = PathResolver::with_cwd(temp.path());
+        let cache = ShaderCache::new(&repo, None, false, resolver);
 
         let config = MultiConfig::from_toml_str(
             r#"
@@ -1202,6 +1213,72 @@ handle = "alt"
     }
 
     #[test]
+    fn shader_handles_expand_environment_variables() {
+        let temp = tempdir().unwrap();
+        let packs_root = temp.path().join("packs");
+        let cache_root = temp.path().join("cache");
+        write_pack(&packs_root, "env-pack");
+
+        let repo = ShaderRepository::new(vec![packs_root.clone()], cache_root);
+        let resolver = PathResolver::with_cwd(temp.path());
+
+        let handle_path = packs_root.join("env-pack");
+        let handle_str = handle_path.to_string_lossy().to_string();
+        env::set_var("HYSHADERS_TEST_PACK", &handle_str);
+
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[defaults]
+playlist = "main"
+
+[playlists.main]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.main.items]]
+handle = "${HYSHADERS_TEST_PACK}"
+"#,
+        )
+        .unwrap();
+
+        let mut cache = ShaderCache::new(&repo, None, false, resolver);
+        let assets = cache
+            .resolve("${HYSHADERS_TEST_PACK}", false)
+            .expect("resolve env-expanded handle");
+        assert!(assets.shader_path.starts_with(&handle_path));
+
+        let mut engine = PlaylistEngine::new(
+            config,
+            cache,
+            13,
+            EngineOptions {
+                cache_only: false,
+                refresh_all: false,
+                global_fps: None,
+                global_antialias: Antialiasing::Auto,
+                global_color_space: ColorSpaceMode::Auto,
+                prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+            },
+        );
+
+        let surface = SurfaceInfo {
+            surface_id: SurfaceId::from(1u64),
+            output_id: None,
+            output_name: None,
+            size: None,
+        };
+        let actions = engine
+            .sync_targets(&[surface], None, Instant::now())
+            .expect("sync targets");
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].handle, "${HYSHADERS_TEST_PACK}");
+
+        env::remove_var("HYSHADERS_TEST_PACK");
+    }
+
+    #[test]
     fn workspace_switch_applies_crossfade_override() {
         let temp = tempdir().unwrap();
         let packs_root = temp.path().join("packs");
@@ -1210,7 +1287,8 @@ handle = "alt"
         write_pack(&packs_root, "focus-pack");
 
         let repo = ShaderRepository::new(vec![packs_root.clone()], cache_root);
-        let cache = ShaderCache::new(&repo, None, false);
+        let resolver = PathResolver::with_cwd(temp.path());
+        let cache = ShaderCache::new(&repo, None, false, resolver);
 
         let config = MultiConfig::from_toml_str(
             r#"
@@ -1302,7 +1380,8 @@ handle = "focus-pack"
         write_pack(&packs_root, "valid-pack");
 
         let repo = ShaderRepository::new(vec![packs_root.clone()], cache_root);
-        let cache = ShaderCache::new(&repo, None, false);
+        let resolver = PathResolver::with_cwd(temp.path());
+        let cache = ShaderCache::new(&repo, None, false, resolver);
 
         let config = MultiConfig::from_toml_str(
             r#"
@@ -1384,7 +1463,8 @@ handle = "demo"
             init_defaults: false,
         };
 
-        let err = run_window_multi(&args, &repo, None, config).unwrap_err();
+        let resolver = PathResolver::with_cwd(temp.path());
+        let err = run_window_multi(&args, &repo, None, config, resolver).unwrap_err();
         assert!(err.to_string().contains("defaults.playlist"));
     }
 }

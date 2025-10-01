@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use renderer::RendererConfig;
-use shadertoy::ShaderHandle;
+use shadertoy::{normalize_shadertoy_reference, parse_shader_handle, PathResolver, ShaderHandle};
 use tracing::{debug, info};
 
 use crate::cli::RunArgs;
@@ -56,10 +56,10 @@ fn ensure_directory(path: &Path) -> Result<()> {
     }
 }
 
-pub fn resolve_shader_handle(args: &RunArgs) -> Result<ShaderHandle> {
+pub fn resolve_shader_handle(args: &RunArgs, resolver: &PathResolver) -> Result<ShaderHandle> {
     if let Some(ref shadertoy) = args.shadertoy {
         let normalized = normalize_shadertoy_reference(shadertoy)?;
-        return Ok(ShaderHandle::from_input(&normalized));
+        return parse_shader_handle(resolver, &normalized);
     }
 
     let raw = args
@@ -67,39 +67,7 @@ pub fn resolve_shader_handle(args: &RunArgs) -> Result<ShaderHandle> {
         .as_ref()
         .cloned()
         .unwrap_or_else(|| "local-demo".to_string());
-    Ok(ShaderHandle::from_input(&raw))
-}
-
-pub fn normalize_shadertoy_reference(input: &str) -> Result<String> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        bail!("shadertoy reference must not be empty");
-    }
-
-    if let Some(rest) = trimmed.strip_prefix("shadertoy://") {
-        let id = rest.trim();
-        if id.is_empty() {
-            bail!("shadertoy identifier missing after scheme");
-        }
-        return Ok(format!("shadertoy://{}", id));
-    }
-
-    if trimmed.contains("shadertoy.com") {
-        let id_candidate = trimmed
-            .split('/')
-            .rev()
-            .find(|segment| !segment.is_empty())
-            .map(|segment| segment.split(&['?', '#'][..]).next().unwrap_or(segment))
-            .filter(|id| !id.is_empty());
-
-        if let Some(id) = id_candidate {
-            return Ok(format!("shadertoy://{}", id));
-        } else {
-            bail!("unable to extract shader id from shadertoy url");
-        }
-    }
-
-    Ok(format!("shadertoy://{}", trimmed))
+    parse_shader_handle(resolver, &raw)
 }
 
 pub fn parse_surface_size(spec: &str) -> Result<(u32, u32)> {

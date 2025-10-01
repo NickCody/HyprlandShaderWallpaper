@@ -108,6 +108,20 @@ Key behaviours:
 Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs
 with the `[hyshadew]` prefix highlight shader compilation or timing diagnostics.
 
+### Path Resolution & Environment Variables
+
+Local shader handles accept shell-style expansions so configs stay portable:
+
+- `~` expands to the current user's home directory (e.g. `~/shaders/demo`).
+- `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
+  error so typos show up immediately.
+- Relative paths first check the process working directory, then the resolved XDG config/data
+  directories, and finally `/usr/share/hyshadew`.
+
+This logic applies across CLI handles (`hyshadew $HOME/shaders/demo`), playlist manifests, and
+the defaults bootstrap. Run `hyshadew defaults where` to inspect which directories are currently
+active.
+
 ## Release Notes
 
 See `CHANGELOG.md` for released versions and upgrade highlights.

@@ -22,6 +22,7 @@ pub fn run(args: RunArgs) -> Result<()> {
     let mut state = bootstrap_filesystem(&paths)?;
     let shader_roots = paths.shader_roots();
     let cache_root = paths.shadertoy_cache_dir();
+    let (repo, resolver) = ShaderRepository::build(shader_roots.clone(), cache_root.clone())?;
     let previous_defaults_version = state.defaults_version.clone();
     let previous_last_sync = state.last_defaults_sync.clone();
     let defaults_report = sync_defaults(&paths, &mut state, SyncOptions::default())?;
@@ -53,12 +54,18 @@ pub fn run(args: RunArgs) -> Result<()> {
         return Ok(());
     }
 
-    let repo = ShaderRepository::new(shader_roots, cache_root);
     let client = build_client(&args)?;
     if let Some(path) = args.multi.as_ref() {
-        multi::run_multi(&args, &repo, client.as_ref(), path, &paths)
+        multi::run_multi(
+            &args,
+            &repo,
+            client.as_ref(),
+            path,
+            &paths,
+            resolver.clone(),
+        )
     } else {
-        let handle = resolve_shader_handle(&args)?;
+        let handle = resolve_shader_handle(&args, &resolver)?;
         tracing::info!(?handle, "bootstrapping hyshadew wallpaper daemon");
         log_handle_warnings(&args, &handle, client.as_ref());
         let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;

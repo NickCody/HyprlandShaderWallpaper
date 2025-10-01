@@ -130,6 +130,11 @@ handle = "local-shaders/rotating-voronoise"
       - `local-shaders/<dir>`
       - `shadertoy://<ID>`
       - absolute or relative pack path
+      - `${MY_SHADER_PACK}` (environment variable expansion)
+      - `~/shaders/demo` (home directory expansion)
+      After expansion, relative paths search the current working directory, then the XDG config/data
+      `local-shaders/` directories, and finally `/usr/share/hyshadew/local-shaders/`. Unset environment
+      variables abort with a descriptive error.
     - `duration` (string|number, optional): per-item duration.
     - `fps` (number >= 0, optional): per-item FPS cap.
     - `antialias` (string|number, optional): per-item AA.

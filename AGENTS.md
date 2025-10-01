@@ -14,6 +14,7 @@ Hyprland Shader Wallpaper (hyshadew) is a Rust-based wallpaper engine focused on
 - **ShaderToy API support**: `ShadertoyClient` downloads shader JSON, GLSL code, and assets, converting them into validated `shader.toml` manifests ready for the renderer.
 - **Local pack compatibility**: Users can place shader directories in `local-shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
 - **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
+- **Path resolution**: Local handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the working directory, XDG config/data roots, and `/usr/share/hyshadew`. Missing variables fail fast so misconfigurations surface immediately.
 - **CLI-driven daemon**: `hyshadew` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 
 ## Next Steps
