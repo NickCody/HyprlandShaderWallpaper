@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use renderer::{Antialiasing, ColorSpaceMode, ShaderCompiler};
 
 #[derive(Parser, Debug)]
@@ -8,9 +8,18 @@ use renderer::{Antialiasing, ColorSpaceMode, ShaderCompiler};
     name = "hyshadew",
     author,
     version,
-    about = "Hyprland Shader Wallpaper daemon"
+    about = "Hyprland Shader Wallpaper daemon",
+    arg_required_else_help = false
 )]
-pub struct Args {
+pub struct Cli {
+    #[command(flatten)]
+    pub run: RunArgs,
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+#[derive(Parser, Debug)]
+pub struct RunArgs {
     /// Shader handle (e.g. `shadertoy://abc123` or `local-shaders/demo`)
     #[arg(value_name = "HANDLE")]
     pub shader: Option<String>,
@@ -77,10 +86,43 @@ pub struct Args {
     /// Warm-up interval (ms) to pre-render the next shader before crossfade.
     #[arg(long, value_name = "MILLISECONDS")]
     pub prewarm_ms: Option<u64>,
+
+    /// Initialise defaults (creates directories, installs bundled content) then exit.
+    #[arg(long)]
+    pub init_defaults: bool,
 }
 
-pub fn parse() -> Args {
-    Args::parse()
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Manage bundled defaults (shader packs, playlists, paths).
+    Defaults(DefaultsCommand),
+}
+
+#[derive(Parser, Debug)]
+pub struct DefaultsCommand {
+    #[command(subcommand)]
+    pub action: DefaultsAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DefaultsAction {
+    /// Copy bundled defaults into user directories.
+    Sync(DefaultsSyncArgs),
+    /// Show bundled defaults and whether they exist locally.
+    List,
+    /// Print resolved directories for config, data, cache, and share roots.
+    Where,
+}
+
+#[derive(Parser, Debug, Default)]
+pub struct DefaultsSyncArgs {
+    /// Preview which defaults would be copied without writing to disk.
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
+pub fn parse() -> Cli {
+    Cli::parse()
 }
 
 pub fn parse_antialias(value: &str) -> Result<Antialiasing, String> {

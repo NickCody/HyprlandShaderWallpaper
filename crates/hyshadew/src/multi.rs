@@ -23,13 +23,13 @@ use crate::bindings::{
     channel_bindings_from_pack, map_manifest_alpha, map_manifest_color, resolve_color_space,
 };
 use crate::bootstrap::parse_surface_size;
-use crate::cli::Args;
+use crate::cli::RunArgs;
 use crate::paths::AppPaths;
 
 const DEFAULT_PREWARM_MS: u64 = 250;
 
 pub fn run_multi(
-    args: &Args,
+    args: &RunArgs,
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     path: &Path,
@@ -65,7 +65,7 @@ fn load_config(path: &Path) -> Result<(MultiConfig, PathBuf)> {
 }
 
 fn run_wallpaper_multi(
-    args: &Args,
+    args: &RunArgs,
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     config: MultiConfig,
@@ -112,7 +112,7 @@ fn run_wallpaper_multi(
 }
 
 fn run_window_multi(
-    args: &Args,
+    args: &RunArgs,
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     config: MultiConfig,
@@ -980,7 +980,7 @@ struct MonitorPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::Args;
+    use crate::cli::RunArgs;
     use std::path::Path;
     use tempfile::tempdir;
 
@@ -1367,7 +1367,7 @@ handle = "demo"
         )
         .unwrap();
 
-        let args = Args {
+        let args = RunArgs {
             shader: None,
             shadertoy: None,
             multi: None,
@@ -1381,6 +1381,7 @@ handle = "demo"
             shader_compiler: Default::default(),
             color_space: ColorSpaceMode::Auto,
             prewarm_ms: None,
+            init_defaults: false,
         };
 
         let err = run_window_multi(&args, &repo, None, config).unwrap_err();

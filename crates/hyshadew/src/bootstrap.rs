@@ -6,7 +6,7 @@ use renderer::RendererConfig;
 use shadertoy::ShaderHandle;
 use tracing::{debug, info};
 
-use crate::cli::Args;
+use crate::cli::RunArgs;
 use crate::paths::AppPaths;
 use crate::state::AppState;
 
@@ -56,7 +56,7 @@ fn ensure_directory(path: &Path) -> Result<()> {
     }
 }
 
-pub fn resolve_shader_handle(args: &Args) -> Result<ShaderHandle> {
+pub fn resolve_shader_handle(args: &RunArgs) -> Result<ShaderHandle> {
     if let Some(ref shadertoy) = args.shadertoy {
         let normalized = normalize_shadertoy_reference(shadertoy)?;
         return Ok(ShaderHandle::from_input(&normalized));

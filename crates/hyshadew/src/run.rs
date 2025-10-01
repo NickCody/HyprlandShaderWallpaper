@@ -12,21 +12,19 @@ use crate::bindings::{
 use crate::bootstrap::{
     bootstrap_filesystem, parse_surface_size, resolve_shader_handle, SingleRunConfig,
 };
-use crate::cli::Args;
-use crate::defaults::sync_defaults;
+use crate::cli::RunArgs;
+use crate::defaults::{sync_defaults, SyncOptions};
 use crate::multi;
 use crate::paths::AppPaths;
 
-pub fn run(args: Args) -> Result<()> {
-    initialise_tracing();
-
+pub fn run(args: RunArgs) -> Result<()> {
     let paths = AppPaths::discover()?;
     let mut state = bootstrap_filesystem(&paths)?;
     let shader_roots = paths.shader_roots();
     let cache_root = paths.shadertoy_cache_dir();
     let previous_defaults_version = state.defaults_version.clone();
     let previous_last_sync = state.last_defaults_sync.clone();
-    let defaults_report = sync_defaults(&paths, &mut state)?;
+    let defaults_report = sync_defaults(&paths, &mut state, SyncOptions::default())?;
     tracing::debug!(
         config = %paths.config_dir().display(),
         data = %paths.data_dir().display(),
@@ -50,6 +48,11 @@ pub fn run(args: Args) -> Result<()> {
             "bundled defaults installed on startup"
         );
     }
+    if args.init_defaults {
+        tracing::info!("--init-defaults requested; skipping daemon startup after syncing defaults");
+        return Ok(());
+    }
+
     let repo = ShaderRepository::new(shader_roots, cache_root);
     let client = build_client(&args)?;
     if let Some(path) = args.multi.as_ref() {
@@ -63,7 +66,7 @@ pub fn run(args: Args) -> Result<()> {
     }
 }
 
-fn initialise_tracing() {
+pub fn initialise_tracing() {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
@@ -71,7 +74,7 @@ fn initialise_tracing() {
         .init();
 }
 
-fn build_client(args: &Args) -> Result<Option<ShadertoyClient>> {
+fn build_client(args: &RunArgs) -> Result<Option<ShadertoyClient>> {
     if args.cache_only {
         tracing::info!("remote fetch disabled (--cache-only)");
         return Ok(None);
@@ -88,7 +91,7 @@ fn build_client(args: &Args) -> Result<Option<ShadertoyClient>> {
     }
 }
 
-fn log_handle_warnings(args: &Args, handle: &ShaderHandle, client: Option<&ShadertoyClient>) {
+fn log_handle_warnings(args: &RunArgs, handle: &ShaderHandle, client: Option<&ShadertoyClient>) {
     if matches!(handle, ShaderHandle::ShadertoyId(_)) {
         if args.refresh && (args.cache_only || client.is_none()) {
             tracing::warn!("refresh requested but no Shadertoy client available; using cache only");
@@ -102,7 +105,7 @@ fn log_handle_warnings(args: &Args, handle: &ShaderHandle, client: Option<&Shade
 }
 
 fn prepare_single_run(
-    args: &Args,
+    args: &RunArgs,
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     handle: ShaderHandle,

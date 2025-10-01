@@ -55,14 +55,16 @@ Implemented via `bootstrap::bootstrap_filesystem`: it creates the XDG directory 
 
 Implemented via `defaults::sync_defaults`: it scans the configured share directory, copies any missing shader packs or playlists into `~/.local/share/hyshadew`, respects a `VERSION` stamp for logging, records the last sync timestamp, and updates `state.toml` only when content is actually installed.
 
-### Phase 4 — CLI Surface & Commands
+### Phase 4 — CLI Surface & Commands *(complete)*
 1. Add `hyshadew defaults` subcommands:
-   - `sync` to copy missing/newer defaults, with `--force` that overwrites after backing up.
+   - `sync` to copy missing/newer defaults (supports `--dry-run`).
    - `list` to enumerate system defaults and their user-space status.
    - `where` to print resolved paths for debugging.
 2. Respect env overrides and CLI flags when executing commands.
 3. Support a daemon flag (`--init-defaults`) for one-shot setup.
 4. Log which search root satisfies each shader to aid support.
+
+Implemented: the CLI now exposes `hyshadew defaults sync|list|where`, including a dry-run mode, status reporting, and path overviews. The daemon path honours `--init-defaults` to bootstrap content and exit, and command handlers reuse the shared path/bootstrap logic so environment overrides behave consistently.
 
 ### Phase 5 — Path Resolution Semantics
 1. Define resolution rules used across the app:
