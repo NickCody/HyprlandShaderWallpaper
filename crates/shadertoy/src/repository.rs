@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Result};
+use tracing::{debug, warn};
 
 use crate::pack::{ensure_glsl_sources, resolve_entry_source, LocalPack, PackError};
 use crate::path::PathResolver;
@@ -82,6 +83,7 @@ impl ShaderRepository {
             return Err(anyhow!("local pack path must not be empty"));
         }
 
+        debug!(requested = %path.display(), roots = ?self.local_roots, "resolving local shader pack");
         let candidates = if path.is_absolute() || path.exists() {
             vec![path.to_path_buf()]
         } else {
@@ -92,6 +94,7 @@ impl ShaderRepository {
         };
 
         for candidate in candidates {
+            debug!(candidate = %candidate.display(), "checking shader pack candidate");
             if candidate.exists() {
                 match LocalPack::load(&candidate) {
                     Ok(pack) => {
@@ -103,15 +106,18 @@ impl ShaderRepository {
                             ),
                             other => anyhow!(other),
                         })?;
+                        debug!(path = %candidate.display(), "loaded local shader pack");
                         return Ok(pack);
                     }
                     Err(err) => {
+                        warn!(path = %candidate.display(), error = %err, "failed to load local shader pack");
                         return Err(anyhow!(err));
                     }
                 }
             }
         }
 
+        warn!(requested = %path.display(), roots = ?self.local_roots, "local shader pack missing");
         Err(anyhow!(
             "unable to locate local shader pack '{}'. searched roots: {:?}",
             path.display(),

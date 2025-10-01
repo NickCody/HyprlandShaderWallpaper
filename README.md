@@ -69,6 +69,36 @@ The installed `hyshadew` binary accepts the same CLI flags documented below, so 
 can run `hyshadew --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from
 any directory.
 
+## Defaults, Directories, and CLI Helpers
+
+Hyshadew follows the XDG base directory spec and records paths in `state.toml` under
+`$XDG_CONFIG_HOME/hyshadew` (default `~/.config/hyshadew`). The core locations are:
+
+- Config: `~/.config/hyshadew/`
+- Data: `~/.local/share/hyshadew/`
+- Cache: `~/.cache/hyshadew/`
+- System defaults: `/usr/share/hyshadew/` (overridable via `HYSHADEW_SHARE_DIR`)
+
+Set `HYSHADEW_CONFIG_DIR`, `HYSHADEW_DATA_DIR`, and `HYSHADEW_CACHE_DIR` to relocate
+any directory. CLI flags always win over environment variables.
+
+Bundled shader packs and sample playlists live under the system share directory.
+Distributions or installers are responsible for copying the contents of this
+repository’s `local-shaders/` and `multi/` directories into `/usr/share/hyshadew`
+(plus a `VERSION` stamp) during installation. Hyshadew never creates the share
+tree on its own; instead it syncs whatever is already present into user space.
+
+Use `hyshadew defaults` to manage those copies:
+
+- `hyshadew defaults sync` copies missing packs/playlists into the user data tree.
+  Add `--dry-run` to see pending changes without touching disk.
+- `hyshadew defaults list` reports which bundled assets are installed locally.
+- `hyshadew defaults where` prints the resolved config/data/cache/share paths.
+
+To bootstrap a new environment without launching the daemon, run
+`hyshadew defaults sync --dry-run` (to inspect) and `hyshadew defaults sync` (to
+install). The daemon also accepts `--init-defaults` for a one-shot sync and exit.
+
 ## Workspace Layout
 
 - `crates/hyshadew`: Daemon entry point and CLI that orchestrates rendering.

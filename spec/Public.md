@@ -79,11 +79,13 @@ Implemented: the CLI now exposes `hyshadew defaults sync|list|where`, including 
 
 Implemented via `shadertoy::PathResolver` and `shadertoy::parse_shader_handle`: CLI and playlist handles now expand environment variables, respect `~`, prefer working-directory matches, and fall back to the configured search roots. Errors surface missing variables immediately, and new tests cover expansion success/failure. Multi-mode caches and the single-run bootstrap share the same resolver, keeping behaviour consistent.
 
-### Phase 6 — Documentation & Telemetry
+### Phase 6 — Documentation & Telemetry *(complete)*
 1. Update `README.md`, `AGENTS.md`, and `spec/SpecMulti.md` with the directory layout, override mechanics, and CLI usage.
 2. Document workflows for copying defaults (`cp -R /usr/share/hyshadew/... ~/.local/share/hyshadew/...`).
 3. Clarify env-var interpolation semantics and failure modes in user docs.
 4. Instrument logs (`info`/`warn`/`debug`) to capture sync actions, missing assets, and resolution traces.
+
+Implemented: docs now spell out the XDG directories, `hyshadew defaults` commands, and packaging responsibilities for `/usr/share/hyshadew`. Telemetry emits `debug!` traces for path expansion and local pack resolution, plus warnings when packs are missing or malformed so support can diagnose failures quickly.
 
 ### Phase 7 — Testing & CI Integration
 1. Add integration tests using temporary directories to simulate fresh installs, upgrades, and env overrides.
@@ -96,6 +98,12 @@ Implemented via `shadertoy::PathResolver` and `shadertoy::parse_shader_handle`: 
 - Add manifest schema migrations based on `defaults_version`.
 - Allow per-shader local override files layered above defaults.
 - Provide `hyshadew doctor` for diagnosing missing directories or stale defaults.
+
+### Phase 9 — Packaging & System Share Integration
+1. Ship installer/release scripts that populate `/usr/share/hyshadew` (or the configured share directory) with shader packs, playlists, and a `VERSION` file.
+2. Ensure packages create the share tree with correct permissions and hook into `hyshadew defaults sync` for post-install bootstrap.
+3. Add CI checks (or packaging tests) that fail when the release bundle omits expected defaults.
+4. Document packager expectations so downstream distributions mirror the same layout.
 
 ### Implementation Notes
 - Use atomic file operations when copying defaults; write to temp files then rename.

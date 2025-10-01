@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use directories_next::BaseDirs;
+use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub struct PathResolver {
@@ -22,12 +23,15 @@ impl PathResolver {
     pub fn expand_path(&self, input: &str) -> Result<PathBuf> {
         let expanded_env = expand_env_vars(input)?;
         let expanded = expand_home(&expanded_env)?;
-        Ok(PathBuf::from(expanded))
+        let path = PathBuf::from(expanded);
+        debug!(original = %input, expanded = %path.display(), "expanded shader path");
+        Ok(path)
     }
 
     pub fn normalize_local_path(&self, input: &str) -> Result<PathBuf> {
         let expanded = self.expand_path(input)?;
         if expanded.is_absolute() {
+            debug!(original = %input, normalized = %expanded.display(), "using absolute shader path");
             return Ok(expanded);
         }
 
@@ -36,10 +40,17 @@ impl PathResolver {
         }
 
         let candidate = self.cwd.join(&expanded);
+        debug!(
+            original = %input,
+            candidate = %candidate.display(),
+            "resolved shader path relative to working directory"
+        );
         if candidate.exists() {
+            debug!(original = %input, normalized = %candidate.display(), "using cwd shader path");
             return Ok(candidate);
         }
 
+        debug!(original = %input, normalized = %expanded.display(), "falling back to expanded shader path");
         Ok(expanded)
     }
 }
