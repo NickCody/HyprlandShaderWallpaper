@@ -24,6 +24,7 @@ use crate::bindings::{
 };
 use crate::bootstrap::parse_surface_size;
 use crate::cli::Args;
+use crate::paths::AppPaths;
 
 const DEFAULT_PREWARM_MS: u64 = 250;
 
@@ -32,9 +33,17 @@ pub fn run_multi(
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
     path: &Path,
+    paths: &AppPaths,
 ) -> Result<()> {
     let (config, config_path) = load_config(path)?;
     info!(config = %config_path.display(), "loaded multi-playlist configuration");
+    let playlist_roots = paths.playlist_roots();
+    let playlist_user_dirs = paths.playlist_user_dirs();
+    debug!(
+        roots = ?playlist_roots,
+        user_dirs = ?playlist_user_dirs,
+        "multi playlist search roots"
+    );
 
     if args.window {
         run_window_multi(args, repo, client, config)

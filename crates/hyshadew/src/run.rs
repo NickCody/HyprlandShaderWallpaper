@@ -12,14 +12,26 @@ use crate::bindings::{
 use crate::bootstrap::{parse_surface_size, resolve_shader_handle, SingleRunConfig};
 use crate::cli::Args;
 use crate::multi;
+use crate::paths::AppPaths;
 
 pub fn run(args: Args) -> Result<()> {
     initialise_tracing();
 
-    let repo = ShaderRepository::with_defaults();
+    let paths = AppPaths::discover()?;
+    let shader_roots = paths.shader_roots();
+    let cache_root = paths.shadertoy_cache_dir();
+    tracing::debug!(
+        config = %paths.config_dir().display(),
+        data = %paths.data_dir().display(),
+        cache_base = %paths.cache_dir().display(),
+        cache = %cache_root.display(),
+        share = %paths.share_dir().display(),
+        "resolved hyshadew paths"
+    );
+    let repo = ShaderRepository::new(shader_roots, cache_root);
     let client = build_client(&args)?;
     if let Some(path) = args.multi.as_ref() {
-        multi::run_multi(&args, &repo, client.as_ref(), path)
+        multi::run_multi(&args, &repo, client.as_ref(), path, &paths)
     } else {
         let handle = resolve_shader_handle(&args)?;
         tracing::info!(?handle, "bootstrapping hyshadew wallpaper daemon");
