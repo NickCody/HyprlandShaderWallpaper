@@ -58,6 +58,10 @@ impl AppPaths {
         &self.share_dir
     }
 
+    pub fn state_file(&self) -> PathBuf {
+        self.config_dir.join("state.toml")
+    }
+
     pub fn shader_user_dirs(&self) -> Vec<PathBuf> {
         vec![
             self.config_dir.join("local-shaders"),

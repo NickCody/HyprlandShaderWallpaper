@@ -9,7 +9,9 @@ use tracing_subscriber::EnvFilter;
 use crate::bindings::{
     channel_bindings_from_pack, map_manifest_alpha, map_manifest_color, resolve_color_space,
 };
-use crate::bootstrap::{parse_surface_size, resolve_shader_handle, SingleRunConfig};
+use crate::bootstrap::{
+    bootstrap_filesystem, parse_surface_size, resolve_shader_handle, SingleRunConfig,
+};
 use crate::cli::Args;
 use crate::multi;
 use crate::paths::AppPaths;
@@ -18,6 +20,7 @@ pub fn run(args: Args) -> Result<()> {
     initialise_tracing();
 
     let paths = AppPaths::discover()?;
+    let state = bootstrap_filesystem(&paths)?;
     let shader_roots = paths.shader_roots();
     let cache_root = paths.shadertoy_cache_dir();
     tracing::debug!(
@@ -26,6 +29,9 @@ pub fn run(args: Args) -> Result<()> {
         cache_base = %paths.cache_dir().display(),
         cache = %cache_root.display(),
         share = %paths.share_dir().display(),
+        defaults_version = ?state.defaults_version,
+        defaults_last_sync = ?state.last_defaults_sync,
+        flags = ?state.flags,
         "resolved hyshadew paths"
     );
     let repo = ShaderRepository::new(shader_roots, cache_root);

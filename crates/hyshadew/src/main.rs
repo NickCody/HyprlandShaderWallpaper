@@ -4,6 +4,7 @@ mod cli;
 mod multi;
 mod paths;
 mod run;
+mod state;
 
 use anyhow::Result;
 

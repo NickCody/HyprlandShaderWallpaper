@@ -27,7 +27,7 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 ## Implement defaults & user configuration
 Deliver a robust, user-first configuration model by executing the following phases:
 
-### Phase 1 — Path Infrastructure
+### Phase 1 — Path Infrastructure *(complete)*
 1. Introduce a `paths` module (e.g. `crates/hyshadew/src/paths.rs`) that wraps `directories_next::ProjectDirs` and exposes:
    - `config_dir` (`$XDG_CONFIG_HOME/hyshadew`, default `~/.config/hyshadew`).
    - `data_dir` (`$XDG_DATA_HOME/hyshadew`, default `~/.local/share/hyshadew`).
@@ -37,11 +37,15 @@ Deliver a robust, user-first configuration model by executing the following phas
 3. Support env-var overrides (`HYSHADEW_CONFIG_DIR`, `HYSHADEW_DATA_DIR`, `HYSHADEW_CACHE_DIR`, `HYSHADEW_SHARE_DIR`) with documented precedence (CLI flag > env > XDG default).
 4. Update config and asset loaders to rely on the module instead of ad-hoc path handling.
 
-### Phase 2 — Directory Bootstrapping
+Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (config, data, cache) plus `/usr/share/hyshadew`, supports `HYSHADEW_*` overrides, and the wallpaper/multi entry points use the computed shader/cache roots.
+
+### Phase 2 — Directory Bootstrapping *(complete)*
 1. Ensure required directories exist during startup and create them with clear error handling.
-2. Seed logical subfolders (`config/local-shaders`, `data/playlists`, `cache/shadertoy`).
+2. Seed logical subfolders (`config/local-shaders`, `config/multi`, `data/local-shaders`, `data/multi`, `cache/shadertoy`).
 3. Write a `state.toml` in `config_dir` capturing metadata (defaults version, last sync, flags).
 4. Emit telemetry when directories are created or missing for easier diagnostics.
+
+Implemented via `bootstrap::bootstrap_filesystem`: it creates the XDG directory tree, initialises shader/playlist subfolders plus the Shadertoy cache, and materialises `state.toml` with default metadata while logging each action.
 
 ### Phase 3 — Default Content Packaging & Sync
 1. Treat `/usr/share/hyshadew` as the authoritative source for bundled shader packs, manifests, and docs.
