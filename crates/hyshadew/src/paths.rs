@@ -90,6 +90,23 @@ impl AppPaths {
     }
 }
 
+#[cfg(test)]
+impl AppPaths {
+    pub fn from_raw(
+        config_dir: PathBuf,
+        data_dir: PathBuf,
+        cache_dir: PathBuf,
+        share_dir: PathBuf,
+    ) -> Self {
+        Self {
+            config_dir,
+            data_dir,
+            cache_dir,
+            share_dir,
+        }
+    }
+}
+
 fn resolve_dir(env_var: &str, default: &Path) -> Result<PathBuf> {
     if let Some(value) = env_override(env_var) {
         return Ok(value);
@@ -120,4 +137,88 @@ fn default_share_dir(_: &ProjectDirs) -> PathBuf {
 #[cfg(not(target_family = "unix"))]
 fn default_share_dir(project_dirs: &ProjectDirs) -> PathBuf {
     project_dirs.data_dir().to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+    use std::path::Path;
+    use std::sync::{Mutex, OnceLock};
+    use tempfile::TempDir;
+
+    fn env_lock() -> &'static Mutex<()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    struct EnvGuard {
+        key: &'static str,
+        previous: Option<OsString>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &Path) -> Self {
+            let previous = env::var_os(key);
+            env::set_var(key, value);
+            Self { key, previous }
+        }
+
+        fn clear(key: &'static str) -> Self {
+            let previous = env::var_os(key);
+            env::remove_var(key);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            if let Some(value) = self.previous.take() {
+                env::set_var(self.key, value);
+            } else {
+                env::remove_var(self.key);
+            }
+        }
+    }
+
+    #[test]
+    fn env_overrides_take_precedence() {
+        let _guard = env_lock().lock().unwrap();
+        let root = TempDir::new().unwrap();
+        let config_dir = root.path().join("config");
+        let data_dir = root.path().join("data");
+        let cache_dir = root.path().join("cache");
+        let share_dir = root.path().join("share");
+
+        let _config_guard = EnvGuard::set(ENV_CONFIG_DIR, &config_dir);
+        let _data_guard = EnvGuard::set(ENV_DATA_DIR, &data_dir);
+        let _cache_guard = EnvGuard::set(ENV_CACHE_DIR, &cache_dir);
+        let _share_guard = EnvGuard::set(ENV_SHARE_DIR, &share_dir);
+
+        let paths = AppPaths::discover().unwrap();
+
+        assert_eq!(paths.config_dir(), config_dir.as_path());
+        assert_eq!(paths.data_dir(), data_dir.as_path());
+        assert_eq!(paths.cache_dir(), cache_dir.as_path());
+        assert_eq!(paths.share_dir(), share_dir.as_path());
+    }
+
+    #[cfg(target_family = "unix")]
+    #[test]
+    fn default_share_dir_on_unix_matches_usr_share() {
+        let _guard = env_lock().lock().unwrap();
+        let root = TempDir::new().unwrap();
+        let config_dir = root.path().join("config");
+        let data_dir = root.path().join("data");
+        let cache_dir = root.path().join("cache");
+
+        let _config_guard = EnvGuard::set(ENV_CONFIG_DIR, &config_dir);
+        let _data_guard = EnvGuard::set(ENV_DATA_DIR, &data_dir);
+        let _cache_guard = EnvGuard::set(ENV_CACHE_DIR, &cache_dir);
+        let _share_guard = EnvGuard::clear(ENV_SHARE_DIR);
+
+        let paths = AppPaths::discover().unwrap();
+
+        assert_eq!(paths.share_dir(), Path::new("/usr/share/hyshadew"));
+    }
 }

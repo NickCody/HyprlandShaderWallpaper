@@ -324,3 +324,126 @@ pub fn describe_paths(paths: &AppPaths) -> PathOverview {
         state_file: paths.state_file(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn create_share_layout(root: &Path) {
+        let shaders_root = root.join("local-shaders");
+        let playlists_root = root.join("multi");
+        fs::create_dir_all(shaders_root.join("demo")).unwrap();
+        fs::create_dir_all(playlists_root.join("default")).unwrap();
+
+        fs::write(shaders_root.join("demo/shader.toml"), "name = \"Demo\"").unwrap();
+        fs::write(
+            playlists_root.join("default/playlist.toml"),
+            "playlist = \"demo\"",
+        )
+        .unwrap();
+        fs::write(root.join("VERSION"), "1.0.0\n").unwrap();
+    }
+
+    fn build_paths(root: &Path) -> AppPaths {
+        let config = root.join("config");
+        let data = root.join("data");
+        let cache = root.join("cache");
+        let share = root.join("share");
+        fs::create_dir_all(&config).unwrap();
+        fs::create_dir_all(&data).unwrap();
+        fs::create_dir_all(&cache).unwrap();
+        fs::create_dir_all(&share).unwrap();
+
+        AppPaths::from_raw(config, data, cache, share)
+    }
+
+    #[test]
+    fn sync_defaults_copies_missing_assets() {
+        let root = TempDir::new().unwrap();
+        let paths = build_paths(root.path());
+
+        create_share_layout(&paths.share_dir());
+
+        let mut state = AppState::default();
+        let report = sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
+
+        assert_eq!(report.copied_shader_packs.len(), 1);
+        assert_eq!(report.copied_playlists.len(), 1);
+        assert_eq!(report.share_version.as_deref(), Some("1.0.0"));
+
+        let shader_target = paths.data_dir().join("local-shaders/demo/shader.toml");
+        let playlist_target = paths.data_dir().join("multi/default/playlist.toml");
+
+        assert!(shader_target.exists());
+        assert!(playlist_target.exists());
+        assert!(state.last_defaults_sync.is_some());
+        assert_eq!(state.defaults_version.as_deref(), Some("1.0.0"));
+
+        let shader_contents = fs::read_to_string(shader_target).unwrap();
+        assert_eq!(shader_contents, "name = \"Demo\"");
+    }
+
+    #[test]
+    fn sync_defaults_is_idempotent() {
+        let root = TempDir::new().unwrap();
+        let paths = build_paths(root.path());
+
+        create_share_layout(&paths.share_dir());
+
+        let mut state = AppState::default();
+        sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
+
+        let report = sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
+
+        assert!(report.copied_shader_packs.is_empty());
+        assert!(report.copied_playlists.is_empty());
+        assert_eq!(state.defaults_version.as_deref(), Some("1.0.0"));
+    }
+
+    #[test]
+    fn sync_defaults_preserves_user_modifications() {
+        let root = TempDir::new().unwrap();
+        let paths = build_paths(root.path());
+
+        create_share_layout(&paths.share_dir());
+
+        let mut state = AppState::default();
+        sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
+
+        let shader_target = paths.data_dir().join("local-shaders/demo/shader.toml");
+        fs::write(&shader_target, "name = \"User\"").unwrap();
+
+        let report = sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
+
+        assert!(report.copied_shader_packs.is_empty());
+
+        let shader_contents = fs::read_to_string(shader_target).unwrap();
+        assert_eq!(shader_contents, "name = \"User\"");
+    }
+
+    #[test]
+    fn sync_defaults_dry_run_reports_without_copying() {
+        let root = TempDir::new().unwrap();
+        let paths = build_paths(root.path());
+
+        create_share_layout(&paths.share_dir());
+
+        let mut state = AppState::default();
+        let report = sync_defaults(&paths, &mut state, SyncOptions { dry_run: true }).unwrap();
+
+        assert_eq!(report.copied_shader_packs.len(), 1);
+        assert_eq!(report.copied_playlists.len(), 1);
+        assert!(!paths
+            .data_dir()
+            .join("local-shaders/demo/shader.toml")
+            .exists());
+        assert!(!paths
+            .data_dir()
+            .join("multi/default/playlist.toml")
+            .exists());
+        assert!(state.last_defaults_sync.is_none());
+        assert!(state.defaults_version.is_none());
+    }
+}

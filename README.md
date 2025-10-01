@@ -69,6 +69,25 @@ The installed `hyshadew` binary accepts the same CLI flags documented below, so 
 can run `hyshadew --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from
 any directory.
 
+## Installer Script
+
+Prefer a scripted setup? Use the curl-friendly installer, which clones the
+repository, runs `cargo install`, and seeds bundled shaders/playlists into your
+user directories without requiring root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/HyprlandShaderWallpaper/main/scripts/install.sh)"
+```
+
+By default the script copies defaults into `~/.local/share/hyshadew` and runs
+`hyshadew defaults sync`. Pass `--share-dir` to override the target directory or
+`--system` (with sudo) to install into `/usr/local` and `/usr/share/hyshadew`.
+Additional flags help with constrained environments—`--skip-build` reuses an
+existing binary, and `--offline` forwards Cargo's offline mode when crates are
+already cached. All installer options (including `--prefix`, `--ref`, and
+`--no-sync`) are documented via `bash scripts/install.sh --help`.
+Ensure `cargo`, `git`, and `tar` are available before running the script.
+
 ## Defaults, Directories, and CLI Helpers
 
 Hyshadew follows the XDG base directory spec and records paths in `state.toml` under
@@ -82,10 +101,10 @@ Hyshadew follows the XDG base directory spec and records paths in `state.toml` u
 Set `HYSHADEW_CONFIG_DIR`, `HYSHADEW_DATA_DIR`, and `HYSHADEW_CACHE_DIR` to relocate
 any directory. CLI flags always win over environment variables.
 
-Bundled shader packs and sample playlists live under the system share directory.
-Distributions or installers are responsible for copying the contents of this
-repository’s `local-shaders/` and `multi/` directories into `/usr/share/hyshadew`
-(plus a `VERSION` stamp) during installation. Hyshadew never creates the share
+Bundled shader packs and sample playlists live under the share directory. The
+installer script copies everything from `local-shaders/` and `multi/` into your
+chosen share root (defaulting to `~/.local/share/hyshadew`) and writes a
+`VERSION` stamp capturing the Git reference. Hyshadew never creates the share
 tree on its own; instead it syncs whatever is already present into user space.
 
 Use `hyshadew defaults` to manage those copies:
@@ -98,6 +117,24 @@ Use `hyshadew defaults` to manage those copies:
 To bootstrap a new environment without launching the daemon, run
 `hyshadew defaults sync --dry-run` (to inspect) and `hyshadew defaults sync` (to
 install). The daemon also accepts `--init-defaults` for a one-shot sync and exit.
+
+## Packaging Guidance
+
+Downstream packages and automation should mirror the installer’s behaviour:
+
+- Invoke `scripts/install.sh --skip-build --share-dir <dest>` during packaging to
+  materialise `local-shaders/` and `multi/` into a staging directory. The script
+  writes `VERSION`, so include that file in the package for upgrade detection.
+- When producing system packages (`.deb`, `.rpm`, etc.), call the script with
+  `--system` or provide explicit `--prefix`/`--share-dir` flags that match your
+  filesystem layout. Running `hyshadew defaults sync --dry-run` in post-install
+  hooks gives users visibility into which assets were installed.
+- Avoid running as root unless shipping a system-wide package. For user-focused
+  bundles (AppImage, Flatpak, etc.) set `HYSHADEW_SHARE_DIR` to a writable path
+  and run the installer in `--skip-build` mode after the binary is staged.
+- CI should execute `cargo test -p hyshadew` to cover the installer integration
+  test (`install_script_copies_defaults`) and ensure future changes keep the
+  script functional.
 
 ## Workspace Layout
 

@@ -87,11 +87,13 @@ Implemented via `shadertoy::PathResolver` and `shadertoy::parse_shader_handle`: 
 
 Implemented: docs now spell out the XDG directories, `hyshadew defaults` commands, and packaging responsibilities for `/usr/share/hyshadew`. Telemetry emits `debug!` traces for path expansion and local pack resolution, plus warnings when packs are missing or malformed so support can diagnose failures quickly.
 
-### Phase 7 — Testing & CI Integration
+### Phase 7 — Testing & CI Integration *(complete)*
 1. Add integration tests using temporary directories to simulate fresh installs, upgrades, and env overrides.
 2. Include a CI smoke test that exercises `hyshadew defaults sync` into a temp tree and verifies expected files.
 3. Guarantee idempotency when rerunning sync and ensure user modifications persist.
 4. Validate cross-platform share-path handling (macOS/BSD) via conditional compilation and targeted tests.
+
+Implemented via new unit and integration coverage: default-sync tests build fake XDG trees with `TempDir`, verify first-run installs, dry-run behaviour, and preservation of user edits, while `defaults_cli_installs_assets` launches the CLI to smoke-test `hyshadew defaults sync`. Additional `paths` tests assert env overrides and `/usr/share/hyshadew` defaults (unix) so cross-platform logic stays honest.
 
 ### Phase 8 — Future Extensions (Optional)
 - Support profiles (`--profile NAME`) to namespace directories.
@@ -99,11 +101,13 @@ Implemented: docs now spell out the XDG directories, `hyshadew defaults` command
 - Allow per-shader local override files layered above defaults.
 - Provide `hyshadew doctor` for diagnosing missing directories or stale defaults.
 
-### Phase 9 — Packaging & System Share Integration
+### Phase 9 — Packaging & System Share Integration *(complete)*
 1. Ship installer/release scripts that populate `/usr/share/hyshadew` (or the configured share directory) with shader packs, playlists, and a `VERSION` file.
 2. Ensure packages create the share tree with correct permissions and hook into `hyshadew defaults sync` for post-install bootstrap.
 3. Add CI checks (or packaging tests) that fail when the release bundle omits expected defaults.
 4. Document packager expectations so downstream distributions mirror the same layout.
+
+Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, copies `local-shaders/` and `multi/` into the configured share directory, and writes a `VERSION` stamp. The script defaults to rootless installs under `~/.local/share/hyshadew`, supports `--share-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p hyshadew`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
 
 ### Implementation Notes
 - Use atomic file operations when copying defaults; write to temp files then rename.
