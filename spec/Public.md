@@ -47,11 +47,13 @@ Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (conf
 
 Implemented via `bootstrap::bootstrap_filesystem`: it creates the XDG directory tree, initialises shader/playlist subfolders plus the Shadertoy cache, and materialises `state.toml` with default metadata while logging each action.
 
-### Phase 3 — Default Content Packaging & Sync
+### Phase 3 — Default Content Packaging & Sync *(complete)*
 1. Treat `/usr/share/hyshadew` as the authoritative source for bundled shader packs, manifests, and docs.
 2. Copy only missing defaults into user directories during first run or when explicitly requested.
 3. Track a monotonically increasing `defaults_version` (e.g. file in `/usr/share/hyshadew/VERSION`). Compare against `state.toml` and prompt for sync when upstream content is newer.
 4. Provide a dry-run option that reports pending copies without making changes.
+
+Implemented via `defaults::sync_defaults`: it scans the configured share directory, copies any missing shader packs or playlists into `~/.local/share/hyshadew`, respects a `VERSION` stamp for logging, records the last sync timestamp, and updates `state.toml` only when content is actually installed.
 
 ### Phase 4 — CLI Surface & Commands
 1. Add `hyshadew defaults` subcommands:

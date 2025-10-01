@@ -13,6 +13,7 @@ use crate::bootstrap::{
     bootstrap_filesystem, parse_surface_size, resolve_shader_handle, SingleRunConfig,
 };
 use crate::cli::Args;
+use crate::defaults::sync_defaults;
 use crate::multi;
 use crate::paths::AppPaths;
 
@@ -20,9 +21,12 @@ pub fn run(args: Args) -> Result<()> {
     initialise_tracing();
 
     let paths = AppPaths::discover()?;
-    let state = bootstrap_filesystem(&paths)?;
+    let mut state = bootstrap_filesystem(&paths)?;
     let shader_roots = paths.shader_roots();
     let cache_root = paths.shadertoy_cache_dir();
+    let previous_defaults_version = state.defaults_version.clone();
+    let previous_last_sync = state.last_defaults_sync.clone();
+    let defaults_report = sync_defaults(&paths, &mut state)?;
     tracing::debug!(
         config = %paths.config_dir().display(),
         data = %paths.data_dir().display(),
@@ -34,6 +38,18 @@ pub fn run(args: Args) -> Result<()> {
         flags = ?state.flags,
         "resolved hyshadew paths"
     );
+    if state.defaults_version != previous_defaults_version
+        || state.last_defaults_sync != previous_last_sync
+    {
+        state.persist(&paths.state_file())?;
+    }
+    if defaults_report.copied_any() {
+        tracing::debug!(
+            shader_packs = defaults_report.copied_shader_packs.len(),
+            playlists = defaults_report.copied_playlists.len(),
+            "bundled defaults installed on startup"
+        );
+    }
     let repo = ShaderRepository::new(shader_roots, cache_root);
     let client = build_client(&args)?;
     if let Some(path) = args.multi.as_ref() {

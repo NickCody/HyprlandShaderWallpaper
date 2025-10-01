@@ -1,6 +1,7 @@
 mod bindings;
 mod bootstrap;
 mod cli;
+mod defaults;
 mod multi;
 mod paths;
 mod run;
