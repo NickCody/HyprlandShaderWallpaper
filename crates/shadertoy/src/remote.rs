@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -7,6 +8,7 @@ use reqwest::blocking::Client;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
+use zip::ZipArchive;
 
 use crate::manifest::{
     ColorSpace, InputSource, PassInput, PassKind, ShaderPackManifest, ShaderPass, SurfaceAlpha,
@@ -195,6 +197,7 @@ struct PassArtifact {
 struct AssetArtifact {
     url: String,
     destination_rel: PathBuf,
+    kind: AssetKind,
 }
 
 #[derive(Debug)]
@@ -202,6 +205,13 @@ struct CachePlan {
     manifest: ShaderPackManifest,
     pass_artifacts: Vec<PassArtifact>,
     assets: Vec<AssetArtifact>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AssetKind {
+    Texture,
+    Cubemap,
+    Audio,
 }
 
 pub fn materialize_shader<F>(
@@ -226,6 +236,9 @@ where
     for asset in &plan.assets {
         let dest = cache_dir.join(&asset.destination_rel);
         fetch_asset(&asset.url, &dest)?;
+        if matches!(asset.kind, AssetKind::Cubemap) {
+            maybe_unpack_cubemap_archive(&dest)?;
+        }
     }
 
     let manifest_path = cache_dir.join("shader.toml");
@@ -330,6 +343,7 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
                         assets.push(AssetArtifact {
                             url: src.clone(),
                             destination_rel: dest_rel.clone(),
+                            kind: AssetKind::Texture,
                         });
                     }
                     inputs.push(PassInput {
@@ -356,6 +370,7 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
                         assets.push(AssetArtifact {
                             url: src.clone(),
                             destination_rel: dest_rel.clone(),
+                            kind: AssetKind::Cubemap,
                         });
                     }
                     inputs.push(PassInput {
@@ -378,6 +393,7 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
                         assets.push(AssetArtifact {
                             url: src.clone(),
                             destination_rel: dest_rel.clone(),
+                            kind: AssetKind::Audio,
                         });
                     }
                     inputs.push(PassInput {
@@ -442,6 +458,47 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
         pass_artifacts,
         assets,
     })
+}
+
+fn maybe_unpack_cubemap_archive(path: &Path) -> Result<()> {
+    let Some(ext) = path.extension().and_then(|ext| ext.to_str()) else {
+        return Ok(());
+    };
+    if !ext.eq_ignore_ascii_case("zip") {
+        return Ok(());
+    }
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow!("cubemap archive {} has no parent directory", path.display()))?;
+    let file = fs::File::open(path)
+        .with_context(|| format!("opening cubemap archive {}", path.display()))?;
+    let mut archive = ZipArchive::new(file)
+        .with_context(|| format!("reading cubemap archive {}", path.display()))?;
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .with_context(|| format!("reading entry {index} from {}", path.display()))?;
+        if !entry.is_file() {
+            continue;
+        }
+        let Some(enclosed) = entry.enclosed_name() else {
+            continue;
+        };
+        let out_path = parent.join(enclosed);
+        if let Some(parent_dir) = out_path.parent() {
+            fs::create_dir_all(parent_dir)?;
+        }
+        let mut output = fs::File::create(&out_path).with_context(|| {
+            format!(
+                "creating cubemap face {} extracted from {}",
+                out_path.display(),
+                path.display()
+            )
+        })?;
+        io::copy(&mut entry, &mut output)?;
+    }
+    fs::remove_file(path)?;
+    Ok(())
 }
 
 fn map_pass_kind(kind: &str) -> Result<PassKind> {

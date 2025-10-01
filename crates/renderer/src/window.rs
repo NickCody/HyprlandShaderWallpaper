@@ -13,7 +13,7 @@ use winit::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowBuilder};
 
-use tracing::error;
+use tracing::{error, info};
 
 use crate::gpu::GpuState;
 use crate::types::{Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler};
@@ -76,7 +76,12 @@ impl WindowState {
         crossfade: Duration,
         warmup: Duration,
     ) -> Result<()> {
-        if self.antialiasing != antialiasing {
+        let layout_signature = channel_bindings.layout_signature();
+        let layout_changed = self.gpu.channel_kinds() != &layout_signature;
+        if self.antialiasing != antialiasing || layout_changed {
+            if layout_changed {
+                info!("channel binding layout changed; rebuilding GPU state without crossfade");
+            }
             self.antialiasing = antialiasing;
             let size = self.window.inner_size();
             self.gpu = GpuState::new(

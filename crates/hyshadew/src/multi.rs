@@ -351,7 +351,7 @@ impl<'a> ShaderCache<'a> {
             .repo
             .resolve(&shader_handle, self.client, refresh && !self.cache_only)
             .with_context(|| format!("failed to resolve shader '{handle}'"))?;
-        let (channel_bindings, surface_alpha, color_space) = match &source {
+        let (channel_report, surface_alpha, color_space) = match &source {
             ShaderSource::Local(pack) => (
                 channel_bindings_from_pack(pack),
                 map_manifest_alpha(pack.manifest().surface_alpha),
@@ -363,6 +363,15 @@ impl<'a> ShaderCache<'a> {
                 map_manifest_color(remote.pack.manifest().color_space),
             ),
         };
+        if !channel_report.issues.is_empty() {
+            tracing::warn!(
+                handle = %handle,
+                issues = channel_report.issues.len(),
+                "entry pass has unsupported or missing channel bindings"
+            );
+            channel_report.log_warnings();
+        }
+        let channel_bindings = channel_report.bindings;
         let shader_path = load_entry_shader(&source)?;
         self.entries.insert(
             handle.to_string(),

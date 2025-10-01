@@ -12,7 +12,8 @@ use winit::dpi::PhysicalSize;
 
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
 use crate::types::{
-    Antialiasing, ChannelBindings, ChannelSource, ColorSpaceMode, ShaderCompiler, CHANNEL_COUNT,
+    Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind, ColorSpaceMode,
+    ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +44,7 @@ pub(crate) struct GpuState {
     vertex_module: wgpu::ShaderModule,
     color_space: ResolvedColorSpace,
     shader_compiler: ShaderCompiler,
+    channel_kinds: [ChannelTextureKind; CHANNEL_COUNT],
     uniforms: ShadertoyUniforms,
     current: ShaderPipeline,
     previous: Option<ShaderPipeline>,
@@ -262,9 +264,11 @@ impl GpuState {
             }],
         });
 
+        let channel_kinds = channel_bindings.layout_signature();
+
         let channel_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("channel layout"),
-            entries: &build_channel_layout_entries(),
+            entries: &build_channel_layout_entries(&channel_kinds),
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -294,6 +298,7 @@ impl GpuState {
             sample_count,
             shader_source,
             channel_bindings,
+            &channel_kinds,
             resolved_color,
             shader_compiler,
         )?;
@@ -330,6 +335,7 @@ impl GpuState {
             vertex_module,
             color_space: resolved_color,
             shader_compiler,
+            channel_kinds,
             uniforms,
             current,
             previous: None,
@@ -344,6 +350,10 @@ impl GpuState {
 
     pub(crate) fn size(&self) -> PhysicalSize<u32> {
         self.size
+    }
+
+    pub(crate) fn channel_kinds(&self) -> &[ChannelTextureKind; CHANNEL_COUNT] {
+        &self.channel_kinds
     }
 
     pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -391,6 +401,11 @@ impl GpuState {
         warmup: Duration,
         now: Instant,
     ) -> Result<()> {
+        debug_assert_eq!(
+            &self.channel_kinds,
+            &channel_bindings.layout_signature(),
+            "channel layout mismatch; caller must rebuild GPU state"
+        );
         let new_pipeline = ShaderPipeline::new(
             &self.device,
             &self.queue,
@@ -401,6 +416,7 @@ impl GpuState {
             self.sample_count,
             shader_source,
             channel_bindings,
+            &self.channel_kinds,
             self.color_space,
             self.shader_compiler,
         )?;
@@ -660,6 +676,7 @@ impl ShaderPipeline {
         sample_count: u32,
         shader_path: &Path,
         channel_bindings: &ChannelBindings,
+        channel_kinds: &[ChannelTextureKind; CHANNEL_COUNT],
         color_space: ResolvedColorSpace,
         shader_compiler: ShaderCompiler,
     ) -> Result<Self> {
@@ -668,8 +685,13 @@ impl ShaderPipeline {
         let fragment_module = compile_fragment_shader(device, &shader_code, shader_compiler)
             .context("failed to compile shader")?;
 
-        let channel_resources =
-            create_channel_resources(device, queue, channel_bindings.slots(), color_space)?;
+        let channel_resources = create_channel_resources(
+            device,
+            queue,
+            channel_bindings.slots(),
+            channel_kinds,
+            color_space,
+        )?;
         let mut channel_entries = Vec::with_capacity(CHANNEL_COUNT * 2);
         for (index, resource) in channel_resources.iter().enumerate() {
             channel_entries.push(wgpu::BindGroupEntry {
@@ -876,15 +898,21 @@ impl ShadertoyUniforms {
     }
 }
 
-fn build_channel_layout_entries() -> Vec<wgpu::BindGroupLayoutEntry> {
+fn build_channel_layout_entries(
+    kinds: &[ChannelTextureKind; CHANNEL_COUNT],
+) -> Vec<wgpu::BindGroupLayoutEntry> {
     let mut entries = Vec::with_capacity(CHANNEL_COUNT * 2);
-    for index in 0..CHANNEL_COUNT {
+    for (index, kind) in kinds.iter().enumerate() {
+        let dimension = match kind {
+            ChannelTextureKind::Texture2d => wgpu::TextureViewDimension::D2,
+            ChannelTextureKind::Cubemap => wgpu::TextureViewDimension::Cube,
+        };
         entries.push(wgpu::BindGroupLayoutEntry {
             binding: (index as u32) * 2,
             visibility: wgpu::ShaderStages::FRAGMENT,
             ty: wgpu::BindingType::Texture {
                 sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
+                view_dimension: dimension,
                 multisampled: false,
             },
             count: None,
@@ -910,12 +938,13 @@ fn create_channel_resources(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     bindings: &[Option<ChannelSource>; CHANNEL_COUNT],
+    kinds: &[ChannelTextureKind; CHANNEL_COUNT],
     color_space: ResolvedColorSpace,
 ) -> Result<Vec<ChannelResources>> {
     let mut resources = Vec::with_capacity(CHANNEL_COUNT);
-    for (index, binding) in bindings.iter().enumerate() {
-        let resource = match binding {
-            Some(ChannelSource::Texture { path }) => {
+    for (index, (binding, kind)) in bindings.iter().zip(kinds.iter()).enumerate() {
+        let resource = match (binding, kind) {
+            (Some(ChannelSource::Texture { path }), ChannelTextureKind::Texture2d) => {
                 match load_texture_channel(device, queue, index, path, color_space) {
                     Ok(resource) => resource,
                     Err(err) => {
@@ -925,11 +954,45 @@ fn create_channel_resources(
                             error = %err,
                             "failed to load texture channel; using placeholder"
                         );
-                        create_placeholder_channel(device, queue, index as u32, color_space)?
+                        create_placeholder_texture(device, queue, index as u32, color_space)?
                     }
                 }
             }
-            None => create_placeholder_channel(device, queue, index as u32, color_space)?,
+            (Some(ChannelSource::Cubemap { directory }), ChannelTextureKind::Cubemap) => {
+                match load_cubemap_channel(device, queue, index, directory, color_space) {
+                    Ok(resource) => resource,
+                    Err(err) => {
+                        tracing::warn!(
+                            channel = index,
+                            dir = %directory.display(),
+                            error = %err,
+                            "failed to load cubemap channel; using placeholder"
+                        );
+                        create_placeholder_cubemap(device, queue, index as u32, color_space)?
+                    }
+                }
+            }
+            (None, ChannelTextureKind::Texture2d) => {
+                create_placeholder_texture(device, queue, index as u32, color_space)?
+            }
+            (None, ChannelTextureKind::Cubemap) => {
+                create_placeholder_cubemap(device, queue, index as u32, color_space)?
+            }
+            (Some(ChannelSource::Texture { .. }), ChannelTextureKind::Cubemap)
+            | (Some(ChannelSource::Cubemap { .. }), ChannelTextureKind::Texture2d) => {
+                tracing::warn!(
+                    channel = index,
+                    "channel binding kind mismatch; using placeholder"
+                );
+                match kind {
+                    ChannelTextureKind::Texture2d => {
+                        create_placeholder_texture(device, queue, index as u32, color_space)?
+                    }
+                    ChannelTextureKind::Cubemap => {
+                        create_placeholder_cubemap(device, queue, index as u32, color_space)?
+                    }
+                }
+            }
         };
         resources.push(resource);
     }
@@ -937,7 +1000,7 @@ fn create_channel_resources(
     Ok(resources)
 }
 
-fn create_placeholder_channel(
+fn create_placeholder_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     index: u32,
@@ -984,6 +1047,207 @@ fn create_placeholder_channel(
         view,
         sampler,
         resolution: [1.0, 1.0, 1.0, 0.0],
+    })
+}
+
+fn create_placeholder_cubemap(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    index: u32,
+    color_space: ResolvedColorSpace,
+) -> Result<ChannelResources> {
+    let data = vec![255u8; 4 * 6];
+    let texture_format = match color_space {
+        ResolvedColorSpace::Gamma => wgpu::TextureFormat::Rgba8Unorm,
+        ResolvedColorSpace::Linear => wgpu::TextureFormat::Rgba8UnormSrgb,
+    };
+    let texture = device.create_texture_with_data(
+        queue,
+        &wgpu::TextureDescriptor {
+            label: Some(&format!("placeholder cubemap texture #{index}")),
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 6,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: texture_format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+        TextureDataOrder::LayerMajor,
+        &data,
+    );
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor {
+        label: Some(&format!("placeholder cubemap view #{index}")),
+        dimension: Some(wgpu::TextureViewDimension::Cube),
+        array_layer_count: Some(6),
+        ..Default::default()
+    });
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+
+    Ok(ChannelResources {
+        _texture: texture,
+        view,
+        sampler,
+        resolution: [1.0, 1.0, 6.0, 0.0],
+    })
+}
+
+fn load_cubemap_channel(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    index: usize,
+    directory: &Path,
+    color_space: ResolvedColorSpace,
+) -> Result<ChannelResources> {
+    if !directory.exists() {
+        anyhow::bail!(
+            "cubemap directory {} does not exist for channel {}",
+            directory.display(),
+            index
+        );
+    }
+    if !directory.is_dir() {
+        anyhow::bail!(
+            "cubemap path {} is not a directory for channel {}",
+            directory.display(),
+            index
+        );
+    }
+
+    let mut faces = Vec::with_capacity(CUBEMAP_FACE_STEMS.len());
+    for face in CUBEMAP_FACE_STEMS {
+        let face_path = find_cubemap_face(directory, face).ok_or_else(|| {
+            anyhow!(
+                "cubemap face '{face}' missing for channel {index} in {}",
+                directory.display()
+            )
+        })?;
+        let mut image = image::open(&face_path).with_context(|| {
+            format!(
+                "failed to open cubemap face '{}' for channel {} at {}",
+                face,
+                index,
+                face_path.display()
+            )
+        })?;
+        let mut rgba = image.to_rgba8();
+        flip_vertical_in_place(&mut rgba);
+        faces.push((face_path, rgba));
+    }
+
+    let first = &faces[0].1;
+    let width = first.width();
+    let height = first.height();
+    if width == 0 || height == 0 {
+        anyhow::bail!(
+            "cubemap face at {} has zero extent ({}x{})",
+            faces[0].0.display(),
+            width,
+            height
+        );
+    }
+    if width != height {
+        anyhow::bail!(
+            "cubemap faces must be square; {} is {}x{}",
+            faces[0].0.display(),
+            width,
+            height
+        );
+    }
+
+    for (path, image) in &faces[1..] {
+        if image.width() != width || image.height() != height {
+            anyhow::bail!(
+                "cubemap face {} has mismatched resolution ({}x{} vs {}x{})",
+                path.display(),
+                image.width(),
+                image.height(),
+                width,
+                height
+            );
+        }
+    }
+
+    let face_pixels = (width as usize) * (height as usize) * 4;
+    let mut combined = Vec::with_capacity(face_pixels * faces.len());
+    for (path, image) in faces {
+        tracing::debug!(
+            channel = index,
+            face = %path.display(),
+            width = image.width(),
+            height = image.height(),
+            "uploading cubemap face"
+        );
+        combined.extend_from_slice(image.as_raw());
+    }
+
+    let texture_format = match color_space {
+        ResolvedColorSpace::Gamma => wgpu::TextureFormat::Rgba8Unorm,
+        ResolvedColorSpace::Linear => wgpu::TextureFormat::Rgba8UnormSrgb,
+    };
+
+    let texture = device.create_texture_with_data(
+        queue,
+        &wgpu::TextureDescriptor {
+            label: Some(&format!("cubemap channel texture #{index}")),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 6,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: texture_format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+        TextureDataOrder::LayerMajor,
+        &combined,
+    );
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor {
+        label: Some(&format!("cubemap channel view #{index}")),
+        dimension: Some(wgpu::TextureViewDimension::Cube),
+        array_layer_count: Some(6),
+        ..Default::default()
+    });
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+
+    tracing::info!(
+        channel = index,
+        dir = %directory.display(),
+        width,
+        height,
+        "loaded cubemap channel"
+    );
+
+    Ok(ChannelResources {
+        _texture: texture,
+        view,
+        sampler,
+        resolution: [width as f32, height as f32, 6.0, 0.0],
     })
 }
 
@@ -1066,6 +1330,26 @@ fn load_texture_channel(
         sampler,
         resolution: [width as f32, height as f32, 1.0, 0.0],
     })
+}
+
+fn find_cubemap_face(directory: &Path, face: &str) -> Option<PathBuf> {
+    let target = face.to_ascii_lowercase();
+    let entries = std::fs::read_dir(directory).ok()?;
+    let mut candidates = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let stem = path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().to_ascii_lowercase());
+        if matches!(stem.as_deref(), Some(stem) if stem == target) {
+            candidates.push(path);
+        }
+    }
+    candidates.sort();
+    candidates.into_iter().next()
 }
 
 #[cfg(test)]

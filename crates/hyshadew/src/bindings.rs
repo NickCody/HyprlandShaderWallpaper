@@ -1,17 +1,114 @@
-use renderer::{ChannelBindings, ColorSpaceMode, SurfaceAlpha as RendererSurfaceAlpha};
+use std::path::{Path, PathBuf};
+
+use renderer::{
+    ChannelBindings, ColorSpaceMode, SurfaceAlpha as RendererSurfaceAlpha, CUBEMAP_FACE_STEMS,
+};
 use shadertoy::{
     ColorSpace as ManifestColorSpace, InputSource, LocalPack, SurfaceAlpha as ManifestSurfaceAlpha,
 };
+use tracing::warn;
 
-pub fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindings {
+#[derive(Debug, Clone)]
+pub struct ChannelBindingReport {
+    pub bindings: ChannelBindings,
+    pub issues: Vec<ChannelBindingIssue>,
+}
+
+impl ChannelBindingReport {
+    pub fn log_warnings(&self) {
+        for issue in &self.issues {
+            issue.log_warning();
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ChannelBindingIssue {
+    pub pass: String,
+    pub channel: u8,
+    pub kind: ChannelBindingIssueKind,
+}
+
+impl ChannelBindingIssue {
+    fn log_warning(&self) {
+        match &self.kind {
+            ChannelBindingIssueKind::TextureMissing { path } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                path = %path.display(),
+                "channel texture not found on disk"
+            ),
+            ChannelBindingIssueKind::TextureAssignFailed { path, error } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                path = %path.display(),
+                error = %error,
+                "failed to register texture channel"
+            ),
+            ChannelBindingIssueKind::UnsupportedBuffer { name } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                buffer = %name,
+                "buffer channels are not supported yet"
+            ),
+            ChannelBindingIssueKind::CubemapDirectoryMissing { directory } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                dir = %directory.display(),
+                "cubemap directory not found"
+            ),
+            ChannelBindingIssueKind::CubemapNotDirectory { path } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                path = %path.display(),
+                "cubemap path is not a directory"
+            ),
+            ChannelBindingIssueKind::CubemapFaceMissing { directory, face } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                dir = %directory.display(),
+                face = %face,
+                "cubemap face missing"
+            ),
+            ChannelBindingIssueKind::CubemapAssignFailed { directory, error } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                dir = %directory.display(),
+                error = %error,
+                "failed to register cubemap channel"
+            ),
+            ChannelBindingIssueKind::UnsupportedAudio { path } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                path = %path.display(),
+                "audio channels are not supported yet"
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ChannelBindingIssueKind {
+    TextureMissing { path: PathBuf },
+    TextureAssignFailed { path: PathBuf, error: String },
+    UnsupportedBuffer { name: String },
+    CubemapDirectoryMissing { directory: PathBuf },
+    CubemapNotDirectory { path: PathBuf },
+    CubemapFaceMissing { directory: PathBuf, face: String },
+    CubemapAssignFailed { directory: PathBuf, error: String },
+    UnsupportedAudio { path: PathBuf },
+}
+
+pub fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindingReport {
     let mut bindings = ChannelBindings::default();
+    let mut issues = Vec::new();
     let manifest = pack.manifest();
     let entry_name = &manifest.entry;
     let entry_pass = manifest.passes.iter().find(|pass| &pass.name == entry_name);
 
     let Some(pass) = entry_pass else {
-        tracing::warn!(entry = %entry_name, "entry pass missing; no channels bound");
-        return bindings;
+        warn!(entry = %entry_name, "entry pass missing; no channels bound");
+        return ChannelBindingReport { bindings, issues };
     };
 
     for input in &pass.inputs {
@@ -24,46 +121,110 @@ pub fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindings {
                 };
                 let resolved_for_log = resolved.clone();
                 if !resolved_for_log.exists() {
-                    tracing::warn!(
-                        channel = input.channel,
-                        path = %resolved_for_log.display(),
-                        "channel texture not found on disk"
-                    );
+                    issues.push(ChannelBindingIssue {
+                        pass: pass.name.clone(),
+                        channel: input.channel,
+                        kind: ChannelBindingIssueKind::TextureMissing {
+                            path: resolved_for_log.clone(),
+                        },
+                    });
                 }
                 if let Err(err) = bindings.set_texture(input.channel as usize, resolved) {
-                    tracing::warn!(
-                        channel = input.channel,
-                        path = %resolved_for_log.display(),
-                        error = %err,
-                        "failed to register texture channel"
-                    );
+                    issues.push(ChannelBindingIssue {
+                        pass: pass.name.clone(),
+                        channel: input.channel,
+                        kind: ChannelBindingIssueKind::TextureAssignFailed {
+                            path: resolved_for_log,
+                            error: err.to_string(),
+                        },
+                    });
                 }
             }
             InputSource::Buffer { name } => {
-                tracing::warn!(
-                    channel = input.channel,
-                    buffer = %name,
-                    "buffer channels are not supported yet"
-                );
+                issues.push(ChannelBindingIssue {
+                    pass: pass.name.clone(),
+                    channel: input.channel,
+                    kind: ChannelBindingIssueKind::UnsupportedBuffer { name: name.clone() },
+                });
             }
             InputSource::Cubemap { directory } => {
-                tracing::warn!(
-                    channel = input.channel,
-                    dir = %directory.display(),
-                    "cubemap channels are not supported yet"
-                );
+                let resolved = if directory.is_absolute() {
+                    directory.clone()
+                } else {
+                    pack.root().join(directory)
+                };
+                if !resolved.exists() {
+                    issues.push(ChannelBindingIssue {
+                        pass: pass.name.clone(),
+                        channel: input.channel,
+                        kind: ChannelBindingIssueKind::CubemapDirectoryMissing {
+                            directory: resolved.clone(),
+                        },
+                    });
+                } else if !resolved.is_dir() {
+                    issues.push(ChannelBindingIssue {
+                        pass: pass.name.clone(),
+                        channel: input.channel,
+                        kind: ChannelBindingIssueKind::CubemapNotDirectory {
+                            path: resolved.clone(),
+                        },
+                    });
+                } else {
+                    for face in CUBEMAP_FACE_STEMS {
+                        if find_cubemap_face(&resolved, face).is_none() {
+                            issues.push(ChannelBindingIssue {
+                                pass: pass.name.clone(),
+                                channel: input.channel,
+                                kind: ChannelBindingIssueKind::CubemapFaceMissing {
+                                    directory: resolved.clone(),
+                                    face: face.to_string(),
+                                },
+                            });
+                        }
+                    }
+                }
+                if let Err(err) = bindings.set_cubemap(input.channel as usize, resolved.clone()) {
+                    issues.push(ChannelBindingIssue {
+                        pass: pass.name.clone(),
+                        channel: input.channel,
+                        kind: ChannelBindingIssueKind::CubemapAssignFailed {
+                            directory: resolved,
+                            error: err.to_string(),
+                        },
+                    });
+                }
             }
             InputSource::Audio { path } => {
-                tracing::warn!(
-                    channel = input.channel,
-                    path = %path.display(),
-                    "audio channels are not supported yet"
-                );
+                issues.push(ChannelBindingIssue {
+                    pass: pass.name.clone(),
+                    channel: input.channel,
+                    kind: ChannelBindingIssueKind::UnsupportedAudio { path: path.clone() },
+                });
             }
         }
     }
 
-    bindings
+    ChannelBindingReport { bindings, issues }
+}
+
+fn find_cubemap_face(directory: &Path, face: &str) -> Option<PathBuf> {
+    let target = face.to_ascii_lowercase();
+    let entries = std::fs::read_dir(directory).ok()?;
+    let mut candidates = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let stem = path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().to_ascii_lowercase());
+        if matches!(stem.as_deref(), Some(stem) if stem == target) {
+            candidates.push(path);
+        }
+    }
+    candidates.sort();
+    candidates.into_iter().next()
 }
 
 pub fn map_manifest_alpha(alpha: ManifestSurfaceAlpha) -> RendererSurfaceAlpha {

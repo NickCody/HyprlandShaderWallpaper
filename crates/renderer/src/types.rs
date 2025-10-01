@@ -9,7 +9,18 @@ pub const CHANNEL_COUNT: usize = 4;
 #[derive(Clone, Debug)]
 pub enum ChannelSource {
     Texture { path: PathBuf },
+    Cubemap { directory: PathBuf },
 }
+
+/// Enumerates the texture dimensionality requirements for a channel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChannelTextureKind {
+    Texture2d,
+    Cubemap,
+}
+
+/// Expected face stems for cubemap resources stored on disk.
+pub const CUBEMAP_FACE_STEMS: [&str; 6] = ["posx", "negx", "posy", "negy", "posz", "negz"];
 
 /// Collection of ShaderToy channel bindings prepared for the renderer.
 #[derive(Clone, Debug)]
@@ -36,9 +47,33 @@ impl ChannelBindings {
         Ok(())
     }
 
+    /// Associates a cubemap directory with the given channel.
+    pub fn set_cubemap(&mut self, channel: usize, directory: PathBuf) -> Result<()> {
+        if channel >= CHANNEL_COUNT {
+            anyhow::bail!(
+                "channel {} exceeds supported ShaderToy channel count ({})",
+                channel,
+                CHANNEL_COUNT
+            );
+        }
+        self.sources[channel] = Some(ChannelSource::Cubemap { directory });
+        Ok(())
+    }
+
     /// Exposes the underlying channel slots for GPU resource creation.
     pub(crate) fn slots(&self) -> &[Option<ChannelSource>; CHANNEL_COUNT] {
         &self.sources
+    }
+
+    /// Returns the required texture dimensionality for each channel.
+    pub fn layout_signature(&self) -> [ChannelTextureKind; CHANNEL_COUNT] {
+        let mut kinds = [ChannelTextureKind::Texture2d; CHANNEL_COUNT];
+        for (index, source) in self.sources.iter().enumerate() {
+            if matches!(source, Some(ChannelSource::Cubemap { .. })) {
+                kinds[index] = ChannelTextureKind::Cubemap;
+            }
+        }
+        kinds
     }
 }
 

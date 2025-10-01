@@ -118,10 +118,18 @@ fn prepare_single_run(
     handle: ShaderHandle,
 ) -> Result<SingleRunConfig> {
     let source = repo.resolve(&handle, client, args.refresh)?;
-    let channel_bindings = match &source {
+    let channel_report = match &source {
         ShaderSource::Local(pack) => channel_bindings_from_pack(pack),
         ShaderSource::CachedRemote(remote) => channel_bindings_from_pack(&remote.pack),
     };
+    if !channel_report.issues.is_empty() {
+        tracing::warn!(
+            issues = channel_report.issues.len(),
+            "entry pass has unsupported or missing channel bindings"
+        );
+        channel_report.log_warnings();
+    }
+    let channel_bindings = channel_report.bindings;
     let (surface_alpha, manifest_color) = match &source {
         ShaderSource::Local(pack) => (
             map_manifest_alpha(pack.manifest().surface_alpha),
