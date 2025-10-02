@@ -1328,7 +1328,7 @@ fn load_cubemap_channel(
                 directory.display()
             )
         })?;
-        let mut image = image::open(&face_path).with_context(|| {
+        let image = image::open(&face_path).with_context(|| {
             format!(
                 "failed to open cubemap face '{}' for channel {} at {}",
                 face,
