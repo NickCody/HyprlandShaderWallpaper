@@ -65,15 +65,17 @@ impl Renderer {
 
     /// Launches the renderer in either wallpaper or windowed mode.
     pub fn run(&mut self) -> Result<()> {
-        if matches!(self.config.mode, RenderMode::Wallpaper)
-            && matches!(self.config.policy, RenderPolicy::Export { .. })
-            && self.config.exit_on_export
-        {
-            return self.run_export_once();
-        }
         match self.config.mode {
             RenderMode::Wallpaper => self.run_wallpaper(),
-            RenderMode::Windowed => self.run_window_preview(),
+            RenderMode::Windowed => {
+                if matches!(self.config.policy, RenderPolicy::Export { .. })
+                    && self.config.exit_on_export
+                {
+                    self.run_export_once()
+                } else {
+                    self.run_window_preview()
+                }
+            }
         }
     }
 

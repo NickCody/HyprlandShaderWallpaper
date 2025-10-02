@@ -21,7 +21,7 @@ This document outlines a staged plan to broaden Lambda Shade beyond a Hyprland-f
 - [x] Stage 6: Telemetry + tests (scheduler reasons, PNG golden)
 
 ### Phase 1 — Features (after refactors)
-- [x] Still mode flags (`--still`, `--still-time`, `--still-random-seed`)
+- [x] Still mode flags (`--still`, `--still-time`)
 - [x] Snapshot export (`--still-export <path.png>`)
 - [x] Adaptive FPS flags (`--fps-adaptive`, `--max-fps-occluded`)
 - [x] Quality controls (`--render-scale`, `--fill-method {stretch|center|tile}`)
@@ -52,7 +52,7 @@ To implement still/exports/adaptive/quality controls cleanly and set the stage f
 - Runtime modes and policy
   - Add `RenderPolicy` capturing top‑level behaviour:
     - `Animate { target_fps: Option<f32>, adaptive: bool }`
-    - `Still { time: Option<f32>, random_seed: Option<u64> }`
+    - `Still { time: Option<f32> }`
     - `Export { time: Option<f32>, path: PathBuf, format: Png|Exr }`
   - Add `RuntimeOptions` to consolidate Phase 1 flags: `render_scale`, `fill_method`, `max_fps_occluded`, `color_space`, `shader_compiler`, etc. This is passed into the renderer/runtime once at startup.
   - Introduce a `TimeSource` trait so the engine can switch between real time and fixed time easily:
@@ -90,7 +90,7 @@ To implement still/exports/adaptive/quality controls cleanly and set the stage f
 
 This refactor keeps external behaviour stable, simplifies Phase 1 features, and prepares for Phase 2/3 presenters without committing to their implementations yet.
 - Still mode
-  - Flags: `--still`, `--still-time <t|auto>`, `--still-random-seed`.
+  - Flags: `--still`, `--still-time <t|auto>`.
   - Behaviour: render exactly one frame, stop scheduling redraws; keep surface alive.
   - Optional: `--still-export <path.{png|exr}>` to snapshot without running wallpaper.
 - Adaptive power
@@ -209,7 +209,7 @@ This document outlines a staged plan to broaden Hyshadew beyond a Hyprland-first
 - [ ] Stage 6: Telemetry + tests (scheduler reasons, PNG golden)
 
 ### Phase 1 — Features (after refactors)
-- [ ] Still mode flags (`--still`, `--still-time`, `--still-random-seed`)
+- [ ] Still mode flags (`--still`, `--still-time`)
 - [ ] Snapshot export (`--still-export <path.png>`)
 - [ ] Adaptive FPS flags (`--fps-adaptive`, `--max-fps-occluded`)
 - [ ] Quality controls (`--render-scale`, `--fill-method {stretch|center|tile}`)
@@ -240,7 +240,7 @@ To implement still/exports/adaptive/quality controls cleanly and set the stage f
 - Runtime modes and policy
   - Add `RenderPolicy` capturing top‑level behaviour:
     - `Animate { target_fps: Option<f32>, adaptive: bool }`
-    - `Still { time: Option<f32>, random_seed: Option<u64> }`
+    - `Still { time: Option<f32> }`
     - `Export { time: Option<f32>, path: PathBuf, format: Png|Exr }`
   - Add `RuntimeOptions` to consolidate Phase 1 flags: `render_scale`, `fill_method`, `max_fps_occluded`, `color_space`, `shader_compiler`, etc. This is passed into the renderer/runtime once at startup.
   - Introduce a `TimeSource` trait so the engine can switch between real time and fixed time easily:
@@ -278,7 +278,7 @@ To implement still/exports/adaptive/quality controls cleanly and set the stage f
 
 This refactor keeps external behaviour stable, simplifies Phase 1 features, and prepares for Phase 2/3 presenters without committing to their implementations yet.
 - Still mode
-  - Flags: `--still`, `--still-time <t|auto>`, `--still-random-seed`.
+  - Flags: `--still`, `--still-time <t|auto>`.
   - Behaviour: render exactly one frame, stop scheduling redraws; keep surface alive.
   - Optional: `--still-export <path.{png|exr}>` to snapshot without running wallpaper.
 - Adaptive power

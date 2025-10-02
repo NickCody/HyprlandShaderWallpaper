@@ -122,7 +122,6 @@ install). The daemon also accepts `--init-defaults` for a one-shot sync and exit
 
 - `--still` renders one frame and pauses the scheduler, keeping the surface alive for previews.
 - `--still-time <seconds|auto>` selects the timestamp for still/export captures (auto currently falls back to `0`).
-- `--still-random-seed <seed>` forwards a deterministic seed to shaders that use randomness.
 - `--still-export <path.png>` grabs the next frame to disk; the renderer forces window mode for capture.
 - `--still-exit <true|false>` controls whether Lambda Shade exits after finishing a still export (defaults to `true`).
   When exporting, Lambda Shade hides the preview window unless `--window` is supplied, so headless

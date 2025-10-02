@@ -24,8 +24,6 @@ pub enum RenderPolicy {
     Still {
         /// Specific timestamp to evaluate the shader at (seconds).
         time: Option<f32>,
-        /// Optional deterministic seed for shaders that rely on randomness.
-        random_seed: Option<u64>,
     },
     /// Render a frame and write the result to disk.
     Export {
@@ -62,10 +60,7 @@ mod tests {
 
     #[test]
     fn still_renders_once() {
-        let mut sched = FrameScheduler::new(RenderPolicy::Still {
-            time: Some(1.23),
-            random_seed: None,
-        });
+        let mut sched = FrameScheduler::new(RenderPolicy::Still { time: Some(1.23) });
         let now = Instant::now();
         assert!(sched.ready_for_frame(now));
         sched.mark_rendered();
@@ -259,7 +254,7 @@ pub type BoxedTimeSource = Box<dyn TimeSource + Send>;
 pub fn time_source_for_policy(policy: &RenderPolicy) -> Result<BoxedTimeSource> {
     match policy {
         RenderPolicy::Animate { .. } => Ok(Box::new(SystemTimeSource::new())),
-        RenderPolicy::Still { time, .. } => Ok(Box::new(FixedTimeSource::new(time.unwrap_or(0.0)))),
+        RenderPolicy::Still { time } => Ok(Box::new(FixedTimeSource::new(time.unwrap_or(0.0)))),
         RenderPolicy::Export { time, .. } => {
             Ok(Box::new(FixedTimeSource::new(time.unwrap_or(0.0))))
         }

@@ -44,10 +44,6 @@ pub struct RunArgs {
     #[arg(long, value_name = "SECONDS|auto")]
     pub still_time: Option<String>,
 
-    /// Deterministic random seed for still/export modes.
-    #[arg(long, value_name = "SEED")]
-    pub still_random_seed: Option<u64>,
-
     /// Export a still frame to the provided PNG path then exit.
     #[arg(long, value_name = "PATH")]
     pub still_export: Option<PathBuf>,

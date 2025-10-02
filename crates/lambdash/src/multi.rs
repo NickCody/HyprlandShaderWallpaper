@@ -799,7 +799,6 @@ fn build_swap_request(
         },
         multiconfig::PlaylistItemMode::Still => RenderPolicy::Still {
             time: item.still_time.map(|d| d.as_secs_f32()),
-            random_seed: None,
         },
     };
     SwapRequest {
@@ -1490,7 +1489,6 @@ handle = "demo"
             window: true,
             still: false,
             still_time: None,
-            still_random_seed: None,
             still_export: None,
             still_exit: None,
             render_scale: None,

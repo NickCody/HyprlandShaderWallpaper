@@ -178,10 +178,7 @@ fn prepare_single_run(
             format,
         }
     } else if args.still {
-        RenderPolicy::Still {
-            time: still_time,
-            random_seed: args.still_random_seed,
-        }
+        RenderPolicy::Still { time: still_time }
     } else {
         RenderPolicy::Animate {
             target_fps: match args.fps {
@@ -199,10 +196,6 @@ fn prepare_single_run(
     if args.still_time.is_some() && !args.still && args.still_export.is_none() {
         anyhow::bail!("--still-time requires --still or --still-export");
     }
-    if args.still_random_seed.is_some() && !args.still && args.still_export.is_none() {
-        anyhow::bail!("--still-random-seed requires --still or --still-export");
-    }
-
     let render_mode = if args.window {
         RenderMode::Windowed
     } else {
@@ -212,11 +205,7 @@ fn prepare_single_run(
     let render_scale = resolve_render_scale(args.render_scale)?;
     validate_occlusion_args(args.fps_adaptive, args.max_fps_occluded)?;
     let exit_on_export = args.still_exit.unwrap_or(true);
-    let show_window = if args.still_export.is_some() {
-        args.window
-    } else {
-        true
-    };
+    let show_window = args.window;
 
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,

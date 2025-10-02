@@ -328,6 +328,18 @@ impl WallpaperManager {
         self.should_exit
     }
 
+    fn register_export_completion(&mut self, policy: &RenderPolicy) {
+        if !self.exit_after_export {
+            return;
+        }
+        if !matches!(self.base_policy, RenderPolicy::Export { .. }) {
+            return;
+        }
+        if matches!(policy, RenderPolicy::Export { .. }) {
+            self.should_exit = true;
+        }
+    }
+
     fn maybe_exit_after_export(&mut self) {
         if !self.exit_after_export {
             return;
@@ -442,8 +454,8 @@ impl WallpaperManager {
             if matches!(surface_state.policy, RenderPolicy::Export { .. }) {
                 if let Err(err) = surface_state.render() {
                     surface_state.handle_render_error(err, conn, &self.compositor);
-                } else {
-                    surface_state.mark_rendered();
+                } else if surface_state.mark_rendered() {
+                    self.register_export_completion(&surface_state.policy);
                 }
             }
         }
@@ -525,8 +537,8 @@ impl WallpaperManager {
                             if matches!(surface.policy, RenderPolicy::Export { .. }) {
                                 if let Err(err) = surface.render() {
                                     surface.handle_render_error(err, conn, &self.compositor);
-                                } else {
-                                    surface.mark_rendered();
+                                } else if surface.mark_rendered() {
+                                    self.register_export_completion(&surface.policy);
                                 }
                             } else {
                                 surface.schedule_next_frame(qh);
@@ -624,7 +636,9 @@ impl CompositorHandler for WallpaperManager {
             if surface_state.should_render() {
                 match surface_state.render() {
                     Ok(()) => {
-                        surface_state.mark_rendered();
+                        if surface_state.mark_rendered() {
+                            self.register_export_completion(&surface_state.policy);
+                        }
                     }
                     Err(err) => {
                         surface_state.handle_render_error(err, conn, &self.compositor);
@@ -696,8 +710,8 @@ impl LayerShellHandler for WallpaperManager {
 
             if let Err(err) = surface_state.render() {
                 surface_state.handle_render_error(err, conn, &self.compositor);
-            } else {
-                surface_state.mark_rendered();
+            } else if surface_state.mark_rendered() {
+                self.register_export_completion(&surface_state.policy);
             }
             surface_state.schedule_next_frame(qh);
             self.surfaces.insert(key, surface_state);
@@ -932,14 +946,21 @@ impl SurfaceState {
 
     fn should_render(&mut self) -> bool {
         match self.policy {
-            RenderPolicy::Still { .. } => !self.rendered_once,
+            RenderPolicy::Still { .. } | RenderPolicy::Export { .. } => !self.rendered_once,
             _ => self.pacer.should_render(),
         }
     }
 
-    fn mark_rendered(&mut self) {
-        if matches!(self.policy, RenderPolicy::Still { .. }) {
+    fn mark_rendered(&mut self) -> bool {
+        if matches!(
+            self.policy,
+            RenderPolicy::Still { .. } | RenderPolicy::Export { .. }
+        ) {
+            let first_render = !self.rendered_once;
             self.rendered_once = true;
+            first_render
+        } else {
+            false
         }
     }
 
@@ -1007,7 +1028,11 @@ impl SurfaceState {
         if self.gpu.is_none() {
             return;
         }
-        if matches!(self.policy, RenderPolicy::Still { .. }) && self.rendered_once {
+        if matches!(
+            self.policy,
+            RenderPolicy::Still { .. } | RenderPolicy::Export { .. }
+        ) && self.rendered_once
+        {
             self.pacer.is_frame_scheduled = false;
             return;
         }
