@@ -620,7 +620,7 @@ impl CompositorHandler for WallpaperManager {
     ) {
         let key = surface_key(surface);
         if let Some(mut surface_state) = self.surfaces.remove(&key) {
-            tracing::info!(policy = ?surface_state.policy, rendered = surface_state.rendered_once, "frame callback");
+            tracing::trace!(policy = ?surface_state.policy, rendered = surface_state.rendered_once, "frame callback");
             if surface_state.should_render() {
                 match surface_state.render() {
                     Ok(()) => {
