@@ -30,8 +30,8 @@ pub use runtime::{
     RenderPolicy, RuntimeOptions, SystemTimeSource, TimeSample, TimeSource,
 };
 pub use types::{
-    Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind, ColorSpaceMode, RenderMode,
-    RendererConfig, ShaderCompiler, SurfaceAlpha, CUBEMAP_FACE_STEMS,
+    AdapterProfile, Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind,
+    ColorSpaceMode, RenderMode, RendererConfig, ShaderCompiler, SurfaceAlpha, CUBEMAP_FACE_STEMS,
 };
 pub use wallpaper::{
     OutputId, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime,
@@ -47,7 +47,7 @@ use winit::event::{Event, MouseButton, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 
-use window::{RenderPolicyDriver, WindowState};
+use window::{RenderFrameStatus, RenderPolicyDriver, WindowState};
 
 /// High-level entry point that owns the chosen configuration.
 ///
@@ -65,6 +65,12 @@ impl Renderer {
 
     /// Launches the renderer in either wallpaper or windowed mode.
     pub fn run(&mut self) -> Result<()> {
+        if matches!(self.config.mode, RenderMode::Wallpaper)
+            && matches!(self.config.policy, RenderPolicy::Export { .. })
+            && self.config.exit_on_export
+        {
+            return self.run_export_once();
+        }
         match self.config.mode {
             RenderMode::Wallpaper => self.run_wallpaper(),
             RenderMode::Windowed => self.run_window_preview(),
@@ -80,9 +86,13 @@ impl Renderer {
     fn run_window_preview(&self) -> Result<()> {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
-        let window = WindowBuilder::new()
+        let mut builder = WindowBuilder::new()
             .with_title("Lambda Shade Preview")
-            .with_inner_size(window_size)
+            .with_inner_size(window_size);
+        if !self.config.show_window {
+            builder = builder.with_visible(false);
+        }
+        let window = builder
             .build(&event_loop)
             .context("failed to create preview window")?;
         let window = Arc::new(window);
@@ -113,7 +123,17 @@ impl Renderer {
                             }
                         }
                         WindowEvent::Resized(new_size) => {
-                            state.resize(new_size);
+                            let target_size = if !self.config.show_window
+                                && matches!(self.config.policy, RenderPolicy::Export { .. })
+                            {
+                                PhysicalSize::new(
+                                    self.config.surface_size.0,
+                                    self.config.surface_size.1,
+                                )
+                            } else {
+                                new_size
+                            };
+                            state.resize(target_size);
                         }
                         WindowEvent::ScaleFactorChanged {
                             mut inner_size_writer,
@@ -125,21 +145,43 @@ impl Renderer {
                             let sample = policy_driver.sample();
                             let render_result = state.render_frame(sample);
                             match render_result {
-                                Ok(()) => {
+                                Ok(RenderFrameStatus::Presented) => {
                                     policy_driver.mark_rendered();
                                 }
-                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                                    state.resize(state.size());
+                                Ok(RenderFrameStatus::Captured(path)) => {
+                                    policy_driver.mark_rendered();
+                                    tracing::info!("still frame captured at {}", path.display());
+                                    if self.config.exit_on_export {
+                                        elwt.exit();
+                                    }
                                 }
-                                Err(wgpu::SurfaceError::OutOfMemory) => {
-                                    eprintln!("surface out of memory; exiting");
-                                    elwt.exit();
-                                }
-                                Err(wgpu::SurfaceError::Timeout) => {
-                                    eprintln!("surface timeout; retrying next frame");
-                                }
-                                Err(other) => {
-                                    eprintln!("surface error: {other:?}; retrying next frame");
+                                Err(err) => {
+                                    if let Some(surface_err) = err.as_surface_error() {
+                                        match surface_err {
+                                            wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated => {
+                                                state.resize(state.size());
+                                            }
+                                            wgpu::SurfaceError::OutOfMemory => {
+                                                eprintln!(
+                                                    "surface out of memory; exiting preview"
+                                                );
+                                                elwt.exit();
+                                            }
+                                            wgpu::SurfaceError::Timeout => {
+                                                eprintln!(
+                                                    "surface timeout; retrying next frame"
+                                                );
+                                            }
+                                            other => {
+                                                eprintln!(
+                                                    "surface error: {other:?}; retrying next frame"
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        tracing::error!(error = %err, "failed to export still frame");
+                                        elwt.exit();
+                                    }
                                 }
                             }
                         }
@@ -160,5 +202,31 @@ impl Renderer {
                 _ => {}
             })
             .map_err(|err| anyhow!("event loop error: {err}"))
+    }
+
+    fn run_export_once(&self) -> Result<()> {
+        let event_loop = EventLoop::new().context("failed to initialize event loop")?;
+        let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
+        let builder = WindowBuilder::new()
+            .with_title("Lambda Shade Export")
+            .with_inner_size(window_size)
+            .with_visible(self.config.show_window);
+        let window = builder
+            .build(&event_loop)
+            .context("failed to create export window")?;
+        let window = Arc::new(window);
+
+        let mut state = WindowState::new(window.clone(), &self.config)?;
+        let mut policy_driver = RenderPolicyDriver::new(self.config.policy.clone())?;
+        let sample = policy_driver.sample();
+        match state.render_frame(sample)? {
+            RenderFrameStatus::Captured(_) => {
+                policy_driver.mark_rendered();
+                Ok(())
+            }
+            RenderFrameStatus::Presented => Err(anyhow!(
+                "export policy expected a captured frame but received a presentation"
+            )),
+        }
     }
 }

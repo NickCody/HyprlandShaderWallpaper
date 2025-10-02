@@ -12,7 +12,7 @@ use crate::bindings::{
 use crate::bootstrap::{
     bootstrap_filesystem, parse_surface_size, resolve_shader_handle, SingleRunConfig,
 };
-use crate::cli::RunArgs;
+use crate::cli::{parse_export_format, RunArgs};
 use crate::defaults::{sync_defaults, SyncOptions};
 use crate::multi;
 use crate::paths::AppPaths;
@@ -169,15 +169,59 @@ fn prepare_single_run(
 
     let color_space = resolve_color_space(args.color_space, manifest_color);
 
+    let still_time = parse_still_time_arg(args.still_time.as_deref())?;
+    let render_policy = if let Some(path) = args.still_export.as_ref() {
+        let format = parse_export_format(path).map_err(|err| anyhow::anyhow!(err))?;
+        RenderPolicy::Export {
+            time: still_time,
+            path: path.clone(),
+            format,
+        }
+    } else if args.still {
+        RenderPolicy::Still {
+            time: still_time,
+            random_seed: args.still_random_seed,
+        }
+    } else {
+        RenderPolicy::Animate {
+            target_fps: match args.fps {
+                Some(v) if v > 0.0 => Some(v),
+                _ => None,
+            },
+            adaptive: args.fps_adaptive,
+        }
+    };
+
+    if args.fps_adaptive && !matches!(render_policy, RenderPolicy::Animate { .. }) {
+        tracing::warn!("--fps-adaptive has no effect in still/export modes");
+    }
+
+    if args.still_time.is_some() && !args.still && args.still_export.is_none() {
+        anyhow::bail!("--still-time requires --still or --still-export");
+    }
+    if args.still_random_seed.is_some() && !args.still && args.still_export.is_none() {
+        anyhow::bail!("--still-random-seed requires --still or --still-export");
+    }
+
+    let render_mode = if args.window {
+        RenderMode::Windowed
+    } else {
+        RenderMode::Wallpaper
+    };
+
+    let render_scale = resolve_render_scale(args.render_scale)?;
+    validate_occlusion_args(args.fps_adaptive, args.max_fps_occluded)?;
+    let exit_on_export = args.still_exit.unwrap_or(true);
+    let show_window = if args.still_export.is_some() {
+        args.window
+    } else {
+        true
+    };
+
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
         shader_source: shader_path,
-        mode: if args.window {
-            tracing::info!("windowed rendering mode requested (placeholder implementation)");
-            RenderMode::Windowed
-        } else {
-            RenderMode::Wallpaper
-        },
+        mode: render_mode,
         requested_size,
         target_fps: match args.fps {
             Some(v) if v > 0.0 => Some(v),
@@ -188,15 +232,12 @@ fn prepare_single_run(
         surface_alpha,
         shader_compiler: args.shader_compiler,
         color_space,
-        render_scale: 1.0,
-        fill_method: FillMethod::default(),
-        policy: RenderPolicy::Animate {
-            target_fps: match args.fps {
-                Some(v) if v > 0.0 => Some(v),
-                _ => None,
-            },
-            adaptive: false,
-        },
+        render_scale,
+        fill_method: args.fill_method.unwrap_or_else(FillMethod::default),
+        max_fps_occluded: args.max_fps_occluded,
+        show_window,
+        exit_on_export,
+        policy: render_policy,
     };
 
     Ok(SingleRunConfig { renderer_config })
@@ -205,4 +246,72 @@ fn prepare_single_run(
 fn run_single(config: SingleRunConfig) -> Result<()> {
     let mut renderer = Renderer::new(config.renderer_config);
     renderer.run()
+}
+
+fn parse_still_time_arg(value: Option<&str>) -> Result<Option<f32>> {
+    let Some(raw) = value else {
+        return Ok(None);
+    };
+
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("--still-time must not be empty");
+    }
+
+    if trimmed.eq_ignore_ascii_case("auto") {
+        tracing::info!("--still-time auto requested; using shader default (0s) for now");
+        return Ok(None);
+    }
+
+    let seconds: f32 = trimmed.parse().map_err(|_| {
+        anyhow::anyhow!("invalid --still-time value '{trimmed}'; expected seconds or 'auto'")
+    })?;
+    if seconds < 0.0 {
+        anyhow::bail!("--still-time must be non-negative");
+    }
+    Ok(Some(seconds))
+}
+
+pub(crate) fn resolve_render_scale(value: Option<f32>) -> Result<f32> {
+    if let Some(scale) = value {
+        if !(0.25..=1.0).contains(&scale) {
+            anyhow::bail!("--render-scale must be between 0.25 and 1.0");
+        }
+        Ok(scale)
+    } else {
+        Ok(1.0)
+    }
+}
+
+pub(crate) fn validate_occlusion_args(fps_adaptive: bool, max_fps: Option<f32>) -> Result<()> {
+    if let Some(fps) = max_fps {
+        if fps <= 0.0 {
+            anyhow::bail!("--max-fps-occluded must be greater than zero");
+        }
+        if !fps_adaptive {
+            anyhow::bail!("--max-fps-occluded requires --fps-adaptive");
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn render_scale_validation() {
+        assert_eq!(resolve_render_scale(None).unwrap(), 1.0);
+        assert_eq!(resolve_render_scale(Some(0.75)).unwrap(), 0.75);
+        assert!(resolve_render_scale(Some(0.1)).is_err());
+        assert!(resolve_render_scale(Some(1.5)).is_err());
+    }
+
+    #[test]
+    fn occlusion_validation_rules() {
+        assert!(validate_occlusion_args(true, Some(10.0)).is_ok());
+        assert!(validate_occlusion_args(false, Some(10.0)).is_err());
+        assert!(validate_occlusion_args(true, Some(0.0)).is_err());
+        assert!(validate_occlusion_args(false, None).is_ok());
+    }
 }

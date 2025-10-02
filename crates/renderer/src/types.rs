@@ -3,6 +3,39 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 use crate::runtime::{FillMethod, RenderPolicy};
+use wgpu::{AdapterInfo, Backend, DeviceType, Limits};
+
+/// Adapter capabilities and metadata reported by wgpu.
+#[derive(Debug, Clone)]
+pub struct AdapterProfile {
+    pub name: String,
+    pub backend: Backend,
+    pub device_type: DeviceType,
+    pub driver: String,
+    pub driver_info: String,
+    pub limits: Limits,
+}
+
+impl AdapterProfile {
+    pub fn from_wgpu(info: &AdapterInfo, limits: &Limits) -> Self {
+        Self {
+            name: info.name.clone(),
+            backend: info.backend,
+            device_type: info.device_type,
+            driver: info.driver.clone(),
+            driver_info: info.driver_info.clone(),
+            limits: limits.clone(),
+        }
+    }
+
+    pub fn is_software(&self) -> bool {
+        matches!(self.device_type, DeviceType::Cpu)
+            || self.name.to_ascii_lowercase().contains("llvmpipe")
+            || self.name.to_ascii_lowercase().contains("softpipe")
+            || self.driver.to_ascii_lowercase().contains("llvmpipe")
+            || self.driver.to_ascii_lowercase().contains("softpipe")
+    }
+}
 
 /// ShaderToy exposes four optional input channels (`iChannel0-3`).
 pub const CHANNEL_COUNT: usize = 4;
@@ -217,6 +250,12 @@ pub struct RendererConfig {
     pub render_scale: f32,
     /// How shader coordinates map to the wallpaper surface.
     pub fill_method: FillMethod,
+    /// Maximum FPS allowed while the surface is occluded (if adaptive throttling enabled).
+    pub max_fps_occluded: Option<f32>,
+    /// Whether the preview window should be visible when created.
+    pub show_window: bool,
+    /// Whether the renderer should exit automatically after completing an export capture.
+    pub exit_on_export: bool,
     /// High-level render behaviour requested by the caller.
     pub policy: RenderPolicy,
 }
@@ -237,6 +276,9 @@ impl Default for RendererConfig {
             color_space: ColorSpaceMode::default(),
             render_scale: 1.0,
             fill_method: FillMethod::default(),
+            max_fps_occluded: None,
+            show_window: true,
+            exit_on_export: true,
             policy: RenderPolicy::default(),
         }
     }

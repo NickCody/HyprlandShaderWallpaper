@@ -28,6 +28,7 @@ use crate::bindings::{
 use crate::bootstrap::parse_surface_size;
 use crate::cli::RunArgs;
 use crate::paths::AppPaths;
+use crate::run::{resolve_render_scale, validate_occlusion_args};
 
 const DEFAULT_PREWARM_MS: u64 = 250;
 
@@ -87,6 +88,10 @@ fn run_wallpaper_multi(
 
     let bootstrap_color = resolve_color_space(args.color_space, bootstrap.color_space);
 
+    let render_scale = resolve_render_scale(args.render_scale)?;
+    validate_occlusion_args(args.fps_adaptive, args.max_fps_occluded)?;
+    let fill_method = args.fill_method.unwrap_or_else(FillMethod::default);
+
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
         shader_source: bootstrap.shader_path.clone(),
@@ -98,11 +103,14 @@ fn run_wallpaper_multi(
         surface_alpha: bootstrap.surface_alpha,
         color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
-        render_scale: 1.0,
-        fill_method: FillMethod::default(),
+        render_scale,
+        fill_method,
+        max_fps_occluded: args.max_fps_occluded,
+        show_window: true,
+        exit_on_export: true,
         policy: RenderPolicy::Animate {
             target_fps: normalize_fps(args.fps),
-            adaptive: false,
+            adaptive: args.fps_adaptive,
         },
     };
 
@@ -145,6 +153,10 @@ fn run_window_multi(
 
     let bootstrap_color = resolve_color_space(args.color_space, bootstrap.color_space);
 
+    let render_scale = resolve_render_scale(args.render_scale)?;
+    validate_occlusion_args(args.fps_adaptive, args.max_fps_occluded)?;
+    let fill_method = args.fill_method.unwrap_or_else(FillMethod::default);
+
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
         shader_source: bootstrap.shader_path.clone(),
@@ -156,11 +168,14 @@ fn run_window_multi(
         surface_alpha: bootstrap.surface_alpha,
         color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
-        render_scale: 1.0,
-        fill_method: FillMethod::default(),
+        render_scale,
+        fill_method,
+        max_fps_occluded: args.max_fps_occluded,
+        show_window: true,
+        exit_on_export: true,
         policy: RenderPolicy::Animate {
             target_fps: None,
-            adaptive: false,
+            adaptive: args.fps_adaptive,
         },
     };
 
@@ -262,21 +277,7 @@ fn apply_window_actions(runtime: &WindowRuntime, actions: Vec<SwapAction>) -> Re
             antialias = ?action.request.antialiasing,
             "swapping shader"
         );
-        let SwapRequest {
-            shader_source,
-            channel_bindings,
-            crossfade,
-            antialiasing,
-            warmup,
-            ..
-        } = action.request;
-        if let Err(err) = runtime.swap_shader(
-            shader_source,
-            channel_bindings,
-            antialiasing,
-            crossfade,
-            warmup,
-        ) {
+        if let Err(err) = runtime.swap_shader(action.request) {
             error!(target = %action.target_display, error = ?err, "failed to swap shader");
             return Ok(false);
         }
@@ -782,20 +783,35 @@ fn build_swap_request(
     warmup: Duration,
 ) -> SwapRequest {
     let fps = item.fps.or(global_fps);
+    let target_fps = match item.mode {
+        multiconfig::PlaylistItemMode::Animate => fps,
+        multiconfig::PlaylistItemMode::Still => None,
+    };
     let antialiasing = item
         .antialias
         .map(map_antialias)
         .unwrap_or(global_antialias);
     let color_space = resolve_color_space(global_color, assets.color_space);
+    let policy = match item.mode {
+        multiconfig::PlaylistItemMode::Animate => RenderPolicy::Animate {
+            target_fps,
+            adaptive: false,
+        },
+        multiconfig::PlaylistItemMode::Still => RenderPolicy::Still {
+            time: item.still_time.map(|d| d.as_secs_f32()),
+            random_seed: None,
+        },
+    };
     SwapRequest {
         shader_source: assets.shader_path.clone(),
         channel_bindings: assets.channel_bindings.clone(),
         crossfade,
-        target_fps: fps,
+        target_fps,
         antialiasing,
         surface_alpha: assets.surface_alpha,
         color_space,
         warmup,
+        policy,
     }
 }
 
@@ -1472,6 +1488,15 @@ handle = "demo"
             shadertoy: None,
             multi: None,
             window: true,
+            still: false,
+            still_time: None,
+            still_random_seed: None,
+            still_export: None,
+            still_exit: None,
+            render_scale: None,
+            fill_method: None,
+            fps_adaptive: false,
+            max_fps_occluded: None,
             size: None,
             fps: None,
             refresh: false,

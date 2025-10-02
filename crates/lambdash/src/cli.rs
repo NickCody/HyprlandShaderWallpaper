@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use renderer::{Antialiasing, ColorSpaceMode, ShaderCompiler};
+use renderer::{Antialiasing, ColorSpaceMode, ExportFormat, FillMethod, ShaderCompiler};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -35,6 +35,42 @@ pub struct RunArgs {
     /// Render the shader in a desktop window instead of wallpaper mode.
     #[arg(long)]
     pub window: bool,
+
+    /// Render a single still frame instead of animating continuously.
+    #[arg(long)]
+    pub still: bool,
+
+    /// Timestamp (seconds or `auto`) to evaluate for still/export modes.
+    #[arg(long, value_name = "SECONDS|auto")]
+    pub still_time: Option<String>,
+
+    /// Deterministic random seed for still/export modes.
+    #[arg(long, value_name = "SEED")]
+    pub still_random_seed: Option<u64>,
+
+    /// Export a still frame to the provided PNG path then exit.
+    #[arg(long, value_name = "PATH")]
+    pub still_export: Option<PathBuf>,
+
+    /// Control whether the process exits automatically after a still export (`true` by default).
+    #[arg(long, value_name = "BOOL")]
+    pub still_exit: Option<bool>,
+
+    /// Supersampling factor to render at before presenting (0.25-1.0).
+    #[arg(long, value_name = "SCALE")]
+    pub render_scale: Option<f32>,
+
+    /// How shader coordinates map to the surface (`stretch`, `center:WIDTHxHEIGHT`, `tile[:XxY]`).
+    #[arg(long, value_name = "MODE", value_parser = parse_fill_method)]
+    pub fill_method: Option<FillMethod>,
+
+    /// Enable adaptive FPS throttling when the surface is occluded.
+    #[arg(long)]
+    pub fps_adaptive: bool,
+
+    /// Cap FPS while occluded (requires `--fps-adaptive`).
+    #[arg(long, value_name = "FPS")]
+    pub max_fps_occluded: Option<f32>,
 
     /// Override the render resolution (e.g. `1280x720`).
     #[arg(long, value_name = "WIDTHxHEIGHT")]
@@ -189,5 +225,128 @@ pub fn parse_color_space(value: &str) -> Result<ColorSpaceMode, String> {
         other => Err(format!(
             "unknown color space '{other}'; expected auto, gamma, or linear"
         )),
+    }
+}
+
+pub fn parse_export_format(path: &PathBuf) -> Result<ExportFormat, String> {
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("png") => Ok(ExportFormat::Png),
+        Some("exr") => Err("EXR export is not implemented yet; use a .png path".to_string()),
+        None => Err("export path has no extension; expected .png".to_string()),
+        Some(other) => Err(format!(
+            "unsupported export format '.{other}'; expected .png"
+        )),
+    }
+}
+
+pub fn parse_fill_method(value: &str) -> Result<FillMethod, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("fill method must not be empty".into());
+    }
+
+    let (mode, rest) = match trimmed.split_once([':', '=']) {
+        Some((mode, rest)) if !rest.trim().is_empty() => {
+            (mode.trim().to_ascii_lowercase(), Some(rest.trim()))
+        }
+        _ => (trimmed.to_ascii_lowercase(), None),
+    };
+
+    match mode.as_str() {
+        "stretch" => Ok(FillMethod::Stretch),
+        "center" => {
+            let Some(rest) = rest else {
+                return Err("center fill requires dimensions (e.g. center:1920x1080)".into());
+            };
+            let (w, h) = parse_dimensions(rest)?;
+            Ok(FillMethod::Center {
+                content_width: w,
+                content_height: h,
+            })
+        }
+        "tile" => {
+            let (repeat_x, repeat_y) = if let Some(rest) = rest {
+                parse_repeat(rest)?
+            } else {
+                (1.0, 1.0)
+            };
+            Ok(FillMethod::Tile { repeat_x, repeat_y })
+        }
+        other => Err(format!(
+            "unknown fill method '{other}'; expected stretch, center:WxH, or tile[:XxY]"
+        )),
+    }
+}
+
+fn parse_dimensions(value: &str) -> Result<(u32, u32), String> {
+    let (w, h) = value
+        .split_once(['x', 'X'])
+        .ok_or_else(|| "expected WIDTHxHEIGHT".to_string())?;
+    let width = w
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| "invalid width in center dimensions".to_string())?;
+    let height = h
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| "invalid height in center dimensions".to_string())?;
+    if width == 0 || height == 0 {
+        return Err("center dimensions must be greater than zero".into());
+    }
+    Ok((width, height))
+}
+
+fn parse_repeat(value: &str) -> Result<(f32, f32), String> {
+    let (x, y) = value
+        .split_once(['x', 'X'])
+        .ok_or_else(|| "expected repeatXxrepeatY".to_string())?;
+    let repeat_x = x
+        .trim()
+        .parse::<f32>()
+        .map_err(|_| "invalid horizontal repeat".to_string())?;
+    let repeat_y = y
+        .trim()
+        .parse::<f32>()
+        .map_err(|_| "invalid vertical repeat".to_string())?;
+    if repeat_x <= 0.0 || repeat_y <= 0.0 {
+        return Err("tile repeats must be positive".into());
+    }
+    Ok((repeat_x, repeat_y))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_fill_method_variants() {
+        assert_eq!(parse_fill_method("stretch").unwrap(), FillMethod::Stretch);
+        assert_eq!(
+            parse_fill_method("center:1920x1080").unwrap(),
+            FillMethod::Center {
+                content_width: 1920,
+                content_height: 1080,
+            }
+        );
+        assert!(parse_fill_method("center").is_err());
+        assert_eq!(
+            parse_fill_method("tile:2x3").unwrap(),
+            FillMethod::Tile {
+                repeat_x: 2.0,
+                repeat_y: 3.0,
+            }
+        );
+        assert_eq!(
+            parse_fill_method("tile").unwrap(),
+            FillMethod::Tile {
+                repeat_x: 1.0,
+                repeat_y: 1.0,
+            }
+        );
     }
 }

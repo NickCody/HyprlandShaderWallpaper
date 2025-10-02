@@ -118,6 +118,23 @@ To bootstrap a new environment without launching the daemon, run
 `lambdash defaults sync --dry-run` (to inspect) and `lambdash defaults sync` (to
 install). The daemon also accepts `--init-defaults` for a one-shot sync and exit.
 
+### Still Frames & Exports
+
+- `--still` renders one frame and pauses the scheduler, keeping the surface alive for previews.
+- `--still-time <seconds|auto>` selects the timestamp for still/export captures (auto currently falls back to `0`).
+- `--still-random-seed <seed>` forwards a deterministic seed to shaders that use randomness.
+- `--still-export <path.png>` grabs the next frame to disk; the renderer forces window mode for capture.
+- `--still-exit <true|false>` controls whether Lambda Shade exits after finishing a still export (defaults to `true`).
+  When exporting, Lambda Shade hides the preview window unless `--window` is supplied, so headless
+  captures complete without flashing a surface.
+
+### Quality & Adaptive Controls
+
+- `--render-scale <0.25-1.0>` supersamples or downsamples before presenting to the compositor.
+- `--fill-method stretch|center:WxH|tile[:XxY]` remaps shader coordinates, enabling letterboxing or tiled repeats.
+- `--fps-adaptive` enables cadence throttling when the compositor hides the surface; pair with `--max-fps-occluded <fps>` to cap the hidden refresh rate.
+- Existing `--fps <value>` remains the steady-state cap while the surface is visible.
+
 ## Packaging Guidance
 
 Downstream packages and automation should mirror the installer’s behaviour:
@@ -171,6 +188,7 @@ Key behaviours:
 - Workspace changes interrupt any active transition and start a new crossfade using
   `workspace_switch_crossfade` (set to `0` for hard cuts).
 - Playlist items can override FPS caps, antialiasing, and opt-in to one-time refreshes.
+- Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
 
 Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs
 with the `[lambdash]` prefix highlight shader compilation or timing diagnostics.

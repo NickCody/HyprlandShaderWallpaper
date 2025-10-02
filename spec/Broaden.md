@@ -15,16 +15,16 @@ This document outlines a staged plan to broaden Lambda Shade beyond a Hyprland-f
 - [x] Stage 0: Type scaffolding (RenderPolicy, RuntimeOptions, TimeSource)
 - [x] Stage 1: Policy + time wiring (still mode hold, no export)
 - [x] Stage 2: FrameScheduler seam for cadence *(window preview now driven by the shared scheduler; wallpaper pacer will hop across during adaptive tuning in Stage 5)*
-- [ ] Stage 3: FillMethod + render_scale in renderer/wrapper
-- [ ] Stage 4: Export pipeline (PNG first) via FrameSink
-- [ ] Stage 5: AdapterProfile + adaptive heuristics (llvmpipe detection, occlusion caps)
-- [ ] Stage 6: Telemetry + tests (scheduler reasons, PNG golden)
+- [x] Stage 3: FillMethod + render_scale in renderer/wrapper
+- [x] Stage 4: Export pipeline (PNG first) via FrameSink
+- [x] Stage 5: AdapterProfile + adaptive heuristics (llvmpipe detection, occlusion caps)
+- [x] Stage 6: Telemetry + tests (scheduler reasons, PNG golden)
 
 ### Phase 1 — Features (after refactors)
-- [ ] Still mode flags (`--still`, `--still-time`, `--still-random-seed`)
-- [ ] Snapshot export (`--still-export <path.png>`)
-- [ ] Adaptive FPS flags (`--fps-adaptive`, `--max-fps-occluded`)
-- [ ] Quality controls (`--render-scale`, `--fill-method {stretch|center|tile}`)
+- [x] Still mode flags (`--still`, `--still-time`, `--still-random-seed`)
+- [x] Snapshot export (`--still-export <path.png>`)
+- [x] Adaptive FPS flags (`--fps-adaptive`, `--max-fps-occluded`)
+- [x] Quality controls (`--render-scale`, `--fill-method {stretch|center|tile}`)
 
 ### Phase 2 — Generic adapters & X11 stills
 - [ ] Wayland layer‑shell adapter (BACKGROUND layer, per‑output)

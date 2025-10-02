@@ -120,6 +120,9 @@ layout(std140, set = 0, binding = 0) uniform ShaderParams {
     vec2 _padding1;
     float _iChannelTime[4];
     vec3 _iChannelResolution[4];
+    vec4 _iSurface;
+    vec4 _iFill;
+    vec4 _iFillWrap;
 } ubo;
 
 // Map ShaderToy names to our UBO fields via macros to avoid name clashes.
@@ -147,6 +150,9 @@ layout(set = 1, binding = 7) uniform sampler lambdash_channel3_sampler;
 #define iChannel1 sampler2D(lambdash_channel1_texture, lambdash_channel1_sampler)
 #define iChannel2 sampler2D(lambdash_channel2_texture, lambdash_channel2_sampler)
 #define iChannel3 sampler2D(lambdash_channel3_texture, lambdash_channel3_sampler)
+#define lambdash_Surface ubo._iSurface
+#define lambdash_Fill ubo._iFill
+#define lambdash_FillWrap ubo._iFillWrap
 
 vec4 lambdash_gl_FragCoord;
 #define gl_FragCoord lambdash_gl_FragCoord
@@ -160,7 +166,35 @@ const FOOTER: &str = r"void main() {
     vec2 builtinFC = vec2(gl_FragCoord.x, gl_FragCoord.y);
     #define gl_FragCoord lambdash_gl_FragCoord
 
-    vec2 fragCoord = vec2(builtinFC.x, iResolution.y - builtinFC.y);
+    vec2 mapped = vec2(
+        builtinFC.x * lambdash_Fill.x + lambdash_Fill.z,
+        (lambdash_Surface.y - builtinFC.y) * lambdash_Fill.y + lambdash_Fill.w
+    );
+
+    bool outside = mapped.x < 0.0 || mapped.y < 0.0 || mapped.x >= iResolution.x || mapped.y >= iResolution.y;
+
+    if (lambdash_FillWrap.x > 0.0) {
+        mapped.x = mod(mapped.x, lambdash_FillWrap.x);
+        if (mapped.x < 0.0) {
+            mapped.x += lambdash_FillWrap.x;
+        }
+        outside = false;
+    }
+
+    if (lambdash_FillWrap.y > 0.0) {
+        mapped.y = mod(mapped.y, lambdash_FillWrap.y);
+        if (mapped.y < 0.0) {
+            mapped.y += lambdash_FillWrap.y;
+        }
+        outside = false;
+    }
+
+    if (outside) {
+        outColor = vec4(0.0);
+        return;
+    }
+
+    vec2 fragCoord = mapped;
     lambdash_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
 
     vec4 color = vec4(0.0);

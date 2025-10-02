@@ -28,13 +28,14 @@ use smithay_client_toolkit::{
 use wgpu::SurfaceError;
 use winit::dpi::PhysicalSize;
 
-use crate::gpu::GpuState;
-use crate::runtime::{
-    time_source_for_policy, BoxedTimeSource, FillMethod, RenderPolicy, TimeSample,
-};
+use crate::gpu::{FileExportTarget, GpuState, RenderExportError};
+use crate::runtime::{time_source_for_policy, BoxedTimeSource, FillMethod, RenderPolicy};
 use crate::types::{
-    Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler, SurfaceAlpha,
+    AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler,
+    SurfaceAlpha,
 };
+
+const SOFTWARE_FPS_CAP: f32 = 15.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SurfaceId(u64);
@@ -108,6 +109,7 @@ pub struct SwapRequest {
     pub surface_alpha: SurfaceAlpha,
     pub color_space: ColorSpaceMode,
     pub warmup: Duration,
+    pub policy: RenderPolicy,
 }
 
 impl WallpaperRuntime {
@@ -268,11 +270,12 @@ struct WallpaperManager {
     target_fps: Option<f32>,
     color_space: ColorSpaceMode,
     shader_compiler: ShaderCompiler,
-    policy: RenderPolicy,
-    time_source: BoxedTimeSource,
     should_exit: bool,
     render_scale: f32,
     fill_method: FillMethod,
+    software_hint_emitted: bool,
+    base_policy: RenderPolicy,
+    exit_after_export: bool,
 }
 
 impl WallpaperManager {
@@ -283,8 +286,6 @@ impl WallpaperManager {
         output_state: OutputState,
         config: &RendererConfig,
     ) -> Result<Self> {
-        let time_source = time_source_for_policy(&config.policy)?;
-
         Ok(Self {
             compositor,
             layer_shell,
@@ -300,11 +301,12 @@ impl WallpaperManager {
             target_fps: config.target_fps,
             color_space: config.color_space,
             shader_compiler: config.shader_compiler,
-            policy: config.policy.clone(),
-            time_source,
             should_exit: false,
             render_scale: config.render_scale,
             fill_method: config.fill_method,
+            software_hint_emitted: false,
+            base_policy: config.policy.clone(),
+            exit_after_export: config.exit_on_export,
         })
     }
 
@@ -326,6 +328,32 @@ impl WallpaperManager {
         self.should_exit
     }
 
+    fn maybe_exit_after_export(&mut self) {
+        if !self.exit_after_export {
+            return;
+        }
+        if !matches!(self.base_policy, RenderPolicy::Export { .. }) {
+            return;
+        }
+        if self.surfaces.values().all(|surface| surface.is_rendered()) {
+            self.should_exit = true;
+        }
+    }
+
+    fn log_software_cap_if_needed(&mut self, profile: &AdapterProfile) {
+        if self.software_hint_emitted {
+            return;
+        }
+        tracing::warn!(
+            adapter = %profile.name,
+            backend = ?profile.backend,
+            cap = SOFTWARE_FPS_CAP,
+            "software rasterizer detected; capping wallpaper FPS to {} FPS (override with --fps)",
+            SOFTWARE_FPS_CAP
+        );
+        self.software_hint_emitted = true;
+    }
+
     fn ensure_surface_for_output(
         &mut self,
         conn: &Connection,
@@ -334,17 +362,30 @@ impl WallpaperManager {
     ) -> Result<()> {
         if let Some(ref out) = output {
             let key = proxy_key(out);
-            if let Some(existing) = self
+            if let Some(surface_id) = self
                 .surfaces
-                .values_mut()
-                .find(|surface| surface.output_key == Some(key))
+                .iter()
+                .find(|(_, surface)| surface.output_key == Some(key))
+                .map(|(surface_id, _)| *surface_id)
             {
-                existing.last_output_size = output
-                    .as_ref()
-                    .and_then(|o| self.output_state.info(o))
-                    .and_then(output_info_physical_size);
-                if let Some(size) = existing.last_output_size {
-                    let _ = existing.ensure_gpu(conn, &self.compositor, size);
+                let mut profile_to_log: Option<AdapterProfile> = None;
+                if let Some(existing) = self.surfaces.get_mut(&surface_id) {
+                    existing.last_output_size = output
+                        .as_ref()
+                        .and_then(|o| self.output_state.info(o))
+                        .and_then(output_info_physical_size);
+                    if let Some(size) = existing.last_output_size {
+                        if existing.ensure_gpu(conn, &self.compositor, size).is_ok() {
+                            if existing.software_cap_applied() {
+                                if let Some(profile) = existing.adapter_profile() {
+                                    profile_to_log = Some(profile.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(profile) = profile_to_log {
+                    self.log_software_cap_if_needed(&profile);
                 }
                 return Ok(());
             }
@@ -372,7 +413,7 @@ impl WallpaperManager {
             .and_then(output_info_physical_size);
         let output_key = output.as_ref().map(proxy_key);
         let key = surface_key(layer_surface.wl_surface());
-        let surface_state = SurfaceState::new(
+        let mut surface_state = SurfaceState::new(
             layer_surface,
             self.shader_source.clone(),
             self.channel_bindings.clone(),
@@ -385,16 +426,30 @@ impl WallpaperManager {
             self.shader_compiler,
             self.render_scale,
             self.fill_method,
-        );
-        self.surfaces.insert(key, surface_state);
-
-        // Ensure GPU immediately if we already know the size.
+            self.base_policy.clone(),
+        )?;
         if let Some(size) = initial_size {
-            if let Some(surface) = self.surfaces.get_mut(&key) {
-                surface.ensure_gpu(conn, &self.compositor, size)?;
+            if surface_state
+                .ensure_gpu(conn, &self.compositor, size)
+                .is_ok()
+            {
+                if surface_state.software_cap_applied() {
+                    if let Some(profile) = surface_state.adapter_profile() {
+                        self.log_software_cap_if_needed(profile);
+                    }
+                }
+            }
+            if matches!(surface_state.policy, RenderPolicy::Export { .. }) {
+                if let Err(err) = surface_state.render() {
+                    surface_state.handle_render_error(err, conn, &self.compositor);
+                } else {
+                    surface_state.mark_rendered();
+                }
             }
         }
+        self.surfaces.insert(key, surface_state);
 
+        self.maybe_exit_after_export();
         Ok(())
     }
 
@@ -434,6 +489,7 @@ impl WallpaperManager {
                     surface_alpha,
                     color_space,
                     warmup,
+                    policy,
                 } = request;
                 let now = Instant::now();
                 for surface_id in self.target_surface_ids(&selector) {
@@ -463,15 +519,26 @@ impl WallpaperManager {
                                 "failed to swap shader"
                             );
                         } else {
-                            surface.schedule_next_frame(qh, &self.policy);
+                            if let Err(err) = surface.set_policy(policy.clone()) {
+                                tracing::error!(error = %err, "failed to update render policy");
+                            }
+                            if matches!(surface.policy, RenderPolicy::Export { .. }) {
+                                if let Err(err) = surface.render() {
+                                    surface.handle_render_error(err, conn, &self.compositor);
+                                } else {
+                                    surface.mark_rendered();
+                                }
+                            } else {
+                                surface.schedule_next_frame(qh);
+                            }
                         }
 
                         self.surfaces.insert(surface_id, surface);
+                        self.maybe_exit_after_export();
                     }
                 }
                 self.color_space = color_space;
                 self.target_fps = target_fps;
-                self.time_source.reset();
             }
             WallpaperCommand::QuerySurfaces { responder } => {
                 let _ = responder.send(self.collect_surface_info());
@@ -553,11 +620,11 @@ impl CompositorHandler for WallpaperManager {
     ) {
         let key = surface_key(surface);
         if let Some(mut surface_state) = self.surfaces.remove(&key) {
-            if surface_state.should_render(&self.policy) {
-                let sample = self.time_source.sample();
-                match surface_state.render(sample) {
+            tracing::info!(policy = ?surface_state.policy, rendered = surface_state.rendered_once, "frame callback");
+            if surface_state.should_render() {
+                match surface_state.render() {
                     Ok(()) => {
-                        surface_state.mark_rendered(&self.policy);
+                        surface_state.mark_rendered();
                     }
                     Err(err) => {
                         surface_state.handle_render_error(err, conn, &self.compositor);
@@ -567,8 +634,9 @@ impl CompositorHandler for WallpaperManager {
                 surface_state.commit_surface();
             }
 
-            surface_state.schedule_next_frame(qh, &self.policy);
+            surface_state.schedule_next_frame(qh);
             self.surfaces.insert(key, surface_state);
+            self.maybe_exit_after_export();
         }
     }
 }
@@ -620,13 +688,18 @@ impl LayerShellHandler for WallpaperManager {
                 return;
             }
 
-            let sample = self.time_source.sample();
-            if let Err(err) = surface_state.render(sample) {
+            if surface_state.software_cap_applied() {
+                if let Some(profile) = surface_state.adapter_profile() {
+                    self.log_software_cap_if_needed(profile);
+                }
+            }
+
+            if let Err(err) = surface_state.render() {
                 surface_state.handle_render_error(err, conn, &self.compositor);
             } else {
-                surface_state.mark_rendered(&self.policy);
+                surface_state.mark_rendered();
             }
-            surface_state.schedule_next_frame(qh, &self.policy);
+            surface_state.schedule_next_frame(qh);
             self.surfaces.insert(key, surface_state);
         }
     }
@@ -701,6 +774,10 @@ struct SurfaceState {
     shader_compiler: ShaderCompiler,
     render_scale: f32,
     fill_method: FillMethod,
+    requested_target_fps: Option<f32>,
+    software_cap_applied: bool,
+    policy: RenderPolicy,
+    time_source: BoxedTimeSource,
 }
 
 impl SurfaceState {
@@ -718,8 +795,10 @@ impl SurfaceState {
         shader_compiler: ShaderCompiler,
         render_scale: f32,
         fill_method: FillMethod,
-    ) -> Self {
-        Self {
+        policy: RenderPolicy,
+    ) -> Result<Self> {
+        let time_source = time_source_for_policy(&policy)?;
+        Ok(Self {
             layer_surface,
             gpu: None,
             last_output_size,
@@ -735,7 +814,11 @@ impl SurfaceState {
             shader_compiler,
             render_scale,
             fill_method,
-        }
+            requested_target_fps: target_fps,
+            software_cap_applied: false,
+            policy,
+            time_source,
+        })
     }
 
     fn ensure_gpu(
@@ -762,6 +845,16 @@ impl SurfaceState {
             self.render_scale,
             self.fill_method,
         )?;
+        let is_software = gpu.adapter_profile().is_software();
+        if is_software {
+            if self.requested_target_fps.is_none() {
+                self.pacer.set_target_fps(Some(SOFTWARE_FPS_CAP));
+                self.requested_target_fps = Some(SOFTWARE_FPS_CAP);
+            }
+            self.software_cap_applied = self.requested_target_fps == Some(SOFTWARE_FPS_CAP);
+        } else {
+            self.software_cap_applied = false;
+        }
         self.apply_surface_alpha(compositor, size);
         self.reset_render_state();
         self.gpu = Some(gpu);
@@ -795,6 +888,10 @@ impl SurfaceState {
         color_space: ColorSpaceMode,
     ) {
         self.pacer.set_target_fps(target_fps);
+        self.requested_target_fps = target_fps;
+        if target_fps.is_some() {
+            self.software_cap_applied = false;
+        }
         if self.antialiasing != antialiasing {
             self.antialiasing = antialiasing;
             self.gpu = None;
@@ -809,27 +906,71 @@ impl SurfaceState {
         self.rendered_once = false;
     }
 
+    fn adapter_profile(&self) -> Option<&AdapterProfile> {
+        self.gpu.as_ref().map(|gpu| gpu.adapter_profile())
+    }
+
+    fn software_cap_applied(&self) -> bool {
+        self.software_cap_applied
+    }
+
     fn reset_render_state(&mut self) {
         self.rendered_once = false;
         self.pacer.reset();
     }
 
-    fn should_render(&mut self, policy: &RenderPolicy) -> bool {
-        match policy {
+    fn set_policy(&mut self, policy: RenderPolicy) -> Result<()> {
+        self.policy = policy.clone();
+        self.time_source = time_source_for_policy(&self.policy)?;
+        self.reset_render_state();
+        Ok(())
+    }
+
+    fn is_rendered(&self) -> bool {
+        self.rendered_once
+    }
+
+    fn should_render(&mut self) -> bool {
+        match self.policy {
             RenderPolicy::Still { .. } => !self.rendered_once,
             _ => self.pacer.should_render(),
         }
     }
 
-    fn mark_rendered(&mut self, policy: &RenderPolicy) {
-        if matches!(policy, RenderPolicy::Still { .. }) {
+    fn mark_rendered(&mut self) {
+        if matches!(self.policy, RenderPolicy::Still { .. }) {
             self.rendered_once = true;
         }
     }
 
-    fn render(&mut self, sample: TimeSample) -> Result<(), SurfaceError> {
+    fn render(&mut self) -> Result<(), SurfaceError> {
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.render([0.0; 4], Some(sample))?;
+            tracing::debug!(policy = ?self.policy, "surface render");
+            let sample = self.time_source.sample();
+            let export_result = match &self.policy {
+                RenderPolicy::Export { path, format, .. } => {
+                    let target = FileExportTarget {
+                        path: path.clone(),
+                        format: *format,
+                    };
+                    Some(gpu.render_export([0.0; 4], Some(sample), &target))
+                }
+                _ => {
+                    gpu.render([0.0; 4], Some(sample))?;
+                    None
+                }
+            };
+
+            if let Some(result) = export_result {
+                match result {
+                    Ok(_) => {}
+                    Err(RenderExportError::Surface(surface_err)) => return Err(surface_err),
+                    Err(RenderExportError::Export(other)) => {
+                        tracing::error!(error = %other, "failed to export still frame");
+                    }
+                }
+            }
+
             self.layer_surface.commit();
         }
         Ok(())
@@ -862,11 +1003,11 @@ impl SurfaceState {
         }
     }
 
-    fn schedule_next_frame(&mut self, qh: &QueueHandle<WallpaperManager>, policy: &RenderPolicy) {
+    fn schedule_next_frame(&mut self, qh: &QueueHandle<WallpaperManager>) {
         if self.gpu.is_none() {
             return;
         }
-        if matches!(policy, RenderPolicy::Still { .. }) && self.rendered_once {
+        if matches!(self.policy, RenderPolicy::Still { .. }) && self.rendered_once {
             self.pacer.is_frame_scheduled = false;
             return;
         }

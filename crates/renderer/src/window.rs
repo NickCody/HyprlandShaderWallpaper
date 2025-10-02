@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use wgpu::SurfaceError;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
@@ -15,11 +14,17 @@ use winit::window::{Window, WindowBuilder};
 
 use tracing::{error, info};
 
-use crate::gpu::GpuState;
+use crate::gpu::{FileExportTarget, GpuState, RenderExportError};
 use crate::runtime::{
     time_source_for_policy, BoxedTimeSource, FillMethod, FrameScheduler, RenderPolicy, TimeSample,
 };
-use crate::types::{Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler};
+use crate::types::{
+    AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler,
+    SurfaceAlpha,
+};
+use crate::wallpaper::SwapRequest;
+
+const SOFTWARE_FPS_CAP: f32 = 15.0;
 
 /// Aggregates GPU state for the windowed preview path.
 pub(crate) struct WindowState {
@@ -32,6 +37,26 @@ pub(crate) struct WindowState {
     color_space: ColorSpaceMode,
     render_scale: f32,
     fill_method: FillMethod,
+    frame_sink: FrameSinkDriver,
+    surface_alpha: SurfaceAlpha,
+}
+
+#[derive(Debug)]
+enum FrameSinkDriver {
+    Surface,
+    Export(FileExportState),
+}
+
+#[derive(Debug)]
+struct FileExportState {
+    target: FileExportTarget,
+    captured: bool,
+}
+
+#[derive(Debug)]
+pub(crate) enum RenderFrameStatus {
+    Presented,
+    Captured(PathBuf),
 }
 
 impl WindowState {
@@ -49,6 +74,17 @@ impl WindowState {
             config.fill_method,
         )?;
 
+        let frame_sink = match &config.policy {
+            RenderPolicy::Export { path, format, .. } => FrameSinkDriver::Export(FileExportState {
+                target: FileExportTarget {
+                    path: path.clone(),
+                    format: *format,
+                },
+                captured: false,
+            }),
+            _ => FrameSinkDriver::Surface,
+        };
+
         let mut state = Self {
             window,
             gpu,
@@ -59,9 +95,15 @@ impl WindowState {
             color_space: config.color_space,
             render_scale: config.render_scale,
             fill_method: config.fill_method,
+            frame_sink,
+            surface_alpha: config.surface_alpha,
         };
         state.sync_keyboard(true);
         Ok(state)
+    }
+
+    pub(crate) fn adapter_profile(&self) -> &AdapterProfile {
+        self.gpu.adapter_profile()
     }
 
     pub(crate) fn window(&self) -> &Window {
@@ -76,16 +118,36 @@ impl WindowState {
         self.gpu.resize(new_size);
     }
 
-    pub(crate) fn render_frame(&mut self, time_sample: TimeSample) -> Result<(), SurfaceError> {
+    pub(crate) fn render_frame(
+        &mut self,
+        time_sample: TimeSample,
+    ) -> Result<RenderFrameStatus, RenderExportError> {
         self.sync_keyboard(false);
         let mouse_uniform = self.mouse.as_uniform(self.size().height.max(1) as f32);
-        match self.gpu.render(mouse_uniform, Some(time_sample)) {
-            Ok(()) => {
-                self.flush_keyboard_pulses();
-                Ok(())
+        let result = match &mut self.frame_sink {
+            FrameSinkDriver::Surface => self
+                .gpu
+                .render(mouse_uniform, Some(time_sample))
+                .map(|_| RenderFrameStatus::Presented)
+                .map_err(RenderExportError::Surface),
+            FrameSinkDriver::Export(state) => {
+                if state.captured {
+                    Ok(RenderFrameStatus::Captured(state.target.path.clone()))
+                } else {
+                    self.gpu
+                        .render_export(mouse_uniform, Some(time_sample), &state.target)
+                        .map(|path| {
+                            state.captured = true;
+                            RenderFrameStatus::Captured(path)
+                        })
+                }
             }
-            Err(err) => Err(err),
+        };
+
+        if result.is_ok() {
+            self.flush_keyboard_pulses();
         }
+        result
     }
 
     pub(crate) fn set_shader(
@@ -93,12 +155,20 @@ impl WindowState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         antialiasing: Antialiasing,
+        surface_alpha: SurfaceAlpha,
+        color_space: ColorSpaceMode,
         crossfade: Duration,
         warmup: Duration,
     ) -> Result<()> {
+        let preferences_changed =
+            self.surface_alpha != surface_alpha || self.color_space != color_space;
+        if preferences_changed {
+            self.surface_alpha = surface_alpha;
+            self.color_space = color_space;
+        }
         let layout_signature = channel_bindings.layout_signature();
         let layout_changed = self.gpu.channel_kinds() != &layout_signature;
-        if self.antialiasing != antialiasing || layout_changed {
+        if self.antialiasing != antialiasing || layout_changed || preferences_changed {
             if layout_changed {
                 info!("channel binding layout changed; rebuilding GPU state without crossfade");
             }
@@ -200,13 +270,7 @@ impl RenderPolicyDriver {
 
 #[derive(Debug, Clone)]
 enum WindowCommand {
-    Swap {
-        shader_source: PathBuf,
-        channel_bindings: ChannelBindings,
-        antialiasing: Antialiasing,
-        crossfade: Duration,
-        warmup: Duration,
-    },
+    Swap { request: SwapRequest },
     Shutdown,
 }
 
@@ -241,22 +305,9 @@ impl WindowRuntime {
         })
     }
 
-    pub fn swap_shader(
-        &self,
-        shader_source: PathBuf,
-        channel_bindings: ChannelBindings,
-        antialiasing: Antialiasing,
-        crossfade: Duration,
-        warmup: Duration,
-    ) -> Result<()> {
+    pub fn swap_shader(&self, request: SwapRequest) -> Result<()> {
         self.proxy
-            .send_event(WindowCommand::Swap {
-                shader_source,
-                channel_bindings,
-                antialiasing,
-                crossfade,
-                warmup,
-            })
+            .send_event(WindowCommand::Swap { request })
             .map_err(|err| anyhow!(err))
     }
 
@@ -315,9 +366,13 @@ fn run_window_thread(
     let proxy = event_loop.create_proxy();
 
     let window_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
-    let window = WindowBuilder::new()
+    let mut builder = WindowBuilder::new()
         .with_title("Lambda Shade Preview")
-        .with_inner_size(window_size)
+        .with_inner_size(window_size);
+    if !config.show_window {
+        builder = builder.with_visible(false);
+    }
+    let window = builder
         .build(&event_loop)
         .map_err(|err| anyhow!("failed to create preview window: {err}"))?;
     let window = Arc::new(window);
@@ -332,7 +387,38 @@ fn run_window_thread(
         }
     };
 
-    let mut policy_driver = RenderPolicyDriver::new(config.policy.clone())?;
+    let profile = state.adapter_profile().clone();
+    let mut effective_policy = config.policy.clone();
+    let mut software_cap = None;
+    if profile.is_software() {
+        let user_override = config.target_fps.is_some()
+            || !matches!(config.policy, RenderPolicy::Animate { .. })
+            || matches!(
+                config.policy,
+                RenderPolicy::Animate {
+                    target_fps: Some(_),
+                    ..
+                }
+            );
+        if !user_override {
+            software_cap = Some(SOFTWARE_FPS_CAP);
+            if let RenderPolicy::Animate { target_fps, .. } = &mut effective_policy {
+                *target_fps = Some(SOFTWARE_FPS_CAP);
+            }
+        }
+    }
+
+    let mut current_policy = effective_policy.clone();
+    let mut policy_driver = RenderPolicyDriver::new(effective_policy)?;
+    if let Some(cap) = software_cap {
+        tracing::warn!(
+            adapter = %profile.name,
+            backend = ?profile.backend,
+            cap,
+            "software rasterizer detected; capping window preview to {} FPS (override with --fps)",
+            cap
+        );
+    }
     if policy_driver.ready_for_frame(Instant::now()) {
         state.window().request_redraw();
     }
@@ -343,23 +429,40 @@ fn run_window_thread(
     let run_result = event_loop.run(move |event, elwt| {
         match event {
             Event::UserEvent(command) => match command {
-                WindowCommand::Swap {
-                    shader_source,
-                    channel_bindings,
-                    antialiasing,
-                    crossfade,
-                    warmup,
-                } => {
+                WindowCommand::Swap { request } => {
+                    let SwapRequest {
+                        shader_source,
+                        channel_bindings,
+                        crossfade,
+                        antialiasing,
+                        surface_alpha,
+                        color_space,
+                        warmup,
+                        policy,
+                        ..
+                    } = request;
+
                     if let Err(err) = state.set_shader(
                         shader_source.as_path(),
                         &channel_bindings,
                         antialiasing,
+                        surface_alpha,
+                        color_space,
                         crossfade,
                         warmup,
                     ) {
                         error!("failed to swap window shader: {err:?}");
                     } else {
-                        policy_driver.reset();
+                        let updated_driver = match RenderPolicyDriver::new(policy.clone()) {
+                            Ok(driver) => driver,
+                            Err(err) => {
+                                error!("failed to update render policy: {err:?}");
+                                policy_driver.reset();
+                                return;
+                            }
+                        };
+                        policy_driver = updated_driver;
+                        current_policy = policy.clone();
                         if policy_driver.ready_for_frame(Instant::now()) {
                             state.window().request_redraw();
                         }
@@ -400,7 +503,14 @@ fn run_window_thread(
                         }
                     }
                     WindowEvent::Resized(new_size) => {
-                        state.resize(new_size);
+                        let target_size = if !config.show_window
+                            && matches!(current_policy, RenderPolicy::Export { .. })
+                        {
+                            PhysicalSize::new(config.surface_size.0, config.surface_size.1)
+                        } else {
+                            new_size
+                        };
+                        state.resize(target_size);
                     }
                     WindowEvent::ScaleFactorChanged {
                         mut inner_size_writer,
@@ -408,35 +518,62 @@ fn run_window_thread(
                     } => {
                         let _ = inner_size_writer.request_inner_size(state.size());
                     }
-                    WindowEvent::RedrawRequested => match state.render_frame(policy_driver.sample()) {
-                        Ok(()) => {
-                            policy_driver.mark_rendered();
+                    WindowEvent::RedrawRequested => {
+                        match state.render_frame(policy_driver.sample()) {
+                            Ok(RenderFrameStatus::Presented) => {
+                                policy_driver.mark_rendered();
+                            }
+                            Ok(RenderFrameStatus::Captured(path)) => {
+                                policy_driver.mark_rendered();
+                                tracing::info!("still frame captured at {}", path.display());
+                                if config.exit_on_export {
+                                    elwt.exit();
+                                }
+                            }
+                            Err(err) => {
+                                if let Some(surface_err) = err.as_surface_error() {
+                                    match surface_err {
+                                        wgpu::SurfaceError::Lost
+                                        | wgpu::SurfaceError::Outdated => {
+                                            state.resize(state.size());
+                                        }
+                                        wgpu::SurfaceError::OutOfMemory => {
+                                            eprintln!(
+                                                "surface out of memory; exiting preview"
+                                            );
+                                            elwt.exit();
+                                        }
+                                        wgpu::SurfaceError::Timeout => {
+                                            eprintln!("surface timeout; retrying next frame");
+                                        }
+                                        other => {
+                                            eprintln!(
+                                                "surface error: {other:?}; retrying next frame"
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    tracing::error!(error = %err, "failed to export still frame");
+                                    elwt.exit();
+                                }
+                            }
                         }
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            state.resize(state.size());
-                        }
-                        Err(wgpu::SurfaceError::OutOfMemory) => {
-                            eprintln!("surface out of memory; exiting preview");
-                            elwt.exit();
-                        }
-                        Err(wgpu::SurfaceError::Timeout) => {
-                            eprintln!("surface timeout; retrying next frame");
-                        }
-                        Err(other) => {
-                            eprintln!("surface error: {other:?}; retrying next frame");
-                        }
-                    },
+                    }
                     _ => {}
                 }
             }
             Event::AboutToWait => {
                 let now = Instant::now();
                 if policy_driver.ready_for_frame(now) {
+                    tracing::trace!("scheduler: issuing redraw now");
                     state.window().request_redraw();
                     elwt.set_control_flow(ControlFlow::Wait);
                 } else if let Some(deadline) = policy_driver.next_deadline() {
+                    let ms = deadline.saturating_duration_since(now).as_millis();
+                    tracing::trace!(deadline_ms = ms, "scheduler: waiting until next frame");
                     elwt.set_control_flow(ControlFlow::WaitUntil(deadline));
                 } else {
+                    tracing::trace!("scheduler: idle (no redraw requested)");
                     elwt.set_control_flow(ControlFlow::Wait);
                 }
             }

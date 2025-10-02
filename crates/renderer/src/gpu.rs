@@ -1,20 +1,25 @@
+use std::fmt;
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use bytemuck::{Pod, Zeroable};
 use chrono::{Datelike, Local, Timelike};
 use image::imageops::flip_vertical_in_place;
+use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::util::{DeviceExt, TextureDataOrder};
 use wgpu::TextureFormatFeatureFlags;
 use winit::dpi::PhysicalSize;
 
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
-use crate::runtime::{FillMethod, TimeSample};
+use crate::runtime::{ExportFormat, FillMethod, TimeSample};
 use crate::types::{
-    Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind, ColorSpaceMode,
-    ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
+    AdapterProfile, Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind,
+    ColorSpaceMode, ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
 };
 
 const KEYBOARD_TEXTURE_WIDTH: u32 = 256;
@@ -64,6 +69,53 @@ pub(crate) struct GpuState {
     render_scale: f32,
     #[allow(dead_code)]
     fill_method: FillMethod,
+    adapter_profile: AdapterProfile,
+    surface_supports_copy: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileExportTarget {
+    pub path: PathBuf,
+    pub format: ExportFormat,
+}
+
+#[derive(Debug)]
+pub enum RenderExportError {
+    Surface(wgpu::SurfaceError),
+    Export(anyhow::Error),
+}
+
+impl RenderExportError {
+    pub fn as_surface_error(&self) -> Option<&wgpu::SurfaceError> {
+        match self {
+            RenderExportError::Surface(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<wgpu::SurfaceError> for RenderExportError {
+    fn from(value: wgpu::SurfaceError) -> Self {
+        RenderExportError::Surface(value)
+    }
+}
+
+impl fmt::Display for RenderExportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RenderExportError::Surface(err) => write!(f, "surface error: {err:?}"),
+            RenderExportError::Export(err) => write!(f, "export failed: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for RenderExportError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            RenderExportError::Surface(err) => Some(err),
+            RenderExportError::Export(err) => Some(err.as_ref()),
+        }
+    }
 }
 
 impl GpuState {
@@ -105,8 +157,19 @@ impl GpuState {
         }))
         .context("failed to find a suitable GPU adapter")?;
 
-        let adapter_features = adapter.features();
+        let adapter_info = adapter.get_info();
         let limits = adapter.limits();
+        let adapter_profile = AdapterProfile::from_wgpu(&adapter_info, &limits);
+        let is_software = adapter_profile.is_software();
+        tracing::info!(
+            name = %adapter_profile.name,
+            backend = ?adapter_profile.backend,
+            device_type = ?adapter_profile.device_type,
+            is_software,
+            "selected GPU adapter"
+        );
+
+        let adapter_features = adapter.features();
         let max_dimension = limits.max_texture_dimension_2d;
         let requested_width = initial_size.width.max(1);
         let requested_height = initial_size.height.max(1);
@@ -204,6 +267,14 @@ impl GpuState {
             sample_count = 1;
         }
 
+        if is_software && sample_count > 1 {
+            tracing::warn!(
+                sample_count,
+                "software rasterizer detected; disabling MSAA for performance"
+            );
+            sample_count = 1;
+        }
+
         if sample_count > 4
             && !adapter_features.contains(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
         {
@@ -243,8 +314,18 @@ impl GpuState {
         .context("failed to create GPU device")?;
 
         let size = PhysicalSize::new(requested_width, requested_height);
+        let surface_supports_copy = surface_caps.usages.contains(wgpu::TextureUsages::COPY_SRC);
+        let mut surface_usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
+        if surface_supports_copy {
+            surface_usage |= wgpu::TextureUsages::COPY_SRC;
+        } else {
+            tracing::warn!(
+                "surface does not advertise COPY_SRC; still-export will fall back to presenting only"
+            );
+        }
+
         let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: surface_usage,
             format: surface_format,
             width: size.width,
             height: size.height,
@@ -316,7 +397,6 @@ impl GpuState {
         )?;
 
         let uniforms = ShadertoyUniforms::new(size.width, size.height);
-        queue.write_buffer(&uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
 
         let multisample_target = if sample_count > 1 {
             Some(MultisampleTarget::new(
@@ -329,7 +409,7 @@ impl GpuState {
             None
         };
 
-        Ok(Self {
+        let mut state = Self {
             _instance: instance,
             limits,
             surface,
@@ -360,7 +440,16 @@ impl GpuState {
             last_override_sample: None,
             render_scale,
             fill_method,
-        })
+            adapter_profile,
+            surface_supports_copy,
+        };
+        state.recompute_view_uniforms();
+        state.queue.write_buffer(
+            &state.uniform_buffer,
+            0,
+            bytemuck::bytes_of(&state.uniforms),
+        );
+        Ok(state)
     }
 
     pub(crate) fn size(&self) -> PhysicalSize<u32> {
@@ -369,6 +458,10 @@ impl GpuState {
 
     pub(crate) fn channel_kinds(&self) -> &[ChannelTextureKind; CHANNEL_COUNT] {
         &self.channel_kinds
+    }
+
+    pub(crate) fn adapter_profile(&self) -> &AdapterProfile {
+        &self.adapter_profile
     }
 
     pub(crate) fn has_keyboard_channel(&self) -> bool {
@@ -423,8 +516,7 @@ impl GpuState {
         } else {
             None
         };
-        self.uniforms
-            .set_resolution(new_size.width as f32, new_size.height as f32);
+        self.recompute_view_uniforms();
     }
 
     #[allow(dead_code)]
@@ -483,6 +575,57 @@ impl GpuState {
         mouse: [f32; 4],
         time_sample: Option<TimeSample>,
     ) -> Result<(), wgpu::SurfaceError> {
+        let frame = self.render_internal(mouse, time_sample, |_, _| {})?;
+        frame.present();
+        tracing::trace!(
+            "presented frame size={}x{}",
+            self.size.width,
+            self.size.height
+        );
+        Ok(())
+    }
+
+    pub(crate) fn render_export(
+        &mut self,
+        mouse: [f32; 4],
+        time_sample: Option<TimeSample>,
+        target: &FileExportTarget,
+    ) -> Result<PathBuf, RenderExportError> {
+        if !self.surface_supports_copy {
+            return Err(RenderExportError::Export(anyhow!(
+                "surface does not support COPY_SRC; cannot export still frame on this backend"
+            )));
+        }
+        let capture = FrameCapture::new(&self.device, self.config.format, self.size)
+            .map_err(RenderExportError::Export)?;
+        let frame = self
+            .render_internal(mouse, time_sample, |surface, encoder| {
+                capture.encode_copy(&surface.texture, encoder);
+            })
+            .map_err(RenderExportError::Surface)?;
+        frame.present();
+        let resolved = capture
+            .resolve(&self.device)
+            .map_err(RenderExportError::Export)?;
+        target.write(&resolved).map_err(RenderExportError::Export)?;
+        tracing::info!(
+            path = %target.path.display(),
+            width = resolved.width,
+            height = resolved.height,
+            "exported still frame"
+        );
+        Ok(target.path.clone())
+    }
+
+    fn render_internal<F>(
+        &mut self,
+        mouse: [f32; 4],
+        time_sample: Option<TimeSample>,
+        mut with_encoder: F,
+    ) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError>
+    where
+        F: FnMut(&wgpu::SurfaceTexture, &mut wgpu::CommandEncoder),
+    {
         let now = Instant::now();
         self.update_time(mouse, now, time_sample);
 
@@ -570,16 +713,94 @@ impl GpuState {
             self.pending = Some(pending);
         }
 
+        with_encoder(&frame, &mut encoder);
+
         self.previous = previous_pipeline;
 
         self.queue.submit(std::iter::once(encoder.finish()));
-        frame.present();
-        tracing::trace!(
-            "presented frame size={}x{}",
-            self.size.width,
-            self.size.height
-        );
-        Ok(())
+
+        Ok(frame)
+    }
+
+    fn logical_dimensions(&self) -> (f32, f32) {
+        let surface_w = self.size.width.max(1) as f32;
+        let surface_h = self.size.height.max(1) as f32;
+        let scale = self.render_scale.max(0.0001);
+        match self.fill_method {
+            FillMethod::Stretch | FillMethod::Tile { .. } => (surface_w * scale, surface_h * scale),
+            FillMethod::Center {
+                content_width,
+                content_height,
+            } => (
+                (content_width as f32).max(1.0) * scale,
+                (content_height as f32).max(1.0) * scale,
+            ),
+        }
+    }
+
+    fn recompute_view_uniforms(&mut self) {
+        let surface_w = self.size.width.max(1) as f32;
+        let surface_h = self.size.height.max(1) as f32;
+        let (logical_w, logical_h) = self.logical_dimensions();
+
+        let mut scale_x = if surface_w > 0.0 {
+            logical_w / surface_w
+        } else {
+            self.render_scale.max(0.0001)
+        };
+        let mut scale_y = if surface_h > 0.0 {
+            logical_h / surface_h
+        } else {
+            self.render_scale.max(0.0001)
+        };
+        let mut offset_x = 0.0_f32;
+        let mut offset_y = 0.0_f32;
+        let mut wrap_x = 0.0_f32;
+        let mut wrap_y = 0.0_f32;
+
+        match self.fill_method {
+            FillMethod::Stretch => {}
+            FillMethod::Center {
+                content_width,
+                content_height,
+            } => {
+                let scale = self.render_scale.max(0.0001);
+                let content_w = (content_width as f32).max(1.0);
+                let content_h = (content_height as f32).max(1.0);
+                let content_physical_w = content_w.min(surface_w);
+                let content_physical_h = content_h.min(surface_h);
+
+                if content_physical_w > 0.0 {
+                    scale_x = (content_w * scale) / content_physical_w;
+                }
+                if content_physical_h > 0.0 {
+                    scale_y = (content_h * scale) / content_physical_h;
+                }
+
+                let left = (surface_w - content_physical_w) * 0.5;
+                let bottom = (surface_h - content_physical_h) * 0.5;
+                offset_x = -left * scale_x;
+                offset_y = -bottom * scale_y;
+            }
+            FillMethod::Tile { repeat_x, repeat_y } => {
+                let repeats_x = repeat_x.max(0.0);
+                let repeats_y = repeat_y.max(0.0);
+                if repeats_x > 0.0 {
+                    wrap_x = logical_w / repeats_x;
+                    scale_x *= repeats_x;
+                }
+                if repeats_y > 0.0 {
+                    wrap_y = logical_h / repeats_y;
+                    scale_y *= repeats_y;
+                }
+            }
+        }
+
+        self.uniforms.set_resolution(logical_w, logical_h);
+        self.uniforms
+            .set_surface(surface_w, surface_h, logical_w, logical_h);
+        self.uniforms.set_fill(scale_x, scale_y, offset_x, offset_y);
+        self.uniforms.set_fill_wrap(wrap_x, wrap_y);
     }
 
     fn render_with_pipeline(
@@ -598,6 +819,7 @@ impl GpuState {
             self.uniforms.i_channel_resolution[index] = resource.resolution;
         }
         self.uniforms.i_fade = mix;
+        self.recompute_view_uniforms();
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniforms));
 
@@ -947,6 +1169,9 @@ struct ShadertoyUniforms {
     _padding1: Std140Vec2,
     i_channel_time: [[f32; 4]; CHANNEL_COUNT],
     i_channel_resolution: [[f32; 4]; CHANNEL_COUNT],
+    i_surface: [f32; 4],
+    i_fill: [f32; 4],
+    i_fill_wrap: [f32; 4],
 }
 
 unsafe impl Zeroable for ShadertoyUniforms {}
@@ -956,6 +1181,9 @@ impl ShadertoyUniforms {
     fn new(width: u32, height: u32) -> Self {
         let mut uniforms = Self {
             i_resolution: [width as f32, height as f32, 0.0, 0.0],
+            i_surface: [width as f32, height as f32, width as f32, height as f32],
+            i_fill: [1.0, 1.0, 0.0, 0.0],
+            i_fill_wrap: [0.0, 0.0, 0.0, 0.0],
             i_time: 0.0,
             i_time_delta: 0.0,
             i_frame: 0,
@@ -976,6 +1204,25 @@ impl ShadertoyUniforms {
     fn set_resolution(&mut self, width: f32, height: f32) {
         self.i_resolution[0] = width;
         self.i_resolution[1] = height;
+    }
+
+    fn set_surface(&mut self, surface_w: f32, surface_h: f32, logical_w: f32, logical_h: f32) {
+        self.i_surface[0] = surface_w;
+        self.i_surface[1] = surface_h;
+        self.i_surface[2] = logical_w;
+        self.i_surface[3] = logical_h;
+    }
+
+    fn set_fill(&mut self, scale_x: f32, scale_y: f32, offset_x: f32, offset_y: f32) {
+        self.i_fill[0] = scale_x;
+        self.i_fill[1] = scale_y;
+        self.i_fill[2] = offset_x;
+        self.i_fill[3] = offset_y;
+    }
+
+    fn set_fill_wrap(&mut self, wrap_x: f32, wrap_y: f32) {
+        self.i_fill_wrap[0] = wrap_x;
+        self.i_fill_wrap[1] = wrap_y;
     }
 }
 
@@ -1555,6 +1802,226 @@ fn find_cubemap_face(directory: &Path, face: &str) -> Option<PathBuf> {
     candidates.into_iter().next()
 }
 
+struct ResolvedFrame {
+    width: u32,
+    height: u32,
+    rgba: Vec<u8>,
+}
+
+struct FrameCapture {
+    buffer: wgpu::Buffer,
+    width: u32,
+    height: u32,
+    bytes_per_row: u32,
+    pixel_format: CapturePixelFormat,
+}
+
+enum CapturePixelFormat {
+    Rgba,
+    Bgra,
+}
+
+impl FrameCapture {
+    fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        size: PhysicalSize<u32>,
+    ) -> Result<Self> {
+        let width = size.width.max(1);
+        let height = size.height.max(1);
+        if width == 0 || height == 0 {
+            anyhow::bail!("cannot capture frame with zero-sized surface");
+        }
+
+        let pixel_format = match format {
+            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb => {
+                CapturePixelFormat::Rgba
+            }
+            wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => {
+                CapturePixelFormat::Bgra
+            }
+            other => anyhow::bail!("capture unsupported for surface format {other:?}"),
+        };
+
+        let bytes_per_pixel = 4u32;
+        let unaligned = width
+            .checked_mul(bytes_per_pixel)
+            .ok_or_else(|| anyhow!("capture dimension overflow"))?;
+        let bytes_per_row = align_to(unaligned, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+        let buffer_size = bytes_per_row as u64 * height as u64;
+
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("lambdash-frame-capture"),
+            size: buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        Ok(Self {
+            buffer,
+            width,
+            height,
+            bytes_per_row,
+            pixel_format,
+        })
+    }
+
+    fn encode_copy(&self, texture: &wgpu::Texture, encoder: &mut wgpu::CommandEncoder) {
+        let layout = wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(self.bytes_per_row),
+            rows_per_image: Some(self.height),
+        };
+        let extent = wgpu::Extent3d {
+            width: self.width,
+            height: self.height,
+            depth_or_array_layers: 1,
+        };
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &self.buffer,
+                layout,
+            },
+            extent,
+        );
+    }
+
+    fn resolve(self, device: &wgpu::Device) -> Result<ResolvedFrame> {
+        let slice = self.buffer.slice(..);
+        let (tx, rx) = mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
+        device
+            .poll(wgpu::PollType::Wait)
+            .map_err(|err| anyhow!("device poll failed while awaiting frame capture: {err:?}"))?;
+
+        rx.recv()
+            .context("failed to receive frame capture map result")?
+            .map_err(|err| anyhow!("failed to map frame capture buffer: {err:?}"))?;
+
+        let mapped = slice.get_mapped_range();
+        let stride = self.bytes_per_row as usize;
+        let row_len = (self.width as usize) * 4;
+        let mut rgba = vec![0u8; row_len * self.height as usize];
+
+        for row in 0..self.height as usize {
+            let src_offset = row * stride;
+            let dst_offset = row * row_len;
+            let src_row = &mapped[src_offset..src_offset + row_len];
+            let dst_row = &mut rgba[dst_offset..dst_offset + row_len];
+            match self.pixel_format {
+                CapturePixelFormat::Rgba => dst_row.copy_from_slice(src_row),
+                CapturePixelFormat::Bgra => {
+                    for (dst, src) in dst_row.chunks_exact_mut(4).zip(src_row.chunks_exact(4)) {
+                        dst[0] = src[2];
+                        dst[1] = src[1];
+                        dst[2] = src[0];
+                        dst[3] = src[3];
+                    }
+                }
+            }
+        }
+
+        drop(mapped);
+        self.buffer.unmap();
+
+        flip_rgba_vertical(self.width, self.height, &mut rgba);
+
+        Ok(ResolvedFrame {
+            width: self.width,
+            height: self.height,
+            rgba,
+        })
+    }
+}
+
+fn align_to(value: u32, alignment: u32) -> u32 {
+    if alignment == 0 {
+        return value;
+    }
+    let mask = alignment - 1;
+    match value.checked_add(mask) {
+        Some(adj) => adj & !mask,
+        None => value,
+    }
+}
+
+fn flip_rgba_vertical(width: u32, height: u32, data: &mut [u8]) {
+    let row_len = width as usize * 4;
+    if row_len == 0 {
+        return;
+    }
+    let rows = height as usize;
+    for row in 0..(rows / 2) {
+        let top_start = row * row_len;
+        let bottom_start = (rows - 1 - row) * row_len;
+        let (head, tail) = data.split_at_mut(bottom_start);
+        let top_slice = &mut head[top_start..top_start + row_len];
+        let bottom_slice = &mut tail[..row_len];
+        top_slice.swap_with_slice(bottom_slice);
+    }
+}
+
+impl FileExportTarget {
+    fn write(&self, frame: &ResolvedFrame) -> Result<()> {
+        match self.format {
+            ExportFormat::Png => self.write_png(frame),
+            ExportFormat::Exr => {
+                anyhow::bail!("EXR export is not implemented yet; use a PNG path")
+            }
+        }
+    }
+
+    fn write_png(&self, frame: &ResolvedFrame) -> Result<()> {
+        eprintln!(
+            "[lambdash] writing PNG export to {} ({}x{}, {} bytes)",
+            self.path.display(),
+            frame.width,
+            frame.height,
+            frame.rgba.len()
+        );
+        if let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "failed to create directories for still export at {}",
+                    self.path.display()
+                )
+            })?;
+        }
+
+        let file = File::create(&self.path)
+            .with_context(|| format!("failed to create export file at {}", self.path.display()))?;
+        let mut writer = BufWriter::new(file);
+        {
+            let encoder = PngEncoder::new(&mut writer);
+            encoder
+                .write_image(
+                    &frame.rgba,
+                    frame.width,
+                    frame.height,
+                    ExtendedColorType::Rgba8,
+                )
+                .context("failed to encode PNG")?;
+        }
+        writer.flush().context("failed to flush PNG writer")?;
+        let final_size = std::fs::metadata(&self.path)
+            .map(|meta| meta.len())
+            .unwrap_or(0);
+        eprintln!(
+            "[lambdash] finished writing export ({} bytes on disk)",
+            final_size
+        );
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1567,9 +2034,11 @@ mod tests {
         let base = &uniforms as *const _ as usize;
 
         assert_eq!(align_of::<ShadertoyUniforms>(), 16);
-        assert_eq!(size_of::<ShadertoyUniforms>(), 208);
+        assert_eq!(size_of::<ShadertoyUniforms>(), 256);
         assert_eq!((&uniforms.i_resolution as *const _ as usize) - base, 0);
         assert_eq!((&uniforms.i_time as *const _ as usize) - base, 16);
+        assert_eq!((&uniforms.i_time_delta as *const _ as usize) - base, 20);
+        assert_eq!((&uniforms.i_frame as *const _ as usize) - base, 24);
         assert_eq!((&uniforms.i_mouse as *const _ as usize) - base, 32);
         assert_eq!((&uniforms.i_date as *const _ as usize) - base, 48);
         assert_eq!((&uniforms.i_sample_rate as *const _ as usize) - base, 64);
@@ -1579,6 +2048,9 @@ mod tests {
             (&uniforms.i_channel_resolution as *const _ as usize) - base,
             144
         );
+        assert_eq!((&uniforms.i_surface as *const _ as usize) - base, 208);
+        assert_eq!((&uniforms.i_fill as *const _ as usize) - base, 224);
+        assert_eq!((&uniforms.i_fill_wrap as *const _ as usize) - base, 240);
     }
 
     #[test]

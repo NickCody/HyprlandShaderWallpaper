@@ -27,6 +27,8 @@ pub struct ScheduledItem {
     pub antialias: Option<AntialiasSetting>,
     pub refresh_once: bool,
     pub crossfade: Duration,
+    pub mode: multiconfig::PlaylistItemMode,
+    pub still_time: Option<Duration>,
 }
 
 #[derive(Debug, Clone)]
@@ -141,6 +143,8 @@ impl PlaylistRuntime {
                     .or_else(|| normalize_fps(defaults.fps)),
                 antialias: item.antialias.or(src.antialias).or(defaults.antialias),
                 refresh_once: item.refresh_once,
+                mode: item.mode.unwrap_or(multiconfig::PlaylistItemMode::Animate),
+                still_time: item.still_time,
             })
             .collect();
         Self {
@@ -158,6 +162,8 @@ struct RuntimeItem {
     fps: Option<f32>,
     antialias: Option<AntialiasSetting>,
     refresh_once: bool,
+    mode: multiconfig::PlaylistItemMode,
+    still_time: Option<Duration>,
 }
 
 struct TargetState {
@@ -219,6 +225,8 @@ impl TargetState {
             antialias: item.antialias,
             refresh_once: item.refresh_once,
             crossfade: self.playlist.crossfade,
+            mode: item.mode,
+            still_time: item.still_time,
         }
     }
 }
@@ -351,6 +359,64 @@ fps = 0
             .set_target(target.clone(), "test", Instant::now())
             .unwrap();
         assert_eq!(change.item.fps, None, "fps=0 should map to uncapped");
+    }
+
+    #[test]
+    fn playlist_items_default_to_animate_mode() {
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[playlists.test]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.test.items]]
+handle = "one"
+"#,
+        )
+        .unwrap();
+
+        let mut scheduler = Scheduler::new(&config, 9);
+        let target = TargetId::new("surface:animate");
+        let change = scheduler
+            .set_target(target.clone(), "test", Instant::now())
+            .unwrap();
+        assert!(matches!(
+            change.item.mode,
+            multiconfig::PlaylistItemMode::Animate
+        ));
+        assert!(change.item.still_time.is_none());
+    }
+
+    #[test]
+    fn playlist_items_support_still_mode() {
+        let config = MultiConfig::from_toml_str(
+            r#"
+version = 1
+
+[playlists.test]
+mode = "continuous"
+item_duration = 1
+
+[[playlists.test.items]]
+handle = "still-demo"
+mode = "still"
+still_time = "2s"
+"#,
+        )
+        .unwrap();
+
+        let mut scheduler = Scheduler::new(&config, 11);
+        let target = TargetId::new("surface:still");
+        let change = scheduler
+            .set_target(target.clone(), "test", Instant::now())
+            .unwrap();
+        assert!(matches!(
+            change.item.mode,
+            multiconfig::PlaylistItemMode::Still
+        ));
+        assert_eq!(change.item.still_time, Some(Duration::from_secs(2)));
     }
 
     #[test]

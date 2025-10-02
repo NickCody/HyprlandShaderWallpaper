@@ -77,6 +77,17 @@ pub struct PlaylistItem {
     pub antialias: Option<AntialiasSetting>,
     #[serde(default)]
     pub refresh_once: bool,
+    #[serde(default)]
+    pub mode: Option<PlaylistItemMode>,
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub still_time: Option<Duration>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PlaylistItemMode {
+    Animate,
+    Still,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

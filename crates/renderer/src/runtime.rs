@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use tracing::debug;
 
 use crate::types::{ColorSpaceMode, ShaderCompiler};
 
@@ -35,6 +36,54 @@ pub enum RenderPolicy {
         /// Output format the user requested.
         format: ExportFormat,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn animate_ready_and_deadline_progress() {
+        let mut sched = FrameScheduler::new(RenderPolicy::Animate {
+            target_fps: Some(10.0),
+            adaptive: false,
+        });
+        let t0 = Instant::now();
+        assert!(sched.ready_for_frame(t0));
+        let next = sched.next_deadline().unwrap();
+        assert!(next >= t0);
+
+        let t_half = t0 + Duration::from_millis(50);
+        assert!(!sched.ready_for_frame(t_half));
+
+        let due = sched.next_deadline().unwrap();
+        assert!(sched.ready_for_frame(due));
+    }
+
+    #[test]
+    fn still_renders_once() {
+        let mut sched = FrameScheduler::new(RenderPolicy::Still {
+            time: Some(1.23),
+            random_seed: None,
+        });
+        let now = Instant::now();
+        assert!(sched.ready_for_frame(now));
+        sched.mark_rendered();
+        assert!(!sched.ready_for_frame(now));
+    }
+
+    #[test]
+    fn export_renders_once() {
+        let mut sched = FrameScheduler::new(RenderPolicy::Export {
+            time: None,
+            path: PathBuf::from("out.png"),
+            format: ExportFormat::Png,
+        });
+        let now = Instant::now();
+        assert!(sched.ready_for_frame(now));
+        sched.mark_rendered();
+        assert!(!sched.ready_for_frame(now));
+    }
 }
 
 impl Default for RenderPolicy {
@@ -211,7 +260,9 @@ pub fn time_source_for_policy(policy: &RenderPolicy) -> Result<BoxedTimeSource> 
     match policy {
         RenderPolicy::Animate { .. } => Ok(Box::new(SystemTimeSource::new())),
         RenderPolicy::Still { time, .. } => Ok(Box::new(FixedTimeSource::new(time.unwrap_or(0.0)))),
-        RenderPolicy::Export { .. } => Err(anyhow!("export policy is not implemented")),
+        RenderPolicy::Export { time, .. } => {
+            Ok(Box::new(FixedTimeSource::new(time.unwrap_or(0.0))))
+        }
     }
 }
 
@@ -285,8 +336,16 @@ impl FrameScheduler {
 
     /// Marks that a frame has been presented; still/export modes will stop scheduling afterwards.
     pub fn mark_rendered(&mut self) {
-        if matches!(self.policy, RenderPolicy::Still { .. }) {
+        if matches!(
+            self.policy,
+            RenderPolicy::Still { .. } | RenderPolicy::Export { .. }
+        ) {
             self.rendered_once = true;
+            let mode = match self.policy {
+                RenderPolicy::Export { .. } => "export",
+                _ => "still",
+            };
+            debug!(mode, "scheduler parked after single-frame {mode} policy");
         }
     }
 
@@ -305,8 +364,7 @@ impl FrameScheduler {
                 }
                 None => true,
             },
-            RenderPolicy::Still { .. } => !self.rendered_once,
-            RenderPolicy::Export { .. } => false,
+            RenderPolicy::Still { .. } | RenderPolicy::Export { .. } => !self.rendered_once,
         }
     }
 
