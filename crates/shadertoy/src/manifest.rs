@@ -93,6 +93,7 @@ pub enum InputSource {
     Texture { path: PathBuf },
     Cubemap { directory: PathBuf },
     Audio { path: PathBuf },
+    Keyboard,
 }
 
 impl ShaderPackManifest {

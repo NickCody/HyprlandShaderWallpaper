@@ -12,6 +12,7 @@ pub const CHANNEL_COUNT: usize = 4;
 pub enum ChannelSource {
     Texture { path: PathBuf },
     Cubemap { directory: PathBuf },
+    Keyboard,
 }
 
 /// Enumerates the texture dimensionality requirements for a channel.
@@ -59,6 +60,19 @@ impl ChannelBindings {
             );
         }
         self.sources[channel] = Some(ChannelSource::Cubemap { directory });
+        Ok(())
+    }
+
+    /// Marks the given channel as a virtual keyboard texture.
+    pub fn set_keyboard(&mut self, channel: usize) -> Result<()> {
+        if channel >= CHANNEL_COUNT {
+            anyhow::bail!(
+                "channel {} exceeds supported ShaderToy channel count ({})",
+                channel,
+                CHANNEL_COUNT
+            );
+        }
+        self.sources[channel] = Some(ChannelSource::Keyboard);
         Ok(())
     }
 

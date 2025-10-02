@@ -67,7 +67,7 @@ impl LocalPack {
                 Some(self.root.join(path))
             }
             InputSource::Cubemap { directory } => Some(self.root.join(directory)),
-            InputSource::Buffer { .. } => None,
+            InputSource::Keyboard | InputSource::Buffer { .. } => None,
         }
     }
 

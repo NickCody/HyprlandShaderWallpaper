@@ -17,6 +17,10 @@ use crate::types::{
     ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
 };
 
+const KEYBOARD_TEXTURE_WIDTH: u32 = 256;
+const KEYBOARD_TEXTURE_HEIGHT: u32 = 3;
+const KEYBOARD_BYTES_PER_PIXEL: u32 = 4;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedColorSpace {
     Gamma,
@@ -357,6 +361,26 @@ impl GpuState {
 
     pub(crate) fn channel_kinds(&self) -> &[ChannelTextureKind; CHANNEL_COUNT] {
         &self.channel_kinds
+    }
+
+    pub(crate) fn has_keyboard_channel(&self) -> bool {
+        self.current.has_keyboard_channel()
+            || self
+                .pending
+                .as_ref()
+                .map(|pending| pending.pipeline.has_keyboard_channel())
+                .unwrap_or(false)
+    }
+
+    pub(crate) fn update_keyboard_channels(&self, data: &[u8]) {
+        let queue = &self.queue;
+        self.current.update_keyboard_channels(queue, data);
+        if let Some(previous) = &self.previous {
+            previous.update_keyboard_channels(queue, data);
+        }
+        if let Some(pending) = &self.pending {
+            pending.pipeline.update_keyboard_channels(queue, data);
+        }
     }
 
     pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -799,6 +823,21 @@ impl ShaderPipeline {
             channel_resources,
         })
     }
+
+    fn has_keyboard_channel(&self) -> bool {
+        self.channel_resources
+            .iter()
+            .any(ChannelResources::is_keyboard)
+    }
+
+    fn update_keyboard_channels(&self, queue: &wgpu::Queue, data: &[u8]) {
+        if !self.has_keyboard_channel() {
+            return;
+        }
+        for resource in &self.channel_resources {
+            resource.update_keyboard(queue, data);
+        }
+    }
 }
 
 struct CrossfadeState {
@@ -961,11 +1000,60 @@ fn build_channel_layout_entries(
     entries
 }
 
+struct KeyboardTextureMeta {
+    width: u32,
+    height: u32,
+}
+
 struct ChannelResources {
-    _texture: wgpu::Texture,
+    texture: wgpu::Texture,
     view: wgpu::TextureView,
     sampler: wgpu::Sampler,
     resolution: [f32; 4],
+    keyboard: Option<KeyboardTextureMeta>,
+}
+
+impl ChannelResources {
+    fn is_keyboard(&self) -> bool {
+        self.keyboard.is_some()
+    }
+
+    fn update_keyboard(&self, queue: &wgpu::Queue, data: &[u8]) {
+        let Some(meta) = &self.keyboard else {
+            return;
+        };
+
+        let expected_len = (meta.width * meta.height * KEYBOARD_BYTES_PER_PIXEL) as usize;
+        if data.len() != expected_len {
+            tracing::warn!(
+                channel_width = meta.width,
+                channel_height = meta.height,
+                expected_len,
+                actual_len = data.len(),
+                "keyboard texture update ignored due to mismatched payload size"
+            );
+            return;
+        }
+
+        let bytes_per_row = meta.width * KEYBOARD_BYTES_PER_PIXEL;
+        let layout = wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(bytes_per_row),
+            rows_per_image: Some(meta.height),
+        };
+        let extent = wgpu::Extent3d {
+            width: meta.width,
+            height: meta.height,
+            depth_or_array_layers: 1,
+        };
+        let texture_info = wgpu::TexelCopyTextureInfo {
+            texture: &self.texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        };
+        queue.write_texture(texture_info, data, layout, extent);
+    }
 }
 
 fn create_channel_resources(
@@ -992,6 +1080,9 @@ fn create_channel_resources(
                     }
                 }
             }
+            (Some(ChannelSource::Keyboard), ChannelTextureKind::Texture2d) => {
+                create_keyboard_channel(device, queue, index as u32, color_space)?
+            }
             (Some(ChannelSource::Cubemap { directory }), ChannelTextureKind::Cubemap) => {
                 match load_cubemap_channel(device, queue, index, directory, color_space) {
                     Ok(resource) => resource,
@@ -1013,7 +1104,8 @@ fn create_channel_resources(
                 create_placeholder_cubemap(device, queue, index as u32, color_space)?
             }
             (Some(ChannelSource::Texture { .. }), ChannelTextureKind::Cubemap)
-            | (Some(ChannelSource::Cubemap { .. }), ChannelTextureKind::Texture2d) => {
+            | (Some(ChannelSource::Cubemap { .. }), ChannelTextureKind::Texture2d)
+            | (Some(ChannelSource::Keyboard), ChannelTextureKind::Cubemap) => {
                 tracing::warn!(
                     channel = index,
                     "channel binding kind mismatch; using placeholder"
@@ -1077,10 +1169,11 @@ fn create_placeholder_texture(
     });
 
     Ok(ChannelResources {
-        _texture: texture,
+        texture,
         view,
         sampler,
         resolution: [1.0, 1.0, 1.0, 0.0],
+        keyboard: None,
     })
 }
 
@@ -1132,10 +1225,76 @@ fn create_placeholder_cubemap(
     });
 
     Ok(ChannelResources {
-        _texture: texture,
+        texture,
         view,
         sampler,
         resolution: [1.0, 1.0, 6.0, 0.0],
+        keyboard: None,
+    })
+}
+
+fn create_keyboard_channel(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    index: u32,
+    color_space: ResolvedColorSpace,
+) -> Result<ChannelResources> {
+    let texture_format = match color_space {
+        ResolvedColorSpace::Gamma => wgpu::TextureFormat::Rgba8Unorm,
+        ResolvedColorSpace::Linear => wgpu::TextureFormat::Rgba8UnormSrgb,
+    };
+
+    let data = vec![
+        0u8;
+        (KEYBOARD_TEXTURE_WIDTH * KEYBOARD_TEXTURE_HEIGHT * KEYBOARD_BYTES_PER_PIXEL)
+            as usize
+    ];
+
+    let texture = device.create_texture_with_data(
+        queue,
+        &wgpu::TextureDescriptor {
+            label: Some(&format!("keyboard channel texture #{index}")),
+            size: wgpu::Extent3d {
+                width: KEYBOARD_TEXTURE_WIDTH,
+                height: KEYBOARD_TEXTURE_HEIGHT,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: texture_format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+        TextureDataOrder::LayerMajor,
+        &data,
+    );
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        ..Default::default()
+    });
+
+    Ok(ChannelResources {
+        texture,
+        view,
+        sampler,
+        resolution: [
+            KEYBOARD_TEXTURE_WIDTH as f32,
+            KEYBOARD_TEXTURE_HEIGHT as f32,
+            1.0,
+            0.0,
+        ],
+        keyboard: Some(KeyboardTextureMeta {
+            width: KEYBOARD_TEXTURE_WIDTH,
+            height: KEYBOARD_TEXTURE_HEIGHT,
+        }),
     })
 }
 
@@ -1278,10 +1437,11 @@ fn load_cubemap_channel(
     );
 
     Ok(ChannelResources {
-        _texture: texture,
+        texture,
         view,
         sampler,
         resolution: [width as f32, height as f32, 6.0, 0.0],
+        keyboard: None,
     })
 }
 
@@ -1359,10 +1519,11 @@ fn load_texture_channel(
     );
 
     Ok(ChannelResources {
-        _texture: texture,
+        texture,
         view,
         sampler,
         resolution: [width as f32, height as f32, 1.0, 0.0],
+        keyboard: None,
     })
 }
 

@@ -380,6 +380,12 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
                         },
                     });
                 }
+                "keyboard" => {
+                    inputs.push(PassInput {
+                        channel,
+                        source: InputSource::Keyboard,
+                    });
+                }
                 "music" | "sound" | "musicstream" => {
                     let src = input.src.as_ref().ok_or_else(|| {
                         anyhow!("audio input missing src in pass '{}'", pass.name)
@@ -402,7 +408,7 @@ fn build_cache_plan(payload: &ShaderPayload) -> Result<CachePlan> {
                     });
                 }
                 other => {
-                    // Gracefully ignore unsupported channel types (e.g. 'keyboard', 'webcam').
+                    // Gracefully ignore unsupported channel types (e.g. 'webcam').
                     // The renderer will bind a placeholder texture/sampler, which is sufficient
                     // for most shaders to keep running.
                     tracing::warn!(

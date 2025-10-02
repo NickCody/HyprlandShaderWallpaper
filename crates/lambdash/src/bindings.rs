@@ -45,6 +45,12 @@ impl ChannelBindingIssue {
                 error = %error,
                 "failed to register texture channel"
             ),
+            ChannelBindingIssueKind::KeyboardAssignFailed { error } => warn!(
+                pass = %self.pass,
+                channel = self.channel,
+                error = %error,
+                "failed to register keyboard channel"
+            ),
             ChannelBindingIssueKind::UnsupportedBuffer { name } => warn!(
                 pass = %self.pass,
                 channel = self.channel,
@@ -91,6 +97,7 @@ impl ChannelBindingIssue {
 pub enum ChannelBindingIssueKind {
     TextureMissing { path: PathBuf },
     TextureAssignFailed { path: PathBuf, error: String },
+    KeyboardAssignFailed { error: String },
     UnsupportedBuffer { name: String },
     CubemapDirectoryMissing { directory: PathBuf },
     CubemapNotDirectory { path: PathBuf },
@@ -135,6 +142,17 @@ pub fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindingReport {
                         channel: input.channel,
                         kind: ChannelBindingIssueKind::TextureAssignFailed {
                             path: resolved_for_log,
+                            error: err.to_string(),
+                        },
+                    });
+                }
+            }
+            InputSource::Keyboard => {
+                if let Err(err) = bindings.set_keyboard(input.channel as usize) {
+                    issues.push(ChannelBindingIssue {
+                        pass: pass.name.clone(),
+                        channel: input.channel,
+                        kind: ChannelBindingIssueKind::KeyboardAssignFailed {
                             error: err.to_string(),
                         },
                     });

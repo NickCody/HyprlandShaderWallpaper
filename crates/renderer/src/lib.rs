@@ -39,6 +39,7 @@ pub use wallpaper::{
 pub use window::WindowRuntime;
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use winit::dpi::PhysicalSize;
@@ -88,75 +89,75 @@ impl Renderer {
 
         let mut state = WindowState::new(window.clone(), &self.config)?;
         let mut policy_driver = RenderPolicyDriver::new(self.config.policy.clone())?;
-        if policy_driver.should_request_redraw() {
+        if policy_driver.ready_for_frame(Instant::now()) {
             state.window().request_redraw();
         }
 
         event_loop
-            .run(move |event, elwt| {
-                elwt.set_control_flow(ControlFlow::Wait);
-
-                match event {
-                    Event::WindowEvent { window_id, event } if window_id == state.window().id() => {
-                        match event {
-                            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
-                                elwt.exit();
+            .run(move |event, elwt| match event {
+                Event::WindowEvent { window_id, event } if window_id == state.window().id() => {
+                    match event {
+                        WindowEvent::CloseRequested | WindowEvent::Destroyed => {
+                            elwt.exit();
+                        }
+                        WindowEvent::CursorMoved { position, .. } => {
+                            state.handle_cursor_moved(position);
+                        }
+                        WindowEvent::MouseInput {
+                            state: button_state,
+                            button,
+                            ..
+                        } => {
+                            if button == MouseButton::Left {
+                                state.handle_mouse_button(button_state);
                             }
-                            WindowEvent::CursorMoved { position, .. } => {
-                                state.handle_cursor_moved(position);
-                            }
-                            WindowEvent::MouseInput {
-                                state: button_state,
-                                button,
-                                ..
-                            } => {
-                                if button == MouseButton::Left {
-                                    state.handle_mouse_button(button_state);
+                        }
+                        WindowEvent::Resized(new_size) => {
+                            state.resize(new_size);
+                        }
+                        WindowEvent::ScaleFactorChanged {
+                            mut inner_size_writer,
+                            ..
+                        } => {
+                            let _ = inner_size_writer.request_inner_size(state.size());
+                        }
+                        WindowEvent::RedrawRequested => {
+                            let sample = policy_driver.sample();
+                            let render_result = state.render_frame(sample);
+                            match render_result {
+                                Ok(()) => {
+                                    policy_driver.mark_rendered();
+                                }
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    state.resize(state.size());
+                                }
+                                Err(wgpu::SurfaceError::OutOfMemory) => {
+                                    eprintln!("surface out of memory; exiting");
+                                    elwt.exit();
+                                }
+                                Err(wgpu::SurfaceError::Timeout) => {
+                                    eprintln!("surface timeout; retrying next frame");
+                                }
+                                Err(other) => {
+                                    eprintln!("surface error: {other:?}; retrying next frame");
                                 }
                             }
-                            WindowEvent::Resized(new_size) => {
-                                state.resize(new_size);
-                            }
-                            WindowEvent::ScaleFactorChanged {
-                                mut inner_size_writer,
-                                ..
-                            } => {
-                                let _ = inner_size_writer.request_inner_size(state.size());
-                            }
-                            WindowEvent::RedrawRequested => {
-                                let sample = policy_driver.sample();
-                                let render_result = state.render_frame(sample);
-                                match render_result {
-                                    Ok(()) => {
-                                        policy_driver.mark_rendered();
-                                    }
-                                    Err(
-                                        wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
-                                    ) => {
-                                        state.resize(state.size());
-                                    }
-                                    Err(wgpu::SurfaceError::OutOfMemory) => {
-                                        eprintln!("surface out of memory; exiting");
-                                        elwt.exit();
-                                    }
-                                    Err(wgpu::SurfaceError::Timeout) => {
-                                        eprintln!("surface timeout; retrying next frame");
-                                    }
-                                    Err(other) => {
-                                        eprintln!("surface error: {other:?}; retrying next frame");
-                                    }
-                                }
-                            }
-                            _ => {}
                         }
+                        _ => {}
                     }
-                    Event::AboutToWait => {
-                        if policy_driver.should_request_redraw() {
-                            state.window().request_redraw();
-                        }
-                    }
-                    _ => {}
                 }
+                Event::AboutToWait => {
+                    let now = Instant::now();
+                    if policy_driver.ready_for_frame(now) {
+                        state.window().request_redraw();
+                        elwt.set_control_flow(ControlFlow::Wait);
+                    } else if let Some(deadline) = policy_driver.next_deadline() {
+                        elwt.set_control_flow(ControlFlow::WaitUntil(deadline));
+                    } else {
+                        elwt.set_control_flow(ControlFlow::Wait);
+                    }
+                }
+                _ => {}
             })
             .map_err(|err| anyhow!("event loop error: {err}"))
     }

@@ -1,0 +1,392 @@
+[2m2025-10-02T04:05:45.496810Z[0m [32m INFO[0m bootstrapping lambdash wallpaper daemon [3mhandle[0m[2m=[0mShadertoyId("Xsl3zX")
+[2m2025-10-02T04:05:45.497378Z[0m [32m INFO[0m loaded Shadertoy shader [3mshader[0m[2m=[0mXsl3zX [3mcache[0m[2m=[0m/home/nic/.cache/lambdash/shadertoy/Xsl3zX [3mroot[0m[2m=[0m/home/nic/.cache/lambdash/shadertoy/Xsl3zX [3mrefreshed[0m[2m=[0mfalse
+[2m2025-10-02T04:05:45.497411Z[0m [32m INFO[0m windowed rendering mode requested (placeholder implementation)
+[2m2025-10-02T04:05:45.579306Z[0m [33m WARN[0m Unable to find extension: VK_EXT_physical_device_drm
+[2m2025-10-02T04:05:45.579732Z[0m [33m WARN[0m InstanceFlags::VALIDATION requested, but unable to find layer: VK_LAYER_KHRONOS_validation
+[2m2025-10-02T04:05:45.579781Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	No valid vk_loader_settings.json file found, no loader settings will be active
+[2m2025-10-02T04:05:45.579817Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579839Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Searching for implicit layer manifest files
+[2m2025-10-02T04:05:45.579857Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579870Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2025-10-02T04:05:45.579885Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579898Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.config/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.579911Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579922Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.579934Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579944Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.579956Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579967Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.local/share/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.579979Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.579989Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.local/share/flatpak/exports/share/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.580002Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580013Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /var/lib/flatpak/exports/share/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.580025Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580035Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.580048Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580059Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d
+[2m2025-10-02T04:05:45.580071Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580125Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2025-10-02T04:05:45.580141Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580152Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+[2m2025-10-02T04:05:45.580165Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580176Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d/nvidia_layers.json
+[2m2025-10-02T04:05:45.580197Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580232Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json (file version 1.0.0)
+[2m2025-10-02T04:05:45.580255Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580285Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/implicit_layer.d/nvidia_layers.json (file version 1.0.1)
+[2m2025-10-02T04:05:45.580302Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580327Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Searching for explicit layer manifest files
+[2m2025-10-02T04:05:45.580341Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580352Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2025-10-02T04:05:45.580364Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580375Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.config/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580387Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580398Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580410Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580421Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580433Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580444Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.local/share/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580456Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580466Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.local/share/flatpak/exports/share/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580480Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580491Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /var/lib/flatpak/exports/share/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580503Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580514Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580527Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580537Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d
+[2m2025-10-02T04:05:45.580549Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580600Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   Found no files
+[2m2025-10-02T04:05:45.580615Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580630Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Searching for driver manifest files
+[2m2025-10-02T04:05:45.580642Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580653Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2025-10-02T04:05:45.580664Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580675Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.config/vulkan/icd.d
+[2m2025-10-02T04:05:45.580687Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580698Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/icd.d
+[2m2025-10-02T04:05:45.580709Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580725Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/icd.d
+[2m2025-10-02T04:05:45.580740Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580751Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.local/share/vulkan/icd.d
+[2m2025-10-02T04:05:45.580762Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580773Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /home/nic/.local/share/flatpak/exports/share/vulkan/icd.d
+[2m2025-10-02T04:05:45.580785Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580796Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /var/lib/flatpak/exports/share/vulkan/icd.d
+[2m2025-10-02T04:05:45.580808Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580819Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/icd.d
+[2m2025-10-02T04:05:45.580830Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580841Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d
+[2m2025-10-02T04:05:45.580853Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580923Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2025-10-02T04:05:45.580939Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580950Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/asahi_icd.x86_64.json
+[2m2025-10-02T04:05:45.580962Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580973Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/broadcom_icd.x86_64.json
+[2m2025-10-02T04:05:45.580986Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.580997Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/freedreno_icd.x86_64.json
+[2m2025-10-02T04:05:45.581009Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581020Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/intel_hasvk_icd.x86_64.json
+[2m2025-10-02T04:05:45.581032Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581043Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/intel_icd.x86_64.json
+[2m2025-10-02T04:05:45.581055Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581066Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+[2m2025-10-02T04:05:45.581078Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581089Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/nouveau_icd.x86_64.json
+[2m2025-10-02T04:05:45.581101Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581112Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/panfrost_icd.x86_64.json
+[2m2025-10-02T04:05:45.581125Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581135Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/powervr_mesa_icd.x86_64.json
+[2m2025-10-02T04:05:45.581148Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581159Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/radeon_icd.x86_64.json
+[2m2025-10-02T04:05:45.581171Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581197Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/virtio_icd.x86_64.json
+[2m2025-10-02T04:05:45.581212Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581223Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/nvidia_icd.x86_64.json
+[2m2025-10-02T04:05:45.581235Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581257Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/asahi_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581273Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581298Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/broadcom_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581314Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581336Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/freedreno_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581355Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581385Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/intel_hasvk_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581404Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581428Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/intel_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581444Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581467Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/lvp_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581483Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581505Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/nouveau_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581521Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581545Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/panfrost_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581561Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581584Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/powervr_mesa_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581601Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581624Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/radeon_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581640Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581662Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/virtio_icd.x86_64.json, version 1.0.0
+[2m2025-10-02T04:05:45.581678Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581701Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/nvidia_icd.x86_64.json, version 1.0.1
+[2m2025-10-02T04:05:45.581717Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581927Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Insert instance layer "VK_LAYER_MESA_device_select" (libVkLayer_MESA_device_select.so)
+[2m2025-10-02T04:05:45.581949Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581966Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	vkCreateInstance layer callstack setup to:
+[2m2025-10-02T04:05:45.581985Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.581996Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2025-10-02T04:05:45.582007Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582018Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2025-10-02T04:05:45.582029Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582040Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2025-10-02T04:05:45.582051Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582061Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2025-10-02T04:05:45.582072Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582083Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   VK_LAYER_MESA_device_select
+[2m2025-10-02T04:05:45.582095Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582106Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           Type: Implicit
+[2m2025-10-02T04:05:45.582117Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582128Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           Enabled By: Implicit Layer
+[2m2025-10-02T04:05:45.582139Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582150Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	               Disable Env Var:  NODEVICE_SELECT
+[2m2025-10-02T04:05:45.582162Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582173Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           Manifest: /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+[2m2025-10-02T04:05:45.582193Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582205Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           Library:  libVkLayer_MESA_device_select.so
+[2m2025-10-02T04:05:45.582217Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582228Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2025-10-02T04:05:45.582239Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.582249Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   <Drivers>
+[2m2025-10-02T04:05:45.582261Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.593603Z[0m [32m INFO[0m Enabling debug utils
+[2m2025-10-02T04:05:45.605418Z[0m [32m INFO[0m Using Wayland platform
+[2m2025-10-02T04:05:45.607080Z[0m [31mERROR[0m EGL 'eglCreateSyncKHR' code 0x3004: EGL_BAD_ATTRIBUTE error: In eglCreateSyncKHR: EGL_SYNC_NATIVE_FENCE_FD_ANDROID specified valid fd butEGL_SYNC_STATUS is also being set
+
+[2m2025-10-02T04:05:45.607280Z[0m [33m WARN[0m No config found!
+[2m2025-10-02T04:05:45.607301Z[0m [33m WARN[0m EGL says it can present to the window but not natively
+[2m2025-10-02T04:05:45.620775Z[0m [33m WARN[0m Re-initializing Gles context due to Wayland window
+[2m2025-10-02T04:05:45.621631Z[0m [31mERROR[0m EGL 'eglCreateSyncKHR' code 0x3004: EGL_BAD_ATTRIBUTE error: In eglCreateSyncKHR: EGL_SYNC_NATIVE_FENCE_FD_ANDROID specified valid fd butEGL_SYNC_STATUS is also being set
+
+[2m2025-10-02T04:05:45.621810Z[0m [33m WARN[0m No config found!
+[2m2025-10-02T04:05:45.621830Z[0m [33m WARN[0m EGL says it can present to the window but not natively
+[2m2025-10-02T04:05:45.626077Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2025-10-02T04:05:45.626125Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626147Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2025-10-02T04:05:45.626159Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626223Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080
+[2m2025-10-02T04:05:45.626241Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626290Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)
+[2m2025-10-02T04:05:45.626308Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626319Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2025-10-02T04:05:45.626331Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626342Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080  
+[2m2025-10-02T04:05:45.626354Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626365Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)  
+[2m2025-10-02T04:05:45.626377Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626399Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2025-10-02T04:05:45.626413Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626424Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2025-10-02T04:05:45.626435Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626454Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080
+[2m2025-10-02T04:05:45.626466Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626482Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)
+[2m2025-10-02T04:05:45.626495Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626505Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2025-10-02T04:05:45.626516Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626527Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080  
+[2m2025-10-02T04:05:45.626538Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.626549Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)  
+[2m2025-10-02T04:05:45.626561Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627465Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2025-10-02T04:05:45.627488Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627500Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2025-10-02T04:05:45.627512Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627530Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080
+[2m2025-10-02T04:05:45.627542Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627559Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)
+[2m2025-10-02T04:05:45.627572Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627583Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2025-10-02T04:05:45.627600Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627619Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080  
+[2m2025-10-02T04:05:45.627631Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627642Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)  
+[2m2025-10-02T04:05:45.627654Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627668Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2025-10-02T04:05:45.627681Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627691Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2025-10-02T04:05:45.627702Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627720Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080
+[2m2025-10-02T04:05:45.627732Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627747Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)
+[2m2025-10-02T04:05:45.627760Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627771Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2025-10-02T04:05:45.627781Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627792Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [0] NVIDIA GeForce RTX 3080  
+[2m2025-10-02T04:05:45.627804Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.627815Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	           [1] llvmpipe (LLVM 20.1.8, 256 bits)  
+[2m2025-10-02T04:05:45.627827Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.628582Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_virtio.so due to not having any physical devices
+[2m2025-10-02T04:05:45.628606Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.628739Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_radeon.so due to not having any physical devices
+[2m2025-10-02T04:05:45.628758Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.628918Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_powervr_mesa.so due to not having any physical devices
+[2m2025-10-02T04:05:45.628936Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.629120Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_panfrost.so due to not having any physical devices
+[2m2025-10-02T04:05:45.629139Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.629272Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_nouveau.so due to not having any physical devices
+[2m2025-10-02T04:05:45.629291Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.629454Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_intel.so due to not having any physical devices
+[2m2025-10-02T04:05:45.629472Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.629625Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_intel_hasvk.so due to not having any physical devices
+[2m2025-10-02T04:05:45.629643Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.629781Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_freedreno.so due to not having any physical devices
+[2m2025-10-02T04:05:45.629803Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.629968Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_broadcom.so due to not having any physical devices
+[2m2025-10-02T04:05:45.629986Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.630094Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib64/libvulkan_asahi.so due to not having any physical devices
+[2m2025-10-02T04:05:45.630112Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.678960Z[0m [33m WARN[0m Max vertex attribute stride unknown. Assuming it is 2048
+[2m2025-10-02T04:05:45.679758Z[0m [32m INFO[0m resolved MSAA configuration [3mantialiasing[0m[2m=[0mAuto [3msample_count[0m[2m=[0m8 [3msupported_samples[0m[2m=[0m[1, 2, 4, 8]
+[2m2025-10-02T04:05:45.680093Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	Failed to find vkGetDeviceProcAddr in layer "libVkLayer_MESA_device_select.so"
+[2m2025-10-02T04:05:45.680118Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680130Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	vkCreateDevice layer callstack setup to:
+[2m2025-10-02T04:05:45.680142Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680152Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2025-10-02T04:05:45.680163Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680173Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2025-10-02T04:05:45.680190Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680202Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2025-10-02T04:05:45.680212Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680222Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2025-10-02T04:05:45.680232Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680242Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2025-10-02T04:05:45.680253Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.680411Z[0m [32m INFO[0m GENERAL [Loader Message (0x0)]
+	       Using "NVIDIA GeForce RTX 3080" with driver: "/usr/lib64/libGLX_nvidia.so.0"
+[2m2025-10-02T04:05:45.680426Z[0m [32m INFO[0m 	objects: (type: INSTANCE, hndl: 0x55e38c256550, name: ?)
+[2m2025-10-02T04:05:45.872670Z[0m [32m INFO[0m Generated by 851979 version 10300
+[2m2025-10-02T04:05:45.872798Z[0m [33m WARN[0m Unknown decoration Block
+[2m2025-10-02T04:05:45.873132Z[0m [32m INFO[0m Patching...
+[2m2025-10-02T04:05:45.951427Z[0m [32m INFO[0m Generated by 851979 version 10300
+[2m2025-10-02T04:05:45.951655Z[0m [33m WARN[0m Unknown decoration Block
+[2m2025-10-02T04:05:45.952944Z[0m [32m INFO[0m Patching...
+[2m2025-10-02T04:05:46.021032Z[0m [32m INFO[0m loaded texture channel [3mchannel[0m[2m=[0m0 [3mpath[0m[2m=[0m/home/nic/.cache/lambdash/shadertoy/Xsl3zX/textures/0c7bf5fe9462d5bffbd11126e82908e39be3ce56220d900f633d58fb432e56f5.png [3mwidth[0m[2m=[0m256 [3mheight[0m[2m=[0m256
+[2m2025-10-02T04:05:46.249038Z[0m [32m INFO[0m loaded texture channel [3mchannel[0m[2m=[0m1 [3mpath[0m[2m=[0m/home/nic/.cache/lambdash/shadertoy/Xsl3zX/textures/e6e5631ce1237ae4c05b3563eda686400a401df4548d0f9fad40ecac1659c46c.jpg [3mwidth[0m[2m=[0m512 [3mheight[0m[2m=[0m512

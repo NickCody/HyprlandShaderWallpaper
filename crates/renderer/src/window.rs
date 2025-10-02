@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use wgpu::SurfaceError;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::{ElementState, Event, WindowEvent};
+use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowBuilder};
@@ -24,6 +24,7 @@ pub(crate) struct WindowState {
     window: Arc<Window>,
     gpu: GpuState,
     mouse: MouseState,
+    keyboard: KeyboardState,
     antialiasing: Antialiasing,
     shader_compiler: ShaderCompiler,
     color_space: ColorSpaceMode,
@@ -42,14 +43,17 @@ impl WindowState {
             config.shader_compiler,
         )?;
 
-        Ok(Self {
+        let mut state = Self {
             window,
             gpu,
             mouse: MouseState::default(),
+            keyboard: KeyboardState::default(),
             antialiasing: config.antialiasing,
             shader_compiler: config.shader_compiler,
             color_space: config.color_space,
-        })
+        };
+        state.sync_keyboard(true);
+        Ok(state)
     }
 
     pub(crate) fn window(&self) -> &Window {
@@ -65,8 +69,15 @@ impl WindowState {
     }
 
     pub(crate) fn render_frame(&mut self, time_sample: TimeSample) -> Result<(), SurfaceError> {
+        self.sync_keyboard(false);
         let mouse_uniform = self.mouse.as_uniform(self.size().height.max(1) as f32);
-        self.gpu.render(mouse_uniform, Some(time_sample))
+        match self.gpu.render(mouse_uniform, Some(time_sample)) {
+            Ok(()) => {
+                self.flush_keyboard_pulses();
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
     }
 
     pub(crate) fn set_shader(
@@ -103,6 +114,7 @@ impl WindowState {
                 Instant::now(),
             )?;
         }
+        self.sync_keyboard(true);
         Ok(())
     }
 
@@ -113,21 +125,62 @@ impl WindowState {
     pub(crate) fn handle_mouse_button(&mut self, state: ElementState) {
         self.mouse.handle_button(state);
     }
+
+    fn sync_keyboard(&mut self, force: bool) {
+        if !self.gpu.has_keyboard_channel() {
+            if force {
+                self.keyboard.clear_dirty();
+            }
+            return;
+        }
+
+        if force {
+            let snapshot = self.keyboard.snapshot();
+            self.gpu.update_keyboard_channels(&snapshot);
+        }
+
+        while let Some(snapshot) = self.keyboard.take_dirty_snapshot() {
+            self.gpu.update_keyboard_channels(&snapshot);
+        }
+    }
+
+    fn flush_keyboard_pulses(&mut self) {
+        if let Some(snapshot) = self.keyboard.take_pulse_reset_snapshot() {
+            if self.gpu.has_keyboard_channel() {
+                self.gpu.update_keyboard_channels(&snapshot);
+            }
+        }
+    }
 }
 
 pub(crate) struct RenderPolicyDriver {
     policy: RenderPolicy,
     time_source: BoxedTimeSource,
     rendered_once: bool,
+    target_interval: Option<Duration>,
+    next_frame_due: Option<Instant>,
 }
 
 impl RenderPolicyDriver {
     pub(crate) fn new(policy: RenderPolicy) -> Result<Self> {
         let time_source = time_source_for_policy(&policy)?;
+        let target_interval = match &policy {
+            RenderPolicy::Animate { target_fps, .. } => target_fps.and_then(|fps| {
+                if fps > 0.0 {
+                    Some(Duration::from_secs_f32(1.0 / fps))
+                } else {
+                    None
+                }
+            }),
+            _ => None,
+        };
+        let next_frame_due = target_interval.map(|_| Instant::now());
         Ok(Self {
             policy,
             time_source,
             rendered_once: false,
+            target_interval,
+            next_frame_due,
         })
     }
 
@@ -141,9 +194,20 @@ impl RenderPolicyDriver {
         }
     }
 
-    pub(crate) fn should_request_redraw(&self) -> bool {
+    pub(crate) fn ready_for_frame(&mut self, now: Instant) -> bool {
         match self.policy {
-            RenderPolicy::Animate { .. } => true,
+            RenderPolicy::Animate { .. } => match self.target_interval {
+                Some(interval) => {
+                    let due = self.next_frame_due.get_or_insert(now);
+                    if now >= *due {
+                        self.next_frame_due = Some(now + interval);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                None => true,
+            },
             RenderPolicy::Still { .. } => !self.rendered_once,
             RenderPolicy::Export { .. } => false,
         }
@@ -152,6 +216,18 @@ impl RenderPolicyDriver {
     pub(crate) fn reset(&mut self) {
         self.time_source.reset();
         self.rendered_once = false;
+        if self.target_interval.is_some() {
+            self.next_frame_due = Some(Instant::now());
+        } else {
+            self.next_frame_due = None;
+        }
+    }
+
+    pub(crate) fn next_deadline(&self) -> Option<Instant> {
+        match self.policy {
+            RenderPolicy::Animate { .. } => self.next_frame_due,
+            _ => None,
+        }
     }
 }
 
@@ -290,7 +366,7 @@ fn run_window_thread(
     };
 
     let mut policy_driver = RenderPolicyDriver::new(config.policy.clone())?;
-    if policy_driver.should_request_redraw() {
+    if policy_driver.ready_for_frame(Instant::now()) {
         state.window().request_redraw();
     }
 
@@ -298,8 +374,6 @@ fn run_window_thread(
 
     let mut result = Ok(());
     let run_result = event_loop.run(move |event, elwt| {
-        elwt.set_control_flow(ControlFlow::Wait);
-
         match event {
             Event::UserEvent(command) => match command {
                 WindowCommand::Swap {
@@ -319,7 +393,7 @@ fn run_window_thread(
                         error!("failed to swap window shader: {err:?}");
                     } else {
                         policy_driver.reset();
-                        if policy_driver.should_request_redraw() {
+                        if policy_driver.ready_for_frame(Instant::now()) {
                             state.window().request_redraw();
                         }
                     }
@@ -334,6 +408,10 @@ fn run_window_thread(
                         elwt.exit();
                     }
                     WindowEvent::KeyboardInput { event, .. } => {
+                        let keyboard_changed = state.keyboard.handle_event(&event);
+                        if keyboard_changed {
+                            state.sync_keyboard(false);
+                        }
                         if event.state == ElementState::Pressed && !event.repeat {
                             let is_space = matches!(event.logical_key, Key::Named(NamedKey::Space))
                                 || matches!(event.logical_key, Key::Character(ref value) if value.as_str() == " ");
@@ -385,8 +463,14 @@ fn run_window_thread(
                 }
             }
             Event::AboutToWait => {
-                if policy_driver.should_request_redraw() {
+                let now = Instant::now();
+                if policy_driver.ready_for_frame(now) {
                     state.window().request_redraw();
+                    elwt.set_control_flow(ControlFlow::Wait);
+                } else if let Some(deadline) = policy_driver.next_deadline() {
+                    elwt.set_control_flow(ControlFlow::WaitUntil(deadline));
+                } else {
+                    elwt.set_control_flow(ControlFlow::Wait);
                 }
             }
             _ => {}
@@ -444,5 +528,147 @@ impl MouseState {
         }
 
         data
+    }
+}
+
+const KEYBOARD_WIDTH: usize = 256;
+const KEYBOARD_HEIGHT: usize = 3;
+const KEYBOARD_CHANNELS: usize = 4;
+const KEYBOARD_ROW_STATE: usize = 0;
+const KEYBOARD_ROW_PULSE: usize = 1;
+const KEYBOARD_ROW_TOGGLE: usize = 2;
+
+struct KeyboardState {
+    pressed: [u8; KEYBOARD_WIDTH],
+    toggled: [u8; KEYBOARD_WIDTH],
+    pulse_pending: [bool; KEYBOARD_WIDTH],
+    data: Vec<u8>,
+    dirty: bool,
+}
+
+impl Default for KeyboardState {
+    fn default() -> Self {
+        Self {
+            pressed: [0; KEYBOARD_WIDTH],
+            toggled: [0; KEYBOARD_WIDTH],
+            pulse_pending: [false; KEYBOARD_WIDTH],
+            data: vec![0u8; KEYBOARD_WIDTH * KEYBOARD_HEIGHT * KEYBOARD_CHANNELS],
+            dirty: false,
+        }
+    }
+}
+
+impl KeyboardState {
+    fn handle_event(&mut self, event: &KeyEvent) -> bool {
+        let Some(code) = ascii_from_key_event(event) else {
+            return false;
+        };
+        let index = code as usize;
+
+        let changed = match event.state {
+            ElementState::Pressed => {
+                if event.repeat || self.pressed[index] == 255 {
+                    return false;
+                }
+
+                self.pressed[index] = 255;
+                self.write_cell(KEYBOARD_ROW_STATE, index, 255);
+                self.write_cell(KEYBOARD_ROW_PULSE, index, 255);
+                self.pulse_pending[index] = true;
+
+                let new_value = if self.toggled[index] == 0 { 255 } else { 0 };
+                self.toggled[index] = new_value;
+                self.write_cell(KEYBOARD_ROW_TOGGLE, index, new_value);
+                true
+            }
+            ElementState::Released => {
+                if self.pressed[index] == 0 {
+                    return false;
+                }
+
+                self.pressed[index] = 0;
+                self.write_cell(KEYBOARD_ROW_STATE, index, 0);
+                true
+            }
+        };
+
+        if changed {
+            self.dirty = true;
+        }
+        changed
+    }
+
+    fn snapshot(&self) -> Vec<u8> {
+        self.data.clone()
+    }
+
+    fn take_dirty_snapshot(&mut self) -> Option<Vec<u8>> {
+        if self.dirty {
+            self.dirty = false;
+            Some(self.data.clone())
+        } else {
+            None
+        }
+    }
+
+    fn clear_dirty(&mut self) {
+        self.dirty = false;
+        let had_pulses = self.pulse_pending.iter().any(|&pending| pending);
+        if had_pulses {
+            for index in 0..KEYBOARD_WIDTH {
+                if self.pulse_pending[index] {
+                    self.write_cell(KEYBOARD_ROW_PULSE, index, 0);
+                }
+            }
+        }
+        self.pulse_pending.fill(false);
+    }
+
+    fn take_pulse_reset_snapshot(&mut self) -> Option<Vec<u8>> {
+        let mut any = false;
+        for index in 0..KEYBOARD_WIDTH {
+            if self.pulse_pending[index] {
+                self.pulse_pending[index] = false;
+                self.write_cell(KEYBOARD_ROW_PULSE, index, 0);
+                any = true;
+            }
+        }
+
+        if any {
+            Some(self.data.clone())
+        } else {
+            None
+        }
+    }
+
+    fn write_cell(&mut self, row: usize, column: usize, value: u8) {
+        debug_assert!(row < KEYBOARD_HEIGHT, "keyboard row out of range");
+        debug_assert!(column < KEYBOARD_WIDTH, "keyboard column out of range");
+        let stride = KEYBOARD_WIDTH * KEYBOARD_CHANNELS;
+        let offset = row * stride + column * KEYBOARD_CHANNELS;
+        self.data[offset..offset + KEYBOARD_CHANNELS].fill(value);
+    }
+}
+
+fn ascii_from_key_event(event: &KeyEvent) -> Option<u8> {
+    match &event.logical_key {
+        Key::Character(value) if !value.is_empty() => {
+            let mut chars = value.chars();
+            let ch = chars.next()?;
+            if chars.next().is_some() {
+                return None;
+            }
+            if ch.is_ascii() {
+                Some(ch as u8)
+            } else {
+                None
+            }
+        }
+        Key::Named(NamedKey::Space) => Some(b' '),
+        Key::Named(NamedKey::Enter) => Some(b'\n'),
+        Key::Named(NamedKey::Tab) => Some(b'\t'),
+        Key::Named(NamedKey::Backspace) => Some(8),
+        Key::Named(NamedKey::Escape) => Some(27),
+        _ => None,
     }
 }
