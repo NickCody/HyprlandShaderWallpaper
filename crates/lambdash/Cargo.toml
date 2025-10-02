@@ -1,12 +1,12 @@
 [package]
-name = "hyshadew"
+name = "lambdash"
 version = "0.9.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme = "../../README.md"
-description = "Wayland wallpaper daemon that renders ShaderToy-compatible GPU shaders using wgpu"
+description = "Lambda Shade wallpaper daemon that renders ShaderToy-compatible GPU shaders using wgpu"
 keywords.workspace = true
 categories.workspace = true
 

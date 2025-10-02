@@ -1,4 +1,4 @@
 #!/bin/bash
 
-pkill hyshadew
-hyshadew "$@"
+pkill lambdash
+lambdash "$@"

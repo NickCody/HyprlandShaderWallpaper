@@ -7,12 +7,12 @@
 ## Add shaderc dependency and builder integration
 Use the `shaderc` crate (or a standalone shaderc binary invoked via build.rs) to gain access to the GLSL compiler. Handle optional features for system-installed shaderc vs. vendored builds, and ensure CI images have the required toolchain.
 
-**Status (2025-09-29):** `renderer` now depends on `shaderc 0.10` behind the default `shaderc` feature. `hyshadew` re-exports the same feature set so downstream builds can opt into vendored (`shaderc-build-from-source`) or static (`shaderc-prefer-static-linking`) link modes. `cargo check -p hyshadew` succeeds when shaderc builds from source via CMake.
+**Status (2025-09-29):** `renderer` now depends on `shaderc 0.10` behind the default `shaderc` feature. `lambdash` re-exports the same feature set so downstream builds can opt into vendored (`shaderc-build-from-source`) or static (`shaderc-prefer-static-linking`) link modes. `cargo check -p lambdash` succeeds when shaderc builds from source via CMake.
 
 ## Compile ShaderToy GLSL to SPIR-V before handing to wgpu
 Replace the current GLSL ingestion step with a shaderc compile: take the wrapped ShaderToy fragment code, compile to SPIR-V, and pass the resulting binary into `Device::create_shader_module`. Capture compiler diagnostics and surface them in logs to aid debugging.
 
-**Status (2025-09-29):** `compile_vertex_shader`/`compile_fragment_shader` now dispatch on `RendererConfig.shader_compiler`. The shaderc path builds SPIR-V binaries (via `wgpu::ShaderSource::SpirV`) and logs warning diagnostics, while the Naga path keeps the existing `ShaderSource::Glsl` flow. Both window and wallpaper GPU state riders propagate the config, so runtime swaps respect the selected backend. `/tmp/shaderpaper_wrapped.frag` dumping is preserved for debugging.
+**Status (2025-09-29):** `compile_vertex_shader`/`compile_fragment_shader` now dispatch on `RendererConfig.shader_compiler`. The shaderc path builds SPIR-V binaries (via `wgpu::ShaderSource::SpirV`) and logs warning diagnostics, while the Naga path keeps the existing `ShaderSource::Glsl` flow. Both window and wallpaper GPU state riders propagate the config, so runtime swaps respect the selected backend. `/tmp/lambdash_wrapped.frag` dumping is preserved for debugging.
 
 ## Provide fallback/feature flag for native naga GLSL path
 Keep the current naga pipeline behind a cargo feature or runtime flag in case shaderc is unavailable or problematic. Allow users to opt back into the pure-naga path for testing or environments without shaderc support.

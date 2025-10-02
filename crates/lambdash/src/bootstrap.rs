@@ -30,10 +30,10 @@ pub fn bootstrap_filesystem(paths: &AppPaths) -> Result<AppState> {
     let state_exists = state_path.exists();
     let state = AppState::load_or_default(&state_path)?;
     if state_exists {
-        debug!(path = %state_path.display(), "loaded hyshadew state file");
+        debug!(path = %state_path.display(), "loaded lambdash state file");
     } else {
         state.persist(&state_path)?;
-        info!(path = %state_path.display(), "initialised hyshadew state file");
+        info!(path = %state_path.display(), "initialised lambdash state file");
     }
 
     Ok(state)
@@ -49,9 +49,9 @@ fn ensure_directory(path: &Path) -> Result<()> {
         }
     } else {
         fs::create_dir_all(path).with_context(|| {
-            format!("failed to create hyshadew directory at {}", path.display())
+            format!("failed to create lambdash directory at {}", path.display())
         })?;
-        info!(path = %path.display(), "created hyshadew directory");
+        info!(path = %path.display(), "created lambdash directory");
         Ok(())
     }
 }

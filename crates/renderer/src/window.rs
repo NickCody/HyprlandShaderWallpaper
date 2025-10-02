@@ -16,6 +16,7 @@ use winit::window::{Window, WindowBuilder};
 use tracing::error;
 
 use crate::gpu::GpuState;
+use crate::runtime::{time_source_for_policy, BoxedTimeSource, RenderPolicy, TimeSample};
 use crate::types::{Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler};
 
 /// Aggregates GPU state for the windowed preview path.
@@ -63,9 +64,9 @@ impl WindowState {
         self.gpu.resize(new_size);
     }
 
-    pub(crate) fn render_frame(&mut self) -> Result<(), SurfaceError> {
+    pub(crate) fn render_frame(&mut self, time_sample: TimeSample) -> Result<(), SurfaceError> {
         let mouse_uniform = self.mouse.as_uniform(self.size().height.max(1) as f32);
-        self.gpu.render(mouse_uniform)
+        self.gpu.render(mouse_uniform, Some(time_sample))
     }
 
     pub(crate) fn set_shader(
@@ -109,6 +110,46 @@ impl WindowState {
     }
 }
 
+pub(crate) struct RenderPolicyDriver {
+    policy: RenderPolicy,
+    time_source: BoxedTimeSource,
+    rendered_once: bool,
+}
+
+impl RenderPolicyDriver {
+    pub(crate) fn new(policy: RenderPolicy) -> Result<Self> {
+        let time_source = time_source_for_policy(&policy)?;
+        Ok(Self {
+            policy,
+            time_source,
+            rendered_once: false,
+        })
+    }
+
+    pub(crate) fn sample(&mut self) -> TimeSample {
+        self.time_source.sample()
+    }
+
+    pub(crate) fn mark_rendered(&mut self) {
+        if matches!(self.policy, RenderPolicy::Still { .. }) {
+            self.rendered_once = true;
+        }
+    }
+
+    pub(crate) fn should_request_redraw(&self) -> bool {
+        match self.policy {
+            RenderPolicy::Animate { .. } => true,
+            RenderPolicy::Still { .. } => !self.rendered_once,
+            RenderPolicy::Export { .. } => false,
+        }
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.time_source.reset();
+        self.rendered_once = false;
+    }
+}
+
 #[derive(Debug, Clone)]
 enum WindowCommand {
     Swap {
@@ -137,7 +178,7 @@ impl WindowRuntime {
         let (ready_tx, ready_rx) = bounded(1);
         let (signal_tx, signal_rx) = unbounded();
         let handle = thread::Builder::new()
-            .name("hyshadew-window".into())
+            .name("lambdash-window".into())
             .spawn(move || run_window_thread(config, ready_tx, signal_tx))
             .map_err(|err| anyhow!("failed to spawn window thread: {err}"))?;
 
@@ -227,7 +268,7 @@ fn run_window_thread(
 
     let window_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
     let window = WindowBuilder::new()
-        .with_title("Hyshadew Preview")
+        .with_title("Lambda Shade Preview")
         .with_inner_size(window_size)
         .build(&event_loop)
         .map_err(|err| anyhow!("failed to create preview window: {err}"))?;
@@ -242,6 +283,11 @@ fn run_window_thread(
             return Err(wrapped);
         }
     };
+
+    let mut policy_driver = RenderPolicyDriver::new(config.policy.clone())?;
+    if policy_driver.should_request_redraw() {
+        state.window().request_redraw();
+    }
 
     let _ = ready_tx.send(Ok(proxy.clone()));
 
@@ -267,7 +313,10 @@ fn run_window_thread(
                     ) {
                         error!("failed to swap window shader: {err:?}");
                     } else {
-                        state.window().request_redraw();
+                        policy_driver.reset();
+                        if policy_driver.should_request_redraw() {
+                            state.window().request_redraw();
+                        }
                     }
                 }
                 WindowCommand::Shutdown => {
@@ -309,8 +358,10 @@ fn run_window_thread(
                     } => {
                         let _ = inner_size_writer.request_inner_size(state.size());
                     }
-                    WindowEvent::RedrawRequested => match state.render_frame() {
-                        Ok(()) => {}
+                    WindowEvent::RedrawRequested => match state.render_frame(policy_driver.sample()) {
+                        Ok(()) => {
+                            policy_driver.mark_rendered();
+                        }
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                             state.resize(state.size());
                         }
@@ -329,7 +380,9 @@ fn run_window_thread(
                 }
             }
             Event::AboutToWait => {
-                state.window().request_redraw();
+                if policy_driver.should_request_redraw() {
+                    state.window().request_redraw();
+                }
             }
             _ => {}
         }

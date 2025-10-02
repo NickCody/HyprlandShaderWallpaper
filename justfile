@@ -12,11 +12,11 @@ check:
 
 # Run the default windowed demo shader
 run-demo:
-	cargo run -p hyshadew -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
+	cargo run -p lambdash -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
 
 # Run the multi-workspace sample configuration
 run-multi:
-	cargo run -p hyshadew -- --multi multi/workspaces.toml
+	cargo run -p lambdash -- --multi multi/workspaces.toml
 
 # Mirror the GitHub Actions workflow (build + tests)
 validate:

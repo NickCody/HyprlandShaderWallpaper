@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use renderer::{RenderMode, Renderer, RendererConfig};
+use renderer::{RenderMode, RenderPolicy, Renderer, RendererConfig};
 use shadertoy::{
     load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient,
     ShadertoyConfig,
@@ -35,7 +35,7 @@ pub fn run(args: RunArgs) -> Result<()> {
         defaults_version = ?state.defaults_version,
         defaults_last_sync = ?state.last_defaults_sync,
         flags = ?state.flags,
-        "resolved hyshadew paths"
+        "resolved lambdash paths"
     );
     if state.defaults_version != previous_defaults_version
         || state.last_defaults_sync != previous_last_sync
@@ -66,7 +66,7 @@ pub fn run(args: RunArgs) -> Result<()> {
         )
     } else {
         let handle = resolve_shader_handle(&args, &resolver)?;
-        tracing::info!(?handle, "bootstrapping hyshadew wallpaper daemon");
+        tracing::info!(?handle, "bootstrapping lambdash wallpaper daemon");
         log_handle_warnings(&args, &handle, client.as_ref());
         let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
         run_single(context)
@@ -180,6 +180,13 @@ fn prepare_single_run(
         surface_alpha,
         shader_compiler: args.shader_compiler,
         color_space,
+        policy: RenderPolicy::Animate {
+            target_fps: match args.fps {
+                Some(v) if v > 0.0 => Some(v),
+                _ => None,
+            },
+            adaptive: false,
+        },
     };
 
     Ok(SingleRunConfig { renderer_config })

@@ -1,10 +1,10 @@
-//! Renderer crate for ShaderPaper (Hyprland Shader Wallpaper).
+//! Renderer crate for Lambda Shade (Lambda Shade).
 //!
 //! The module glues the Wayland preview window, `wgpu` rendering pipeline, and
 //! ShaderToy-compatible shader wrapping together. The overall flow is:
 //!
 //! ```text
-//!   CLI / hyshadew
+//!   CLI / lambdash
 //!          │ RendererConfig
 //!          ▼
 //!   Renderer::run ──▶ WindowState ──▶ winit event loop ──▶ render_frame()
@@ -20,10 +20,15 @@
 
 mod compile;
 mod gpu;
+mod runtime;
 mod types;
 mod wallpaper;
 mod window;
 
+pub use runtime::{
+    time_source_for_policy, BoxedTimeSource, ExportFormat, FillMethod, FixedTimeSource,
+    RenderPolicy, RuntimeOptions, SystemTimeSource, TimeSample, TimeSource,
+};
 pub use types::{
     Antialiasing, ChannelBindings, ChannelSource, ColorSpaceMode, RenderMode, RendererConfig,
     ShaderCompiler, SurfaceAlpha,
@@ -41,7 +46,7 @@ use winit::event::{Event, MouseButton, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 
-use window::WindowState;
+use window::{RenderPolicyDriver, WindowState};
 
 /// High-level entry point that owns the chosen configuration.
 ///
@@ -75,14 +80,17 @@ impl Renderer {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
         let window = WindowBuilder::new()
-            .with_title("Hyshadew Preview")
+            .with_title("Lambda Shade Preview")
             .with_inner_size(window_size)
             .build(&event_loop)
             .context("failed to create preview window")?;
         let window = Arc::new(window);
 
         let mut state = WindowState::new(window.clone(), &self.config)?;
-        state.window().request_redraw();
+        let mut policy_driver = RenderPolicyDriver::new(self.config.policy.clone())?;
+        if policy_driver.should_request_redraw() {
+            state.window().request_redraw();
+        }
 
         event_loop
             .run(move |event, elwt| {
@@ -116,9 +124,12 @@ impl Renderer {
                                 let _ = inner_size_writer.request_inner_size(state.size());
                             }
                             WindowEvent::RedrawRequested => {
-                                let render_result = state.render_frame();
+                                let sample = policy_driver.sample();
+                                let render_result = state.render_frame(sample);
                                 match render_result {
-                                    Ok(()) => {}
+                                    Ok(()) => {
+                                        policy_driver.mark_rendered();
+                                    }
                                     Err(
                                         wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
                                     ) => {
@@ -140,7 +151,9 @@ impl Renderer {
                         }
                     }
                     Event::AboutToWait => {
-                        state.window().request_redraw();
+                        if policy_driver.should_request_redraw() {
+                            state.window().request_redraw();
+                        }
                     }
                     _ => {}
                 }

@@ -1,5 +1,5 @@
 - [x] Baseline repository setup for contributors
-- [x] Publish `hyshadew` via Cargo install
+- [x] Publish `lambdash` via Cargo install
 - [ ] Automate tagged releases with binaries
 - [ ] Package for popular Linux distributions
 - [ ] Provide an optional installer helper
@@ -7,19 +7,19 @@
 - [ ] Implement defaults & user configuration
 
 ## Baseline repository setup for contributors
-Pin the Rust toolchain (`rust-toolchain.toml`), list system dependencies (Wayland dev packages, GPU drivers) in `README.md`, and document the quick start commands (`git clone`, `cargo build --release`, `cargo run -p hyshadew -- --help`). Add a `justfile`/`Makefile` with `setup`, `check`, and demo targets so newcomers have reproducible entry points. Tag releases and maintain a `CHANGELOG.md` using Keep a Changelog plus semantic versioning for downstream consumers.
+Pin the Rust toolchain (`rust-toolchain.toml`), list system dependencies (Wayland dev packages, GPU drivers) in `README.md`, and document the quick start commands (`git clone`, `cargo build --release`, `cargo run -p lambdash -- --help`). Add a `justfile`/`Makefile` with `setup`, `check`, and demo targets so newcomers have reproducible entry points. Tag releases and maintain a `CHANGELOG.md` using Keep a Changelog plus semantic versioning for downstream consumers.
 
-## Publish `hyshadew` via Cargo install
-Document the `cargo install --git https://github.com/NickCody/HyprlandShaderWallpaper --tag v0.9.1 --locked hyshadew` path (or `--branch main` while iterating) and verify it builds from a clean checkout. When ready for crates.io, polish metadata and publish tagged versions so users can install without the `--git` flag.
+## Publish `lambdash` via Cargo install
+Document the `cargo install --git https://github.com/NickCody/HyprlandShaderWallpaper --tag v0.9.1 --locked lambdash` path (or `--branch main` while iterating) and verify it builds from a clean checkout. When ready for crates.io, polish metadata and publish tagged versions so users can install without the `--git` flag.
 
 ## Automate tagged releases with binaries
 Set up GitHub Actions to run formatting, clippy, and tests, then use `cargo dist` (or similar) on version tags to produce tar/zip bundles that include the binary, default manifests, and sample shaders. Upload artifacts with checksums and document curl/tar install steps. Expand to Homebrew taps or `.deb`/`.rpm` outputs when `cargo-dist` support is ready.
 
 ## Package for popular Linux distributions
-Start with an Arch AUR `-git` recipe that builds via `cargo build --release`, then graduate to a tagged package once releases stabilize. Provide a `flake.nix` offering `nix run .#hyshadew` and a reproducible dev shell. Explore Debian packaging (`cargo deb` or native `debian/` rules) and consider Flatpak when shader assets and GPU permissions are fully mapped out.
+Start with an Arch AUR `-git` recipe that builds via `cargo build --release`, then graduate to a tagged package once releases stabilize. Provide a `flake.nix` offering `nix run .#lambdash` and a reproducible dev shell. Explore Debian packaging (`cargo deb` or native `debian/` rules) and consider Flatpak when shader assets and GPU permissions are fully mapped out.
 
 ## Provide an optional installer helper
-Offer a POSIX `install.sh` (or `just install`) that copies the release binary into `~/.local/bin`, seeds configs under `~/.config/hyshadew/`, respects `--prefix`, and runs idempotently. Document cache/config paths so packagers can relocate assets to standard XDG directories.
+Offer a POSIX `install.sh` (or `just install`) that copies the release binary into `~/.local/bin`, seeds configs under `~/.config/lambdash/`, respects `--prefix`, and runs idempotently. Document cache/config paths so packagers can relocate assets to standard XDG directories.
 
 ## Formalize open-source policies and docs
 Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `AGENTS.md`. Sign release tags (GPG) for integrity. Ensure telemetry defaults to XDG-friendly cache/log locations and keep runbook-style notes so future maintainers understand diagnostics and tracing expectations.
@@ -28,16 +28,16 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 Deliver a robust, user-first configuration model by executing the following phases:
 
 ### Phase 1 — Path Infrastructure *(complete)*
-1. Introduce a `paths` module (e.g. `crates/hyshadew/src/paths.rs`) that wraps `directories_next::ProjectDirs` and exposes:
-   - `config_dir` (`$XDG_CONFIG_HOME/hyshadew`, default `~/.config/hyshadew`).
-   - `data_dir` (`$XDG_DATA_HOME/hyshadew`, default `~/.local/share/hyshadew`).
-   - `cache_dir` (`$XDG_CACHE_HOME/hyshadew`, default `~/.cache/hyshadew`).
-   - `system_share_dir` (`/usr/share/hyshadew` on Unix, overridable via env/build settings).
+1. Introduce a `paths` module (e.g. `crates/lambdash/src/paths.rs`) that wraps `directories_next::ProjectDirs` and exposes:
+   - `config_dir` (`$XDG_CONFIG_HOME/lambdash`, default `~/.config/lambdash`).
+   - `data_dir` (`$XDG_DATA_HOME/lambdash`, default `~/.local/share/lambdash`).
+   - `cache_dir` (`$XDG_CACHE_HOME/lambdash`, default `~/.cache/lambdash`).
+   - `system_share_dir` (`/usr/share/lambdash` on Unix, overridable via env/build settings).
 2. Provide helpers returning ordered search roots for shaders, playlists, and caches, differentiating between writable and read-only roots.
-3. Support env-var overrides (`HYSHADEW_CONFIG_DIR`, `HYSHADEW_DATA_DIR`, `HYSHADEW_CACHE_DIR`, `HYSHADEW_SHARE_DIR`) with documented precedence (CLI flag > env > XDG default).
+3. Support env-var overrides (`LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, `LAMBDASH_CACHE_DIR`, `LAMBDASH_SHARE_DIR`) with documented precedence (CLI flag > env > XDG default).
 4. Update config and asset loaders to rely on the module instead of ad-hoc path handling.
 
-Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (config, data, cache) plus `/usr/share/hyshadew`, supports `HYSHADEW_*` overrides, and the wallpaper/multi entry points use the computed shader/cache roots.
+Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (config, data, cache) plus `/usr/share/lambdash`, supports `LAMBDASH_*` overrides, and the wallpaper/multi entry points use the computed shader/cache roots.
 
 ### Phase 2 — Directory Bootstrapping *(complete)*
 1. Ensure required directories exist during startup and create them with clear error handling.
@@ -48,15 +48,15 @@ Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (conf
 Implemented via `bootstrap::bootstrap_filesystem`: it creates the XDG directory tree, initialises shader/playlist subfolders plus the Shadertoy cache, and materialises `state.toml` with default metadata while logging each action.
 
 ### Phase 3 — Default Content Packaging & Sync *(complete)*
-1. Treat `/usr/share/hyshadew` as the authoritative source for bundled shader packs, manifests, and docs.
+1. Treat `/usr/share/lambdash` as the authoritative source for bundled shader packs, manifests, and docs.
 2. Copy only missing defaults into user directories during first run or when explicitly requested.
-3. Track a monotonically increasing `defaults_version` (e.g. file in `/usr/share/hyshadew/VERSION`). Compare against `state.toml` and prompt for sync when upstream content is newer.
+3. Track a monotonically increasing `defaults_version` (e.g. file in `/usr/share/lambdash/VERSION`). Compare against `state.toml` and prompt for sync when upstream content is newer.
 4. Provide a dry-run option that reports pending copies without making changes.
 
-Implemented via `defaults::sync_defaults`: it scans the configured share directory, copies any missing shader packs or playlists into `~/.local/share/hyshadew`, respects a `VERSION` stamp for logging, records the last sync timestamp, and updates `state.toml` only when content is actually installed.
+Implemented via `defaults::sync_defaults`: it scans the configured share directory, copies any missing shader packs or playlists into `~/.local/share/lambdash`, respects a `VERSION` stamp for logging, records the last sync timestamp, and updates `state.toml` only when content is actually installed.
 
 ### Phase 4 — CLI Surface & Commands *(complete)*
-1. Add `hyshadew defaults` subcommands:
+1. Add `lambdash defaults` subcommands:
    - `sync` to copy missing/newer defaults (supports `--dry-run`).
    - `list` to enumerate system defaults and their user-space status.
    - `where` to print resolved paths for debugging.
@@ -64,12 +64,12 @@ Implemented via `defaults::sync_defaults`: it scans the configured share directo
 3. Support a daemon flag (`--init-defaults`) for one-shot setup.
 4. Log which search root satisfies each shader to aid support.
 
-Implemented: the CLI now exposes `hyshadew defaults sync|list|where`, including a dry-run mode, status reporting, and path overviews. The daemon path honours `--init-defaults` to bootstrap content and exit, and command handlers reuse the shared path/bootstrap logic so environment overrides behave consistently.
+Implemented: the CLI now exposes `lambdash defaults sync|list|where`, including a dry-run mode, status reporting, and path overviews. The daemon path honours `--init-defaults` to bootstrap content and exit, and command handlers reuse the shared path/bootstrap logic so environment overrides behave consistently.
 
 ### Phase 5 — Path Resolution Semantics *(complete)*
 1. Define resolution rules used across the app:
    - Absolute paths are honored verbatim.
-   - Relative paths search the process working directory, user roots, then `/usr/share/hyshadew`.
+   - Relative paths search the process working directory, user roots, then `/usr/share/lambdash`.
 2. Implement interpolation for config values:
    - Expand `${VAR}` placeholders using `std::env::var`; emit a descriptive error if unset.
    - Expand `~` to the user home directory.
@@ -81,33 +81,33 @@ Implemented via `shadertoy::PathResolver` and `shadertoy::parse_shader_handle`: 
 
 ### Phase 6 — Documentation & Telemetry *(complete)*
 1. Update `README.md`, `AGENTS.md`, and `spec/SpecMulti.md` with the directory layout, override mechanics, and CLI usage.
-2. Document workflows for copying defaults (`cp -R /usr/share/hyshadew/... ~/.local/share/hyshadew/...`).
+2. Document workflows for copying defaults (`cp -R /usr/share/lambdash/... ~/.local/share/lambdash/...`).
 3. Clarify env-var interpolation semantics and failure modes in user docs.
 4. Instrument logs (`info`/`warn`/`debug`) to capture sync actions, missing assets, and resolution traces.
 
-Implemented: docs now spell out the XDG directories, `hyshadew defaults` commands, and packaging responsibilities for `/usr/share/hyshadew`. Telemetry emits `debug!` traces for path expansion and local pack resolution, plus warnings when packs are missing or malformed so support can diagnose failures quickly.
+Implemented: docs now spell out the XDG directories, `lambdash defaults` commands, and packaging responsibilities for `/usr/share/lambdash`. Telemetry emits `debug!` traces for path expansion and local pack resolution, plus warnings when packs are missing or malformed so support can diagnose failures quickly.
 
 ### Phase 7 — Testing & CI Integration *(complete)*
 1. Add integration tests using temporary directories to simulate fresh installs, upgrades, and env overrides.
-2. Include a CI smoke test that exercises `hyshadew defaults sync` into a temp tree and verifies expected files.
+2. Include a CI smoke test that exercises `lambdash defaults sync` into a temp tree and verifies expected files.
 3. Guarantee idempotency when rerunning sync and ensure user modifications persist.
 4. Validate cross-platform share-path handling (macOS/BSD) via conditional compilation and targeted tests.
 
-Implemented via new unit and integration coverage: default-sync tests build fake XDG trees with `TempDir`, verify first-run installs, dry-run behaviour, and preservation of user edits, while `defaults_cli_installs_assets` launches the CLI to smoke-test `hyshadew defaults sync`. Additional `paths` tests assert env overrides and `/usr/share/hyshadew` defaults (unix) so cross-platform logic stays honest.
+Implemented via new unit and integration coverage: default-sync tests build fake XDG trees with `TempDir`, verify first-run installs, dry-run behaviour, and preservation of user edits, while `defaults_cli_installs_assets` launches the CLI to smoke-test `lambdash defaults sync`. Additional `paths` tests assert env overrides and `/usr/share/lambdash` defaults (unix) so cross-platform logic stays honest.
 
 ### Phase 8 — Future Extensions (Optional)
 - Support profiles (`--profile NAME`) to namespace directories.
 - Add manifest schema migrations based on `defaults_version`.
 - Allow per-shader local override files layered above defaults.
-- Provide `hyshadew doctor` for diagnosing missing directories or stale defaults.
+- Provide `lambdash doctor` for diagnosing missing directories or stale defaults.
 
 ### Phase 9 — Packaging & System Share Integration *(complete)*
-1. Ship installer/release scripts that populate `/usr/share/hyshadew` (or the configured share directory) with shader packs, playlists, and a `VERSION` file.
-2. Ensure packages create the share tree with correct permissions and hook into `hyshadew defaults sync` for post-install bootstrap.
+1. Ship installer/release scripts that populate `/usr/share/lambdash` (or the configured share directory) with shader packs, playlists, and a `VERSION` file.
+2. Ensure packages create the share tree with correct permissions and hook into `lambdash defaults sync` for post-install bootstrap.
 3. Add CI checks (or packaging tests) that fail when the release bundle omits expected defaults.
 4. Document packager expectations so downstream distributions mirror the same layout.
 
-Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, copies `local-shaders/` and `multi/` into the configured share directory, and writes a `VERSION` stamp. The script defaults to rootless installs under `~/.local/share/hyshadew`, supports `--share-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p hyshadew`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
+Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, copies `local-shaders/` and `multi/` into the configured share directory, and writes a `VERSION` stamp. The script defaults to rootless installs under `~/.local/share/lambdash`, supports `--share-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p lambdash`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
 
 ### Implementation Notes
 - Use atomic file operations when copying defaults; write to temp files then rename.
