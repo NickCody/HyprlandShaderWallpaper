@@ -314,7 +314,7 @@ Deliverables
 - Wayland output multiplexing
   - Create/resize one layer surface per output; handle hotplug/removal; map per‑output scale (HiDPI) and minimal damage.
 - Headless bake
-  - Batch render “best stills” of selected shaders into `~/.local/share/hyshadew/stills/` with presets.
+  - Batch render “best stills” of selected shaders into `~/.local/share/lambdash/stills/` with presets.
 
 Deliverables
 - New adapter: X11 root pixmap animator.
@@ -352,7 +352,7 @@ Deliverables
   - Probe Wayland protocols; detect compositor vendor; log clear fallbacks.
   - On X11, detect compositing, DPIs, screens.
 - Diagnostics
-  - `hyshadew doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode.
+  - `lambdash doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode.
 
 ## CLI Surface (additive)
 - Rendering: `--still`, `--still-time`, `--still-refresh`, `--still-on-idle`, `--render-scale`, `--fill-method`, `--fps-adaptive`, `--max-fps-occluded`.
