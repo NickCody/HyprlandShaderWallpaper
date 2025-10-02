@@ -268,6 +268,46 @@ impl RenderPolicyDriver {
     }
 }
 
+pub(crate) struct RenderPolicyDriver {
+    policy: RenderPolicy,
+    time_source: BoxedTimeSource,
+    rendered_once: bool,
+}
+
+impl RenderPolicyDriver {
+    pub(crate) fn new(policy: RenderPolicy) -> Result<Self> {
+        let time_source = time_source_for_policy(&policy)?;
+        Ok(Self {
+            policy,
+            time_source,
+            rendered_once: false,
+        })
+    }
+
+    pub(crate) fn sample(&mut self) -> TimeSample {
+        self.time_source.sample()
+    }
+
+    pub(crate) fn mark_rendered(&mut self) {
+        if matches!(self.policy, RenderPolicy::Still { .. }) {
+            self.rendered_once = true;
+        }
+    }
+
+    pub(crate) fn should_request_redraw(&self) -> bool {
+        match self.policy {
+            RenderPolicy::Animate { .. } => true,
+            RenderPolicy::Still { .. } => !self.rendered_once,
+            RenderPolicy::Export { .. } => false,
+        }
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.time_source.reset();
+        self.rendered_once = false;
+    }
+}
+
 #[derive(Debug, Clone)]
 enum WindowCommand {
     Swap { request: SwapRequest },

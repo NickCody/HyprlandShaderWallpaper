@@ -270,6 +270,8 @@ struct WallpaperManager {
     target_fps: Option<f32>,
     color_space: ColorSpaceMode,
     shader_compiler: ShaderCompiler,
+    policy: RenderPolicy,
+    time_source: BoxedTimeSource,
     should_exit: bool,
     render_scale: f32,
     fill_method: FillMethod,
@@ -301,6 +303,8 @@ impl WallpaperManager {
             target_fps: config.target_fps,
             color_space: config.color_space,
             shader_compiler: config.shader_compiler,
+            policy: config.policy.clone(),
+            time_source,
             should_exit: false,
             render_scale: config.render_scale,
             fill_method: config.fill_method,
@@ -648,7 +652,7 @@ impl CompositorHandler for WallpaperManager {
                 surface_state.commit_surface();
             }
 
-            surface_state.schedule_next_frame(qh);
+            surface_state.schedule_next_frame(qh, &self.policy);
             self.surfaces.insert(key, surface_state);
             self.maybe_exit_after_export();
         }
@@ -713,7 +717,7 @@ impl LayerShellHandler for WallpaperManager {
             } else if surface_state.mark_rendered() {
                 self.register_export_completion(&surface_state.policy);
             }
-            surface_state.schedule_next_frame(qh);
+            surface_state.schedule_next_frame(qh, &self.policy);
             self.surfaces.insert(key, surface_state);
         }
     }
@@ -964,7 +968,25 @@ impl SurfaceState {
         }
     }
 
-    fn render(&mut self) -> Result<(), SurfaceError> {
+    fn reset_render_state(&mut self) {
+        self.rendered_once = false;
+        self.pacer.reset();
+    }
+
+    fn should_render(&mut self, policy: &RenderPolicy) -> bool {
+        match policy {
+            RenderPolicy::Still { .. } => !self.rendered_once,
+            _ => self.pacer.should_render(),
+        }
+    }
+
+    fn mark_rendered(&mut self, policy: &RenderPolicy) {
+        if matches!(policy, RenderPolicy::Still { .. }) {
+            self.rendered_once = true;
+        }
+    }
+
+    fn render(&mut self, sample: TimeSample) -> Result<(), SurfaceError> {
         if let Some(gpu) = self.gpu.as_mut() {
             tracing::debug!(policy = ?self.policy, "surface render");
             let sample = self.time_source.sample();
@@ -1024,7 +1046,7 @@ impl SurfaceState {
         }
     }
 
-    fn schedule_next_frame(&mut self, qh: &QueueHandle<WallpaperManager>) {
+    fn schedule_next_frame(&mut self, qh: &QueueHandle<WallpaperManager>, policy: &RenderPolicy) {
         if self.gpu.is_none() {
             return;
         }
