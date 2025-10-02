@@ -367,7 +367,7 @@ fn run_window_thread(
 
     let window_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
     let mut builder = WindowBuilder::new()
-        .with_title("Lambda Shade Preview")
+        .with_title("Lambda Shader Preview")
         .with_inner_size(window_size);
     if !config.show_window {
         builder = builder.with_visible(false);

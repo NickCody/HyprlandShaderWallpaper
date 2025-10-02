@@ -1,4 +1,4 @@
-//! Renderer crate for Lambda Shade (Lambda Shade).
+//! Renderer crate for Lambda Shader (Lambda Shade).
 //!
 //! The module glues the Wayland preview window, `wgpu` rendering pipeline, and
 //! ShaderToy-compatible shader wrapping together. The overall flow is:
@@ -89,7 +89,7 @@ impl Renderer {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
         let mut builder = WindowBuilder::new()
-            .with_title("Lambda Shade Preview")
+            .with_title("Lambda Shader Preview")
             .with_inner_size(window_size);
         if !self.config.show_window {
             builder = builder.with_visible(false);
@@ -210,7 +210,7 @@ impl Renderer {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
         let builder = WindowBuilder::new()
-            .with_title("Lambda Shade Export")
+            .with_title("Lambda Shader Export")
             .with_inner_size(window_size)
             .with_visible(self.config.show_window);
         let window = builder

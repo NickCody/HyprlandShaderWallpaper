@@ -1,6 +1,6 @@
-# Lambda Shade (lambdash)
+# Lambda Shader (lambdash)
 
-Lambda Shade (code-named Lambda Shade) is a Rust-based wallpaper engine
+Lambda Shader is a Rust-based wallpaper engine
 for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live
 backgrounds and supports both remote ShaderToy content and local shader packs.
 
@@ -29,7 +29,7 @@ if the shader is not cached locally.
 
 ## Color Space & Gamma Handling
 
-By default Lambda Shade assumes ShaderToy-style gamma output: it creates a non-sRGB
+By default Lambda Shader assumes ShaderToy-style gamma output: it creates a non-sRGB
 swapchain and binds textures without automatic colour conversion, matching the
 WebGL defaults used on shadertoy.com. You can override this at several levels:
 
@@ -41,7 +41,7 @@ WebGL defaults used on shadertoy.com. You can override this at several levels:
 - **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
   dominates, otherwise each pack’s manifest decides the swapchain format.
 
-When switching between modes Lambda Shade rebuilds GPU resources so playlists can mix
+When switching between modes Lambda Shader rebuilds GPU resources so playlists can mix
 gamma-authored and linear-authored content without restarting the daemon.
 
 ## Install from Git
@@ -90,7 +90,7 @@ Ensure `cargo`, `git`, and `tar` are available before running the script.
 
 ## Defaults, Directories, and CLI Helpers
 
-Lambda Shade follows the XDG base directory spec and records paths in `state.toml` under
+Lambda Shader follows the XDG base directory spec and records paths in `state.toml` under
 `$XDG_CONFIG_HOME/lambdash` (default `~/.config/lambdash`). The core locations are:
 
 - Config: `~/.config/lambdash/`
@@ -104,7 +104,7 @@ any directory. CLI flags always win over environment variables.
 Bundled shader packs and sample playlists live under the share directory. The
 installer script copies everything from `local-shaders/` and `multi/` into your
 chosen share root (defaulting to `~/.local/share/lambdash`) and writes a
-`VERSION` stamp capturing the Git reference. Lambda Shade never creates the share
+`VERSION` stamp capturing the Git reference. Lambda Shader never creates the share
 tree on its own; instead it syncs whatever is already present into user space.
 
 Use `lambdash defaults` to manage those copies:
@@ -123,8 +123,8 @@ install). The daemon also accepts `--init-defaults` for a one-shot sync and exit
 - `--still` renders one frame and pauses the scheduler, keeping the surface alive for previews.
 - `--still-time <seconds|auto>` selects the timestamp for still/export captures (auto currently falls back to `0`).
 - `--still-export <path.png>` grabs the next frame to disk; the renderer forces window mode for capture.
-- `--still-exit <true|false>` controls whether Lambda Shade exits after finishing a still export (defaults to `true`).
-  When exporting, Lambda Shade hides the preview window unless `--window` is supplied, so headless
+- `--still-exit <true|false>` controls whether Lambda Shader exits after finishing a still export (defaults to `true`).
+  When exporting, Lambda Shader hides the preview window unless `--window` is supplied, so headless
   captures complete without flashing a surface.
 
 ### Quality & Adaptive Controls

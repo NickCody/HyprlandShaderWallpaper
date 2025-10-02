@@ -1,6 +1,6 @@
-# Lambda Shade Overview
+# Lambda Shader Overview
 
-Lambda Shade (lambdash) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
+Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
 
 ## Workspace Layout
 

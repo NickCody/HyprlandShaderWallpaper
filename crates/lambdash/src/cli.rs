@@ -8,7 +8,7 @@ use renderer::{Antialiasing, ColorSpaceMode, ExportFormat, FillMethod, ShaderCom
     name = "lambdash",
     author,
     version,
-    about = "Lambda Shade daemon",
+    about = "Lambda Shader daemon",
     arg_required_else_help = false
 )]
 pub struct Cli {

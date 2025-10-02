@@ -2,7 +2,7 @@
 
 Status: Draft for review
 
-This document specifies the multi-workspace playlist system for Lambda Shade (lambdash). It introduces a TOML configuration format, scheduling semantics, target (workspace/output) mapping, and runtime behavior in both wallpaper and window modes.
+This document specifies the multi-workspace playlist system for Lambda Shader (lambdash). It introduces a TOML configuration format, scheduling semantics, target (workspace/output) mapping, and runtime behavior in both wallpaper and window modes.
 
 ## Goals
 
@@ -339,7 +339,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 2. Shader swaps reuse `GpuState::set_shader`, blending the outgoing and incoming pipelines via additive color targets; zero-duration requests collapse to hard cuts.
 3. Added `SurfaceId`/`OutputId` selectors, runtime surface snapshots, and unit tests validating fade weights and std140 layout so crossfades stay numerically stable.
 
-### Stage 3 – Lambda Shade Integration (Playlist Runtime) (complete)
+### Stage 3 – Lambda Shader Integration (Playlist Runtime) (complete)
 1. Expand CLI/runtime:
    - Add `--multi` flag handling and enforce default playlist requirements in window mode.
    - Build a target resolver (Wayland-only first) and a simple Hyprland-aware variant when available.

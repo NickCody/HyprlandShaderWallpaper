@@ -6,7 +6,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme = "../../README.md"
-description = "Lambda Shade wallpaper daemon that renders ShaderToy-compatible GPU shaders using wgpu"
+description = "Lambda Shader wallpaper daemon that renders ShaderToy-compatible GPU shaders using wgpu"
 keywords.workspace = true
 categories.workspace = true
 

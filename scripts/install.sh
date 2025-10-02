@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Lambda Shade installer
+Lambda Shader installer
 
 Usage: install.sh [options]
 

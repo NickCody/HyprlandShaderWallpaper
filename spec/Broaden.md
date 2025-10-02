@@ -1,6 +1,6 @@
 # Broadening Linux Environment Support
 
-This document outlines a staged plan to broaden Lambda Shade beyond a Hyprland-first wallpaper workflow while keeping the renderer portable and fast. The focus is Linux; targets are Wayland (generic and vendor‑specific) and X11.
+This document outlines a staged plan to broaden Lambda Shader beyond a Hyprland-first wallpaper workflow while keeping the renderer portable and fast. The focus is Linux; targets are Wayland (generic and vendor‑specific) and X11.
 
 ## Goals & Principles
 - Be compositor‑agnostic by default; keep vendor specifics optional.
