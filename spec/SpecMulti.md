@@ -2,7 +2,7 @@
 
 Status: Draft for review
 
-This document specifies the multi-workspace playlist system for Hyprland Shader Wallpaper (hyshadew). It introduces a TOML configuration format, scheduling semantics, target (workspace/output) mapping, and runtime behavior in both wallpaper and window modes.
+This document specifies the multi-workspace playlist system for Lambda Shade (lambdash). It introduces a TOML configuration format, scheduling semantics, target (workspace/output) mapping, and runtime behavior in both wallpaper and window modes.
 
 ## Goals
 
@@ -14,11 +14,11 @@ This document specifies the multi-workspace playlist system for Hyprland Shader 
 
 ## CLI Behavior
 
-- `--multi <path>`: Enables playlist mode and loads the specified multi config TOML. When present, hyshadew runs playlists instead of a single shader.
+- `--multi <path>`: Enables playlist mode and loads the specified multi config TOML. When present, lambdash runs playlists instead of a single shader.
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
-- `defaults where|list|sync`: Diagnostics for resolving multi/shader search paths. Playlist validation should instruct operators to run `hyshadew defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/hyshadew` to exist locally.
+- `defaults where|list|sync`: Diagnostics for resolving multi/shader search paths. Playlist validation should instruct operators to run `lambdash defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/lambdash` to exist locally.
 
 Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global defaults when not overridden by playlist or per-item values.
 
@@ -134,7 +134,7 @@ handle = "local-shaders/rotating-voronoise"
       - `${MY_SHADER_PACK}` (environment variable expansion)
       - `~/shaders/demo` (home directory expansion)
       After expansion, relative paths search the current working directory, then the XDG config/data
-      `local-shaders/` directories, and finally `/usr/share/hyshadew/local-shaders/`. Unset environment
+      `local-shaders/` directories, and finally `/usr/share/lambdash/local-shaders/`. Unset environment
       variables abort with a descriptive error.
     - `duration` (string|number, optional): per-item duration.
     - `fps` (number >= 0, optional): per-item FPS cap.
@@ -235,7 +235,7 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
   - Session state and change emission (`tick(now) -> Vec<(TargetKey, SelectedItem)>`).
   - Refetch guard (session-local refreshed set) consulted for caching semantics.
 
-- `hyshadew`:
+- `lambdash`:
   - CLI `--multi` and integration.
   - Target resolver (Wayland-only + Hyprland-aware resolver).
   - Orchestrates one `LayerSurface` per output and swaps shaders on selection changes.
@@ -339,7 +339,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 2. Shader swaps reuse `GpuState::set_shader`, blending the outgoing and incoming pipelines via additive color targets; zero-duration requests collapse to hard cuts.
 3. Added `SurfaceId`/`OutputId` selectors, runtime surface snapshots, and unit tests validating fade weights and std140 layout so crossfades stay numerically stable.
 
-### Stage 3 – Hyshadew Integration (Playlist Runtime) (complete)
+### Stage 3 – Lambda Shade Integration (Playlist Runtime) (complete)
 1. Expand CLI/runtime:
    - Add `--multi` flag handling and enforce default playlist requirements in window mode.
    - Build a target resolver (Wayland-only first) and a simple Hyprland-aware variant when available.

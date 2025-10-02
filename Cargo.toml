@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/hyshadew", "crates/multiconfig",
+    "crates/lambdash", "crates/multiconfig",
     "crates/renderer", "crates/scheduler",
     "crates/shadertoy",
 ]

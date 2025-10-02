@@ -33,28 +33,28 @@ fn defaults_sync_cli_installs_assets() {
 
     create_share_layout(&share_dir);
 
-    let status = Command::new(env!("CARGO_BIN_EXE_hyshadew"))
-        .env("HYSHADEW_CONFIG_DIR", &config_dir)
-        .env("HYSHADEW_DATA_DIR", &data_dir)
-        .env("HYSHADEW_CACHE_DIR", &cache_dir)
-        .env("HYSHADEW_SHARE_DIR", &share_dir)
+    let status = Command::new(env!("CARGO_BIN_EXE_lambdash"))
+        .env("LAMBDASH_CONFIG_DIR", &config_dir)
+        .env("LAMBDASH_DATA_DIR", &data_dir)
+        .env("LAMBDASH_CACHE_DIR", &cache_dir)
+        .env("LAMBDASH_SHARE_DIR", &share_dir)
         .args(["defaults", "sync"])
         .status()
-        .expect("failed to run hyshadew defaults sync");
+        .expect("failed to run lambdash defaults sync");
 
     assert!(status.success());
 
     assert!(data_dir.join("local-shaders/demo/shader.toml").exists());
     assert!(data_dir.join("multi/default/playlist.toml").exists());
 
-    let second_status = Command::new(env!("CARGO_BIN_EXE_hyshadew"))
-        .env("HYSHADEW_CONFIG_DIR", &config_dir)
-        .env("HYSHADEW_DATA_DIR", &data_dir)
-        .env("HYSHADEW_CACHE_DIR", &cache_dir)
-        .env("HYSHADEW_SHARE_DIR", &share_dir)
+    let second_status = Command::new(env!("CARGO_BIN_EXE_lambdash"))
+        .env("LAMBDASH_CONFIG_DIR", &config_dir)
+        .env("LAMBDASH_DATA_DIR", &data_dir)
+        .env("LAMBDASH_CACHE_DIR", &cache_dir)
+        .env("LAMBDASH_SHARE_DIR", &share_dir)
         .args(["defaults", "sync"])
         .status()
-        .expect("failed to rerun hyshadew defaults sync");
+        .expect("failed to rerun lambdash defaults sync");
 
     assert!(second_status.success());
 }

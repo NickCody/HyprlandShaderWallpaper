@@ -3,20 +3,20 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Hyshadew installer
+Lambda Shade installer
 
 Usage: install.sh [options]
 
 Options:
   --prefix <path>        Cargo install prefix (passed to `cargo install --root`). Optional.
   --share-dir <path>     Directory holding bundled shader defaults. Defaults to
-                         "${XDG_DATA_HOME:-$HOME/.local/share}/hyshadew" in user mode.
-  --system               Install for all users (prefix=/usr/local, share-dir=/usr/share/hyshadew).
+                         "${XDG_DATA_HOME:-$HOME/.local/share}/lambdash" in user mode.
+  --system               Install for all users (prefix=/usr/local, share-dir=/usr/share/lambdash).
                          Requires root privileges.
   --ref <git-ref>        Git branch, tag, or commit to install from (default: main).
   --repo <git-url>       Source repository URL (default: https://github.com/NickCody/HyprlandShaderWallpaper.git).
   --source <path>        Use an existing local checkout instead of cloning.
-  --no-sync              Skip running `hyshadew defaults sync` after installation.
+  --no-sync              Skip running `lambdash defaults sync` after installation.
   --skip-build           Skip `cargo install` (useful if the binary is already present).
   --offline              Pass `--offline` to cargo when building.
   --help                 Show this help message and exit.
@@ -35,7 +35,7 @@ USAGE
 
 ensure_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "[hyshadew-installer] Required command not found: $1" >&2
+    echo "[lambdash-installer] Required command not found: $1" >&2
     exit 1
   fi
 }
@@ -71,7 +71,7 @@ while [[ $# -gt 0 ]]; do
     --system)
       system_install=1
       prefix="/usr/local"
-      share_dir="/usr/share/hyshadew"
+      share_dir="/usr/share/lambdash"
       shift
       ;;
     --ref)
@@ -107,7 +107,7 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     *)
-      echo "[hyshadew-installer] Unknown option: $1" >&2
+      echo "[lambdash-installer] Unknown option: $1" >&2
       usage >&2
       exit 1
       ;;
@@ -115,36 +115,36 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $system_install -eq 1 && $(id -u) -ne 0 ]]; then
-  echo "[hyshadew-installer] --system requires root privileges." >&2
+  echo "[lambdash-installer] --system requires root privileges." >&2
   exit 1
 fi
 
 if [[ -z "$share_dir" ]]; then
-  share_dir="${XDG_DATA_HOME:-$HOME/.local/share}/hyshadew"
+  share_dir="${XDG_DATA_HOME:-$HOME/.local/share}/lambdash"
 fi
 
 ensure_command cargo
 ensure_command git
 ensure_command tar
 
-TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t hyshadew-install)
-repo_path="${TMPDIR_ROOT}/Hyshadew"
+TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t lambdash-install)
+repo_path="${TMPDIR_ROOT}/LambdaShade"
 
 if [[ -n "$source_dir" ]]; then
-  echo "[hyshadew-installer] Using local source: $source_dir"
+  echo "[lambdash-installer] Using local source: $source_dir"
   mkdir -p "$repo_path"
   (cd "$source_dir" && git rev-parse HEAD >/dev/null 2>&1) || {
-    echo "[hyshadew-installer] Source directory must be a git checkout." >&2
+    echo "[lambdash-installer] Source directory must be a git checkout." >&2
     exit 1
   }
   tar -C "$source_dir" --exclude='.git' -cf - . | tar -C "$repo_path" -xf -
 else
-  echo "[hyshadew-installer] Cloning $repo_url@$ref"
+  echo "[lambdash-installer] Cloning $repo_url@$ref"
   git clone --depth 1 --branch "$ref" "$repo_url" "$repo_path" >/dev/null
 fi
 
 if [[ $skip_build -eq 0 ]]; then
-  cargo_args=(install --path "$repo_path/crates/hyshadew" --locked --force)
+  cargo_args=(install --path "$repo_path/crates/lambdash" --locked --force)
   if [[ -n "$prefix" ]]; then
     cargo_args+=(--root "$prefix")
   fi
@@ -152,13 +152,13 @@ if [[ $skip_build -eq 0 ]]; then
     cargo_args+=(--offline)
   fi
 
-  echo "[hyshadew-installer] Building hyshadew via cargo"
+  echo "[lambdash-installer] Building lambdash via cargo"
   cargo "${cargo_args[@]}"
 else
-  echo "[hyshadew-installer] Skipping cargo build (--skip-build)"
+  echo "[lambdash-installer] Skipping cargo build (--skip-build)"
 fi
 
-echo "[hyshadew-installer] Installing bundled shader defaults into $share_dir"
+echo "[lambdash-installer] Installing bundled shader defaults into $share_dir"
 mkdir -p "$share_dir"
 for subdir in local-shaders multi; do
   if [[ -d "$repo_path/$subdir" ]]; then
@@ -175,23 +175,23 @@ else
 fi
 
 if [[ $runs_sync -eq 1 ]]; then
-  echo "[hyshadew-installer] Syncing defaults into user directories"
-  HYSHADEW_SHARE_DIR="$share_dir" hyshadew defaults sync || {
-    echo "[hyshadew-installer] Warning: defaults sync failed" >&2
+  echo "[lambdash-installer] Syncing defaults into user directories"
+  LAMBDASH_SHARE_DIR="$share_dir" lambdash defaults sync || {
+    echo "[lambdash-installer] Warning: defaults sync failed" >&2
   }
 fi
 
-bin_path=$(command -v hyshadew 2>/dev/null || true)
+bin_path=$(command -v lambdash 2>/dev/null || true)
 if [[ -z "$bin_path" && -n "$prefix" ]]; then
-  bin_path="$prefix/bin/hyshadew (add to PATH)"
+  bin_path="$prefix/bin/lambdash (add to PATH)"
 fi
 
-echo "[hyshadew-installer] hyshadew installation complete"
+echo "[lambdash-installer] lambdash installation complete"
 if [[ -n "$bin_path" ]]; then
-  echo "[hyshadew-installer] Binary location: $bin_path"
+  echo "[lambdash-installer] Binary location: $bin_path"
 else
-  echo "[hyshadew-installer] Binary installed; ensure your cargo bin directory is on PATH."
+  echo "[lambdash-installer] Binary installed; ensure your cargo bin directory is on PATH."
 fi
-echo "[hyshadew-installer] Share directory: $share_dir"
+echo "[lambdash-installer] Share directory: $share_dir"
 
-echo "[hyshadew-installer] Run 'hyshadew defaults where' to verify configuration."
+echo "[lambdash-installer] Run 'lambdash defaults where' to verify configuration."

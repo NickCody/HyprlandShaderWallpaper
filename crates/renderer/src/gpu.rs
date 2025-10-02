@@ -11,6 +11,7 @@ use wgpu::TextureFormatFeatureFlags;
 use winit::dpi::PhysicalSize;
 
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
+use crate::runtime::TimeSample;
 use crate::types::{
     Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind, ColorSpaceMode,
     ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
@@ -54,6 +55,7 @@ pub(crate) struct GpuState {
     last_frame_time: Instant,
     frame_count: u32,
     last_log_time: Instant,
+    last_override_sample: Option<TimeSample>,
 }
 
 impl GpuState {
@@ -222,7 +224,7 @@ impl GpuState {
         }
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("shaderpaper device"),
+            label: Some("lambdash device"),
             required_features,
             required_limits: limits.clone(),
             memory_hints: wgpu::MemoryHints::Performance,
@@ -345,6 +347,7 @@ impl GpuState {
             last_frame_time: Instant::now(),
             frame_count: 0,
             last_log_time: Instant::now(),
+            last_override_sample: None,
         })
     }
 
@@ -443,9 +446,13 @@ impl GpuState {
         Ok(())
     }
 
-    pub(crate) fn render(&mut self, mouse: [f32; 4]) -> Result<(), wgpu::SurfaceError> {
+    pub(crate) fn render(
+        &mut self,
+        mouse: [f32; 4],
+        time_sample: Option<TimeSample>,
+    ) -> Result<(), wgpu::SurfaceError> {
         let now = Instant::now();
-        self.update_time(mouse, now);
+        self.update_time(mouse, now, time_sample);
 
         let mut warmup_state = None;
         if let Some(pending) = self.pending.take() {
@@ -593,16 +600,45 @@ impl GpuState {
         render_pass.draw(0..3, 0..1);
     }
 
-    fn update_time(&mut self, mouse: [f32; 4], now: Instant) {
-        if self.frame_count == 0 {
-            self.start_time = now;
-            self.last_frame_time = now;
-        }
-        let elapsed = now.duration_since(self.start_time);
-        let delta = now.duration_since(self.last_frame_time);
-        self.uniforms.i_time = elapsed.as_secs_f32();
-        self.uniforms.i_time_delta = delta.as_secs_f32();
-        self.uniforms.i_frame = self.frame_count as i32;
+    fn update_time(&mut self, mouse: [f32; 4], now: Instant, override_sample: Option<TimeSample>) {
+        let (seconds, delta_seconds, frame_index, next_frame_count) =
+            if let Some(sample) = override_sample {
+                let previous = self.last_override_sample.replace(sample);
+                let delta = previous
+                    .map(|prev| (sample.seconds - prev.seconds).max(0.0))
+                    .unwrap_or(0.0);
+
+                self.start_time = now;
+                self.last_frame_time = now;
+                let frame_value = sample.frame_index.min(i32::MAX as u64) as i32;
+                let next_count = sample
+                    .frame_index
+                    .saturating_add(1)
+                    .min(u64::from(u32::MAX)) as u32;
+                (sample.seconds, delta, frame_value, next_count)
+            } else {
+                self.last_override_sample = None;
+                if self.frame_count == 0 {
+                    self.start_time = now;
+                    self.last_frame_time = now;
+                }
+                let elapsed = now.duration_since(self.start_time);
+                let delta = now.duration_since(self.last_frame_time);
+                self.last_frame_time = now;
+                let frame_index = self.frame_count as i32;
+                let next_count = self.frame_count.saturating_add(1);
+                (
+                    elapsed.as_secs_f32(),
+                    delta.as_secs_f32(),
+                    frame_index,
+                    next_count,
+                )
+            };
+
+        self.uniforms.i_time = seconds;
+        self.uniforms.i_time_delta = delta_seconds;
+        self.uniforms.i_frame = frame_index;
+        self.frame_count = next_frame_count;
         for channel in &mut self.uniforms.i_channel_time {
             channel[0] = self.uniforms.i_time;
         }
@@ -618,12 +654,10 @@ impl GpuState {
             local_now.day() as f32,
             seconds_since_midnight,
         ];
-        self.last_frame_time = now;
-        self.frame_count = self.frame_count.saturating_add(1);
 
         if now.duration_since(self.last_log_time) >= Duration::from_secs(1) {
             eprintln!(
-                "[hyshadew] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
+                "[lambdash] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
                 self.uniforms.i_time,
                 self.uniforms.i_frame,
                 self.uniforms.i_mouse[0],
