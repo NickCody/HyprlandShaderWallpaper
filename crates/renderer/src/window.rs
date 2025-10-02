@@ -16,7 +16,9 @@ use winit::window::{Window, WindowBuilder};
 use tracing::{error, info};
 
 use crate::gpu::GpuState;
-use crate::runtime::{time_source_for_policy, BoxedTimeSource, RenderPolicy, TimeSample};
+use crate::runtime::{
+    time_source_for_policy, BoxedTimeSource, FillMethod, FrameScheduler, RenderPolicy, TimeSample,
+};
 use crate::types::{Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler};
 
 /// Aggregates GPU state for the windowed preview path.
@@ -28,6 +30,8 @@ pub(crate) struct WindowState {
     antialiasing: Antialiasing,
     shader_compiler: ShaderCompiler,
     color_space: ColorSpaceMode,
+    render_scale: f32,
+    fill_method: FillMethod,
 }
 
 impl WindowState {
@@ -41,6 +45,8 @@ impl WindowState {
             config.antialiasing,
             config.color_space,
             config.shader_compiler,
+            config.render_scale,
+            config.fill_method,
         )?;
 
         let mut state = Self {
@@ -51,6 +57,8 @@ impl WindowState {
             antialiasing: config.antialiasing,
             shader_compiler: config.shader_compiler,
             color_space: config.color_space,
+            render_scale: config.render_scale,
+            fill_method: config.fill_method,
         };
         state.sync_keyboard(true);
         Ok(state)
@@ -104,6 +112,8 @@ impl WindowState {
                 antialiasing,
                 self.color_space,
                 self.shader_compiler,
+                self.render_scale,
+                self.fill_method,
             )?;
         } else {
             self.gpu.set_shader(
@@ -154,33 +164,15 @@ impl WindowState {
 }
 
 pub(crate) struct RenderPolicyDriver {
-    policy: RenderPolicy,
+    scheduler: FrameScheduler,
     time_source: BoxedTimeSource,
-    rendered_once: bool,
-    target_interval: Option<Duration>,
-    next_frame_due: Option<Instant>,
 }
 
 impl RenderPolicyDriver {
     pub(crate) fn new(policy: RenderPolicy) -> Result<Self> {
-        let time_source = time_source_for_policy(&policy)?;
-        let target_interval = match &policy {
-            RenderPolicy::Animate { target_fps, .. } => target_fps.and_then(|fps| {
-                if fps > 0.0 {
-                    Some(Duration::from_secs_f32(1.0 / fps))
-                } else {
-                    None
-                }
-            }),
-            _ => None,
-        };
-        let next_frame_due = target_interval.map(|_| Instant::now());
         Ok(Self {
-            policy,
-            time_source,
-            rendered_once: false,
-            target_interval,
-            next_frame_due,
+            scheduler: FrameScheduler::new(policy.clone()),
+            time_source: time_source_for_policy(&policy)?,
         })
     }
 
@@ -189,45 +181,20 @@ impl RenderPolicyDriver {
     }
 
     pub(crate) fn mark_rendered(&mut self) {
-        if matches!(self.policy, RenderPolicy::Still { .. }) {
-            self.rendered_once = true;
-        }
+        self.scheduler.mark_rendered();
     }
 
     pub(crate) fn ready_for_frame(&mut self, now: Instant) -> bool {
-        match self.policy {
-            RenderPolicy::Animate { .. } => match self.target_interval {
-                Some(interval) => {
-                    let due = self.next_frame_due.get_or_insert(now);
-                    if now >= *due {
-                        self.next_frame_due = Some(now + interval);
-                        true
-                    } else {
-                        false
-                    }
-                }
-                None => true,
-            },
-            RenderPolicy::Still { .. } => !self.rendered_once,
-            RenderPolicy::Export { .. } => false,
-        }
+        self.scheduler.ready_for_frame(now)
+    }
+
+    pub(crate) fn next_deadline(&self) -> Option<Instant> {
+        self.scheduler.next_deadline()
     }
 
     pub(crate) fn reset(&mut self) {
         self.time_source.reset();
-        self.rendered_once = false;
-        if self.target_interval.is_some() {
-            self.next_frame_due = Some(Instant::now());
-        } else {
-            self.next_frame_due = None;
-        }
-    }
-
-    pub(crate) fn next_deadline(&self) -> Option<Instant> {
-        match self.policy {
-            RenderPolicy::Animate { .. } => self.next_frame_due,
-            _ => None,
-        }
+        self.scheduler.reset();
     }
 }
 

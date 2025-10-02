@@ -11,7 +11,7 @@ use wgpu::TextureFormatFeatureFlags;
 use winit::dpi::PhysicalSize;
 
 use crate::compile::{compile_fragment_shader, compile_vertex_shader};
-use crate::runtime::TimeSample;
+use crate::runtime::{FillMethod, TimeSample};
 use crate::types::{
     Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind, ColorSpaceMode,
     ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
@@ -60,6 +60,10 @@ pub(crate) struct GpuState {
     frame_count: u32,
     last_log_time: Instant,
     last_override_sample: Option<TimeSample>,
+    #[allow(dead_code)]
+    render_scale: f32,
+    #[allow(dead_code)]
+    fill_method: FillMethod,
 }
 
 impl GpuState {
@@ -71,6 +75,8 @@ impl GpuState {
         antialiasing: Antialiasing,
         color_space: ColorSpaceMode,
         shader_compiler: ShaderCompiler,
+        render_scale: f32,
+        fill_method: FillMethod,
     ) -> Result<Self>
     where
         T: HasDisplayHandle + HasWindowHandle,
@@ -352,6 +358,8 @@ impl GpuState {
             frame_count: 0,
             last_log_time: Instant::now(),
             last_override_sample: None,
+            render_scale,
+            fill_method,
         })
     }
 

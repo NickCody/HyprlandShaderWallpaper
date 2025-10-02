@@ -29,7 +29,9 @@ use wgpu::SurfaceError;
 use winit::dpi::PhysicalSize;
 
 use crate::gpu::GpuState;
-use crate::runtime::{time_source_for_policy, BoxedTimeSource, RenderPolicy, TimeSample};
+use crate::runtime::{
+    time_source_for_policy, BoxedTimeSource, FillMethod, RenderPolicy, TimeSample,
+};
 use crate::types::{
     Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler, SurfaceAlpha,
 };
@@ -269,6 +271,8 @@ struct WallpaperManager {
     policy: RenderPolicy,
     time_source: BoxedTimeSource,
     should_exit: bool,
+    render_scale: f32,
+    fill_method: FillMethod,
 }
 
 impl WallpaperManager {
@@ -299,6 +303,8 @@ impl WallpaperManager {
             policy: config.policy.clone(),
             time_source,
             should_exit: false,
+            render_scale: config.render_scale,
+            fill_method: config.fill_method,
         })
     }
 
@@ -377,6 +383,8 @@ impl WallpaperManager {
             self.surface_alpha,
             self.color_space,
             self.shader_compiler,
+            self.render_scale,
+            self.fill_method,
         );
         self.surfaces.insert(key, surface_state);
 
@@ -691,6 +699,8 @@ struct SurfaceState {
     surface_alpha: SurfaceAlpha,
     color_space: ColorSpaceMode,
     shader_compiler: ShaderCompiler,
+    render_scale: f32,
+    fill_method: FillMethod,
 }
 
 impl SurfaceState {
@@ -706,6 +716,8 @@ impl SurfaceState {
         surface_alpha: SurfaceAlpha,
         color_space: ColorSpaceMode,
         shader_compiler: ShaderCompiler,
+        render_scale: f32,
+        fill_method: FillMethod,
     ) -> Self {
         Self {
             layer_surface,
@@ -721,6 +733,8 @@ impl SurfaceState {
             surface_alpha,
             color_space,
             shader_compiler,
+            render_scale,
+            fill_method,
         }
     }
 
@@ -745,6 +759,8 @@ impl SurfaceState {
             self.antialiasing,
             self.color_space,
             self.shader_compiler,
+            self.render_scale,
+            self.fill_method,
         )?;
         self.apply_surface_alpha(compositor, size);
         self.reset_render_state();

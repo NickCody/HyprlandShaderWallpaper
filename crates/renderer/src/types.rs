@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-use crate::runtime::RenderPolicy;
+use crate::runtime::{FillMethod, RenderPolicy};
 
 /// ShaderToy exposes four optional input channels (`iChannel0-3`).
 pub const CHANNEL_COUNT: usize = 4;
@@ -213,6 +213,10 @@ pub struct RendererConfig {
     pub shader_compiler: ShaderCompiler,
     /// Desired color handling for swapchain/textures.
     pub color_space: ColorSpaceMode,
+    /// Supersampling factor applied before presenting to the surface (1.0 = native).
+    pub render_scale: f32,
+    /// How shader coordinates map to the wallpaper surface.
+    pub fill_method: FillMethod,
     /// High-level render behaviour requested by the caller.
     pub policy: RenderPolicy,
 }
@@ -231,6 +235,8 @@ impl Default for RendererConfig {
             surface_alpha: SurfaceAlpha::Opaque,
             shader_compiler: ShaderCompiler::default(),
             color_space: ColorSpaceMode::default(),
+            render_scale: 1.0,
+            fill_method: FillMethod::default(),
             policy: RenderPolicy::default(),
         }
     }

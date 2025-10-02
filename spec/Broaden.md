@@ -14,7 +14,7 @@ This document outlines a staged plan to broaden Lambda Shade beyond a Hyprland-f
 ### Phase 1 — Refactors (staged)
 - [x] Stage 0: Type scaffolding (RenderPolicy, RuntimeOptions, TimeSource)
 - [x] Stage 1: Policy + time wiring (still mode hold, no export)
-- [ ] Stage 2: FrameScheduler seam for cadence
+- [x] Stage 2: FrameScheduler seam for cadence *(window preview now driven by the shared scheduler; wallpaper pacer will hop across during adaptive tuning in Stage 5)*
 - [ ] Stage 3: FillMethod + render_scale in renderer/wrapper
 - [ ] Stage 4: Export pipeline (PNG first) via FrameSink
 - [ ] Stage 5: AdapterProfile + adaptive heuristics (llvmpipe detection, occlusion caps)
@@ -202,7 +202,7 @@ This document outlines a staged plan to broaden Hyshadew beyond a Hyprland-first
 ### Phase 1 — Refactors (staged)
 - [x] Stage 0: Type scaffolding (RenderPolicy, RuntimeOptions, TimeSource)
 - [x] Stage 1: Policy + time wiring (still mode hold, no export)
-- [ ] Stage 2: FrameScheduler seam for cadence
+- [x] Stage 2: FrameScheduler seam for cadence *(window preview now driven by the shared scheduler; wallpaper pacer will hop across during adaptive tuning in Stage 5)*
 - [ ] Stage 3: FillMethod + render_scale in renderer/wrapper
 - [ ] Stage 4: Export pipeline (PNG first) via FrameSink
 - [ ] Stage 5: AdapterProfile + adaptive heuristics (llvmpipe detection, occlusion caps)

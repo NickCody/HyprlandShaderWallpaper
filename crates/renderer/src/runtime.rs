@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 
@@ -212,5 +212,115 @@ pub fn time_source_for_policy(policy: &RenderPolicy) -> Result<BoxedTimeSource> 
         RenderPolicy::Animate { .. } => Ok(Box::new(SystemTimeSource::new())),
         RenderPolicy::Still { time, .. } => Ok(Box::new(FixedTimeSource::new(time.unwrap_or(0.0)))),
         RenderPolicy::Export { .. } => Err(anyhow!("export policy is not implemented")),
+    }
+}
+
+fn interval_from_fps(fps: Option<f32>) -> Option<Duration> {
+    fps.and_then(|value| {
+        if value > 0.0 {
+            Some(Duration::from_secs_f32(1.0 / value))
+        } else {
+            None
+        }
+    })
+}
+
+/// Centralises render cadence decisions derived from the active [`RenderPolicy`].
+#[derive(Debug, Clone)]
+pub struct FrameScheduler {
+    policy: RenderPolicy,
+    target_interval: Option<Duration>,
+    next_frame_due: Option<Instant>,
+    rendered_once: bool,
+}
+
+impl FrameScheduler {
+    /// Creates a scheduler that honours the supplied policy.
+    pub fn new(policy: RenderPolicy) -> Self {
+        let target_interval = match &policy {
+            RenderPolicy::Animate { target_fps, .. } => interval_from_fps(*target_fps),
+            _ => None,
+        };
+        let next_frame_due = target_interval.map(|_| Instant::now());
+        Self {
+            policy,
+            target_interval,
+            next_frame_due,
+            rendered_once: false,
+        }
+    }
+
+    /// Replaces the active policy and resets cadence state.
+    #[allow(dead_code)]
+    pub fn update_policy(&mut self, policy: RenderPolicy) {
+        self.policy = policy;
+        self.target_interval = match &self.policy {
+            RenderPolicy::Animate { target_fps, .. } => interval_from_fps(*target_fps),
+            _ => None,
+        };
+        self.rendered_once = false;
+        self.next_frame_due = self.target_interval.map(|_| Instant::now());
+    }
+
+    /// Adjusts the target FPS without rebuilding the policy (used by wallpaper swaps).
+    #[allow(dead_code)]
+    pub fn set_target_fps(&mut self, target_fps: Option<f32>) {
+        if let RenderPolicy::Animate {
+            target_fps: policy_fps,
+            ..
+        } = &mut self.policy
+        {
+            *policy_fps = target_fps;
+        }
+        self.target_interval = interval_from_fps(target_fps);
+        self.next_frame_due = self.target_interval.map(|_| Instant::now());
+        self.rendered_once = false;
+    }
+
+    /// Resets internal counters (e.g., on shader swap).
+    pub fn reset(&mut self) {
+        self.rendered_once = false;
+        self.next_frame_due = self.target_interval.map(|_| Instant::now());
+    }
+
+    /// Marks that a frame has been presented; still/export modes will stop scheduling afterwards.
+    pub fn mark_rendered(&mut self) {
+        if matches!(self.policy, RenderPolicy::Still { .. }) {
+            self.rendered_once = true;
+        }
+    }
+
+    /// Returns `true` when the caller should render a new frame at `now`.
+    pub fn ready_for_frame(&mut self, now: Instant) -> bool {
+        match self.policy {
+            RenderPolicy::Animate { .. } => match self.target_interval {
+                Some(interval) => {
+                    let due = self.next_frame_due.get_or_insert(now);
+                    if now >= *due {
+                        self.next_frame_due = Some(now + interval);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                None => true,
+            },
+            RenderPolicy::Still { .. } => !self.rendered_once,
+            RenderPolicy::Export { .. } => false,
+        }
+    }
+
+    /// Returns the next cadence deadline if continuous rendering is required.
+    pub fn next_deadline(&self) -> Option<Instant> {
+        match self.policy {
+            RenderPolicy::Animate { .. } => self.next_frame_due,
+            _ => None,
+        }
+    }
+
+    /// Exposes the current policy.
+    #[allow(dead_code)]
+    pub fn policy(&self) -> &RenderPolicy {
+        &self.policy
     }
 }

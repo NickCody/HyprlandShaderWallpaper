@@ -10,7 +10,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use multiconfig::{AntialiasSetting, MultiConfig};
 use renderer::{
-    Antialiasing, ChannelBindings, ColorSpaceMode, OutputId, RenderMode, RenderPolicy,
+    Antialiasing, ChannelBindings, ColorSpaceMode, FillMethod, OutputId, RenderMode, RenderPolicy,
     RendererConfig, SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest,
     WallpaperRuntime, WindowRuntime,
 };
@@ -98,6 +98,8 @@ fn run_wallpaper_multi(
         surface_alpha: bootstrap.surface_alpha,
         color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
+        render_scale: 1.0,
+        fill_method: FillMethod::default(),
         policy: RenderPolicy::Animate {
             target_fps: normalize_fps(args.fps),
             adaptive: false,
@@ -154,6 +156,8 @@ fn run_window_multi(
         surface_alpha: bootstrap.surface_alpha,
         color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
+        render_scale: 1.0,
+        fill_method: FillMethod::default(),
         policy: RenderPolicy::Animate {
             target_fps: None,
             adaptive: false,
