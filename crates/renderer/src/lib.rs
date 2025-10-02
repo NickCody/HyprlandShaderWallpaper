@@ -1,10 +1,10 @@
-//! Renderer crate for ShaderPaper (Hyprland Shader Wallpaper).
+//! Renderer crate for Lambda Shade (Lambda Shade).
 //!
 //! The module glues the Wayland preview window, `wgpu` rendering pipeline, and
 //! ShaderToy-compatible shader wrapping together. The overall flow is:
 //!
 //! ```text
-//!   CLI / hyshadew
+//!   CLI / lambdash
 //!          │ RendererConfig
 //!          ▼
 //!   Renderer::run ──▶ WindowState ──▶ winit event loop ──▶ render_frame()
@@ -80,7 +80,7 @@ impl Renderer {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
         let window = WindowBuilder::new()
-            .with_title("Hyshadew Preview")
+            .with_title("Lambda Shade Preview")
             .with_inner_size(window_size)
             .build(&event_loop)
             .context("failed to create preview window")?;

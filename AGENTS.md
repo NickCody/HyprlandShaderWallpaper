@@ -1,10 +1,10 @@
-# Hyprland Shader Wallpaper Overview
+# Lambda Shade Overview
 
-Hyprland Shader Wallpaper (hyshadew) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
+Lambda Shade (lambdash) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
 
 ## Workspace Layout
 
-- `crates/hyshadew`: Wayland-facing daemon. Handles configuration, CLI flags, ShaderToy client setup, and orchestrates rendering.
+- `crates/lambdash`: Wayland-facing daemon. Handles configuration, CLI flags, ShaderToy client setup, and orchestrates rendering.
 - `crates/renderer`: Rendering abstraction that will host `wgpu`/OpenGL logic and manage frame uniforms for ShaderToy-style shaders.
 - `crates/shadertoy`: Integration layer that fetches ShaderToy metadata, caches shaders/assets locally, validates manifest layouts, and unifies local/remote shader sources.
 - `local-shaders/`: User drop-in shader packs mirroring ShaderToy renderpass structure (GLSL sources, textures, cubemaps, audio, manifest).
@@ -14,9 +14,9 @@ Hyprland Shader Wallpaper (hyshadew) is a Rust-based wallpaper engine focused on
 - **ShaderToy API support**: `ShadertoyClient` downloads shader JSON, GLSL code, and assets, converting them into validated `shader.toml` manifests ready for the renderer.
 - **Local pack compatibility**: Users can place shader directories in `local-shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
 - **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
-- **Path and defaults**: Local handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the working directory, XDG config/data roots, and `/usr/share/hyshadew`. Missing variables fail fast so misconfigurations surface immediately. `hyshadew defaults sync|list|where` manage copies of bundled shader packs from the system share tree into user space.
-- **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/hyshadew` and running `hyshadew defaults sync`. Use `--system` for `/usr/local` + `/usr/share/hyshadew`, or pass `--share-dir`/`--prefix` to target custom locations.
-- **CLI-driven daemon**: `hyshadew` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
+- **Path and defaults**: Local handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the working directory, XDG config/data roots, and `/usr/share/lambdash`. Missing variables fail fast so misconfigurations surface immediately. `lambdash defaults sync|list|where` manage copies of bundled shader packs from the system share tree into user space.
+- **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/lambdash` and running `lambdash defaults sync`. Use `--system` for `/usr/local` + `/usr/share/lambdash`, or pass `--share-dir`/`--prefix` to target custom locations.
+- **CLI-driven daemon**: `lambdash` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 
 ## Next Steps
 
@@ -30,7 +30,7 @@ Hyprland Shader Wallpaper (hyshadew) is a Rust-based wallpaper engine focused on
 - Rendering loop now requests redraws on `AboutToWait` with `ControlFlow::Wait` to match vblank cadence.
 - Fragment wrapper uses hardware `gl_FragCoord`, flips Y once, and maps ShaderToy uniforms through a `ShaderParams` UBO with macros.
 - Strips legacy `uniform` declarations (including `iTime`, `iChannel*`) from fetched GLSL before injecting wrapper code.
-- Debug mode currently replaces shader output with a full-screen pulse driven by `iTime`; wrapped GLSL dumps to `/tmp/shaderpaper_wrapped.frag` for inspection each compile.
+- Debug mode currently replaces shader output with a full-screen pulse driven by `iTime`; wrapped GLSL dumps to `/tmp/lambdash_wrapped.frag` for inspection each compile.
 
 ## Multi-Playlist Runtime Notes (Sept 26, 2025)
 
@@ -39,25 +39,25 @@ Hyprland Shader Wallpaper (hyshadew) is a Rust-based wallpaper engine focused on
 - The playlist engine emits info-level telemetry (`registered new playlist target`, `retargeted playlist`,
   and `swapping shader`) detailing selectors, crossfade durations, warmup, and FPS overrides. Additional
   diagnostics surface at `debug` when Hyprland snapshots fail or shader assets are reused.
-- Wall-clock diagnostics now use the `[hyshadew]` prefix instead of `[shaderpaper]`; tracing output goes
+- Wall-clock diagnostics now use the `[lambdash]` prefix instead of `[lambdash]`; tracing output goes
   through `scripts/launch-local`.
-- Tests covering workspace crossfades and failure handling live in `crates/hyshadew/src/multi.rs` (`workspace_switch_applies_crossfade_override`
+- Tests covering workspace crossfades and failure handling live in `crates/lambdash/src/multi.rs` (`workspace_switch_applies_crossfade_override`
   and `engine_skips_missing_items_and_advances`).
 - Sample playlists are in `multi/default.toml` and `multi/workspaces.toml`.
 
 ### To-Do for Next Agent
 
-- Run `cargo run -p hyshadew -- --shadertoy https://www.shadertoy.com/view/3dXyWj --window`, then inspect `/tmp/shaderpaper_wrapped.frag` to ensure no leftover `uniform iTime`/`iChannel*` lines remain and macros look correct.
+- Run `cargo run -p lambdash -- --shadertoy https://www.shadertoy.com/view/3dXyWj --window`, then inspect `/tmp/lambdash_wrapped.frag` to ensure no leftover `uniform iTime`/`iChannel*` lines remain and macros look correct.
 - If the pulse still fails to animate, try feeding the wrapped GLSL through naga to WGSL (or compile via shaderc/SPIR-V) to rule out wgpu's GLSL frontend quirks.
 - Once animation is confirmed, revert the pulse override to blend with `mainImage`, then restore the original shader output.
 
 ### Defaults & Directory Primer
 
-- Share tree (`/usr/share/hyshadew` by default) is supplied by packaging; hyshadew only mirrors its contents into user directories. If the directory is missing, `defaults::sync_defaults` logs a debug skip and does nothing.
-- User directories: config `~/.config/hyshadew`, data `~/.local/share/hyshadew`, cache `~/.cache/hyshadew`. Override with `HYSHADEW_CONFIG_DIR`, `HYSHADEW_DATA_DIR`, `HYSHADEW_CACHE_DIR`, `HYSHADEW_SHARE_DIR`.
-- Inspect paths with `hyshadew defaults where`. Run `hyshadew defaults sync --dry-run` before making changes; `--init-defaults` performs the same sync during daemon startup.
+- Share tree (`/usr/share/lambdash` by default) is supplied by packaging; lambdash only mirrors its contents into user directories. If the directory is missing, `defaults::sync_defaults` logs a debug skip and does nothing.
+- User directories: config `~/.config/lambdash`, data `~/.local/share/lambdash`, cache `~/.cache/lambdash`. Override with `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, `LAMBDASH_CACHE_DIR`, `LAMBDASH_SHARE_DIR`.
+- Inspect paths with `lambdash defaults where`. Run `lambdash defaults sync --dry-run` before making changes; `--init-defaults` performs the same sync during daemon startup.
 - The installer script defaults to user-space share directories; encourage contributors to avoid root unless packaging for system-wide deployment.
-- For packaging, reuse `scripts/install.sh --skip-build --share-dir <dest>` to stage shader assets and include the generated `VERSION` file; CI runs `cargo test -p hyshadew` to exercise the script via `install_script_copies_defaults`.
+- For packaging, reuse `scripts/install.sh --skip-build --share-dir <dest>` to stage shader assets and include the generated `VERSION` file; CI runs `cargo test -p lambdash` to exercise the script via `install_script_copies_defaults`.
 - Expect env interpolation failures (`$VAR`) to abort load; log output will pinpoint the missing variable.
 
 ### TODO: Wallpaper Power Optimisation

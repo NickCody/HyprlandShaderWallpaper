@@ -178,7 +178,7 @@ impl WindowRuntime {
         let (ready_tx, ready_rx) = bounded(1);
         let (signal_tx, signal_rx) = unbounded();
         let handle = thread::Builder::new()
-            .name("hyshadew-window".into())
+            .name("lambdash-window".into())
             .spawn(move || run_window_thread(config, ready_tx, signal_tx))
             .map_err(|err| anyhow!("failed to spawn window thread: {err}"))?;
 
@@ -268,7 +268,7 @@ fn run_window_thread(
 
     let window_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
     let window = WindowBuilder::new()
-        .with_title("Hyshadew Preview")
+        .with_title("Lambda Shade Preview")
         .with_inner_size(window_size)
         .build(&event_loop)
         .map_err(|err| anyhow!("failed to create preview window: {err}"))?;

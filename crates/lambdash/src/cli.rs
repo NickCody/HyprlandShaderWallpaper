@@ -5,10 +5,10 @@ use renderer::{Antialiasing, ColorSpaceMode, ShaderCompiler};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "hyshadew",
+    name = "lambdash",
     author,
     version,
-    about = "Hyprland Shader Wallpaper daemon",
+    about = "Lambda Shade daemon",
     arg_required_else_help = false
 )]
 pub struct Cli {

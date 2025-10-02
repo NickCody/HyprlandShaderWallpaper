@@ -24,7 +24,7 @@ pub(crate) fn compile_vertex_shader(
 
 /// Wraps the user shader with our ShaderToy prelude and compiles it as GLSL.
 ///
-/// The wrapped source is dumped to `/tmp/shaderpaper_wrapped.frag` to aid
+/// The wrapped source is dumped to `/tmp/lambdash_wrapped.frag` to aid
 /// debugging when compilation fails in `wgpu`.
 pub(crate) fn compile_fragment_shader(
     device: &wgpu::Device,
@@ -33,15 +33,15 @@ pub(crate) fn compile_fragment_shader(
 ) -> Result<wgpu::ShaderModule> {
     let wrapped = wrap_shadertoy_fragment(source);
 
-    if let Err(err) = std::fs::write("/tmp/shaderpaper_wrapped.frag", &wrapped) {
-        eprintln!("[hyshadew] failed to dump wrapped shader: {err}");
+    if let Err(err) = std::fs::write("/tmp/lambdash_wrapped.frag", &wrapped) {
+        eprintln!("[lambdash] failed to dump wrapped shader: {err}");
     }
 
     compile_glsl(
         device,
         &wrapped,
         ShaderStage::Fragment,
-        "shaderpaper fragment",
+        "lambdash fragment",
         compiler,
     )
     .with_context(|| "failed to compile fragment shader")
@@ -130,26 +130,26 @@ layout(std140, set = 0, binding = 0) uniform ShaderParams {
 #define iMouse ubo._iMouse
 #define iDate ubo._iDate
 #define iSampleRate ubo._iSampleRate
-#define shaderpaper_mix ubo._iFade
+#define lambdash_mix ubo._iFade
 #define iChannelTime ubo._iChannelTime
 #define iChannelResolution ubo._iChannelResolution
 
-layout(set = 1, binding = 0) uniform texture2D shaderpaper_channel0_texture;
-layout(set = 1, binding = 1) uniform sampler shaderpaper_channel0_sampler;
-layout(set = 1, binding = 2) uniform texture2D shaderpaper_channel1_texture;
-layout(set = 1, binding = 3) uniform sampler shaderpaper_channel1_sampler;
-layout(set = 1, binding = 4) uniform texture2D shaderpaper_channel2_texture;
-layout(set = 1, binding = 5) uniform sampler shaderpaper_channel2_sampler;
-layout(set = 1, binding = 6) uniform texture2D shaderpaper_channel3_texture;
-layout(set = 1, binding = 7) uniform sampler shaderpaper_channel3_sampler;
+layout(set = 1, binding = 0) uniform texture2D lambdash_channel0_texture;
+layout(set = 1, binding = 1) uniform sampler lambdash_channel0_sampler;
+layout(set = 1, binding = 2) uniform texture2D lambdash_channel1_texture;
+layout(set = 1, binding = 3) uniform sampler lambdash_channel1_sampler;
+layout(set = 1, binding = 4) uniform texture2D lambdash_channel2_texture;
+layout(set = 1, binding = 5) uniform sampler lambdash_channel2_sampler;
+layout(set = 1, binding = 6) uniform texture2D lambdash_channel3_texture;
+layout(set = 1, binding = 7) uniform sampler lambdash_channel3_sampler;
 
-#define iChannel0 sampler2D(shaderpaper_channel0_texture, shaderpaper_channel0_sampler)
-#define iChannel1 sampler2D(shaderpaper_channel1_texture, shaderpaper_channel1_sampler)
-#define iChannel2 sampler2D(shaderpaper_channel2_texture, shaderpaper_channel2_sampler)
-#define iChannel3 sampler2D(shaderpaper_channel3_texture, shaderpaper_channel3_sampler)
+#define iChannel0 sampler2D(lambdash_channel0_texture, lambdash_channel0_sampler)
+#define iChannel1 sampler2D(lambdash_channel1_texture, lambdash_channel1_sampler)
+#define iChannel2 sampler2D(lambdash_channel2_texture, lambdash_channel2_sampler)
+#define iChannel3 sampler2D(lambdash_channel3_texture, lambdash_channel3_sampler)
 
-vec4 shaderpaper_gl_FragCoord;
-#define gl_FragCoord shaderpaper_gl_FragCoord
+vec4 lambdash_gl_FragCoord;
+#define gl_FragCoord lambdash_gl_FragCoord
 ";
 
 /// GLSL epilogue that remaps coordinates and delegates to `mainImage`.
@@ -158,14 +158,14 @@ const FOOTER: &str = r"void main() {
     // We temporarily undef the macro so we can read the hardware builtin.
     #undef gl_FragCoord
     vec2 builtinFC = vec2(gl_FragCoord.x, gl_FragCoord.y);
-    #define gl_FragCoord shaderpaper_gl_FragCoord
+    #define gl_FragCoord lambdash_gl_FragCoord
 
     vec2 fragCoord = vec2(builtinFC.x, iResolution.y - builtinFC.y);
-    shaderpaper_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
+    lambdash_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
 
     vec4 color = vec4(0.0);
     mainImage(color, fragCoord);
-    outColor = vec4(color.rgb * shaderpaper_mix, shaderpaper_mix);
+    outColor = vec4(color.rgb * lambdash_mix, lambdash_mix);
 }
 ";
 
@@ -284,6 +284,6 @@ mod tests {
         assert!(!wrapped.contains("uniform float iTime"));
         assert!(!wrapped.contains("uniform vec3 iResolution"));
         assert!(wrapped.contains("mainImage"));
-        assert!(wrapped.contains("shaderpaper_mix"));
+        assert!(wrapped.contains("lambdash_mix"));
     }
 }

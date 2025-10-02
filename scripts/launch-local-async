@@ -1,7 +1,7 @@
 #!/bin/bash
 
-pkill hyshadew
+pkill lambdash
 trap '' HUP
-hyshadew "$@" </dev/null >/dev/null 2>&1 &
+lambdash "$@" </dev/null >/dev/null 2>&1 &
 pid=$!
 disown "$pid"

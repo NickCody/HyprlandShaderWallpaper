@@ -222,7 +222,7 @@ impl GpuState {
         }
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("shaderpaper device"),
+            label: Some("lambdash device"),
             required_features,
             required_limits: limits.clone(),
             memory_hints: wgpu::MemoryHints::Performance,
@@ -641,7 +641,7 @@ impl GpuState {
 
         if now.duration_since(self.last_log_time) >= Duration::from_secs(1) {
             eprintln!(
-                "[hyshadew] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
+                "[lambdash] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
                 self.uniforms.i_time,
                 self.uniforms.i_frame,
                 self.uniforms.i_mouse[0],
