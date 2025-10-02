@@ -10,9 +10,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use multiconfig::{AntialiasSetting, MultiConfig};
 use renderer::{
-    Antialiasing, ChannelBindings, ColorSpaceMode, OutputId, RenderMode, RendererConfig,
-    SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime,
-    WindowRuntime,
+    Antialiasing, ChannelBindings, ColorSpaceMode, OutputId, RenderMode, RenderPolicy,
+    RendererConfig, SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest,
+    WallpaperRuntime, WindowRuntime,
 };
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
@@ -98,6 +98,10 @@ fn run_wallpaper_multi(
         surface_alpha: bootstrap.surface_alpha,
         color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
+        policy: RenderPolicy::Animate {
+            target_fps: normalize_fps(args.fps),
+            adaptive: false,
+        },
     };
 
     let runtime = WallpaperRuntime::spawn(renderer_config)?;
@@ -150,6 +154,10 @@ fn run_window_multi(
         surface_alpha: bootstrap.surface_alpha,
         color_space: bootstrap_color,
         shader_compiler: args.shader_compiler,
+        policy: RenderPolicy::Animate {
+            target_fps: None,
+            adaptive: false,
+        },
     };
 
     let runtime = WindowRuntime::spawn(renderer_config)?;

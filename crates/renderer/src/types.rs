@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
+use crate::runtime::RenderPolicy;
+
 /// ShaderToy exposes four optional input channels (`iChannel0-3`).
 pub const CHANNEL_COUNT: usize = 4;
 
@@ -162,6 +164,8 @@ pub struct RendererConfig {
     pub shader_compiler: ShaderCompiler,
     /// Desired color handling for swapchain/textures.
     pub color_space: ColorSpaceMode,
+    /// High-level render behaviour requested by the caller.
+    pub policy: RenderPolicy,
 }
 
 impl Default for RendererConfig {
@@ -178,6 +182,7 @@ impl Default for RendererConfig {
             surface_alpha: SurfaceAlpha::Opaque,
             shader_compiler: ShaderCompiler::default(),
             color_space: ColorSpaceMode::default(),
+            policy: RenderPolicy::default(),
         }
     }
 }

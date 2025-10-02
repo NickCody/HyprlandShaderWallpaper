@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use renderer::{RenderMode, Renderer, RendererConfig};
+use renderer::{RenderMode, RenderPolicy, Renderer, RendererConfig};
 use shadertoy::{
     load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient,
     ShadertoyConfig,
@@ -180,6 +180,13 @@ fn prepare_single_run(
         surface_alpha,
         shader_compiler: args.shader_compiler,
         color_space,
+        policy: RenderPolicy::Animate {
+            target_fps: match args.fps {
+                Some(v) if v > 0.0 => Some(v),
+                _ => None,
+            },
+            adaptive: false,
+        },
     };
 
     Ok(SingleRunConfig { renderer_config })

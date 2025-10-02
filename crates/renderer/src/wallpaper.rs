@@ -29,6 +29,7 @@ use wgpu::SurfaceError;
 use winit::dpi::PhysicalSize;
 
 use crate::gpu::GpuState;
+use crate::runtime::{time_source_for_policy, BoxedTimeSource, RenderPolicy, TimeSample};
 use crate::types::{
     Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler, SurfaceAlpha,
 };
@@ -197,7 +198,7 @@ fn run_internal(config: RendererConfig, command_rx: Receiver<WallpaperCommand>) 
         registry_state,
         output_state,
         &config,
-    );
+    )?;
     manager.initialise_surfaces(&conn, &qh)?;
 
     loop {
@@ -265,6 +266,8 @@ struct WallpaperManager {
     target_fps: Option<f32>,
     color_space: ColorSpaceMode,
     shader_compiler: ShaderCompiler,
+    policy: RenderPolicy,
+    time_source: BoxedTimeSource,
     should_exit: bool,
 }
 
@@ -275,8 +278,10 @@ impl WallpaperManager {
         registry_state: RegistryState,
         output_state: OutputState,
         config: &RendererConfig,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let time_source = time_source_for_policy(&config.policy)?;
+
+        Ok(Self {
             compositor,
             layer_shell,
             registry_state,
@@ -291,8 +296,10 @@ impl WallpaperManager {
             target_fps: config.target_fps,
             color_space: config.color_space,
             shader_compiler: config.shader_compiler,
+            policy: config.policy.clone(),
+            time_source,
             should_exit: false,
-        }
+        })
     }
 
     fn initialise_surfaces(&mut self, conn: &Connection, qh: &QueueHandle<Self>) -> Result<()> {
@@ -448,13 +455,15 @@ impl WallpaperManager {
                                 "failed to swap shader"
                             );
                         } else {
-                            surface.schedule_next_frame(qh);
+                            surface.schedule_next_frame(qh, &self.policy);
                         }
 
                         self.surfaces.insert(surface_id, surface);
                     }
                 }
                 self.color_space = color_space;
+                self.target_fps = target_fps;
+                self.time_source.reset();
             }
             WallpaperCommand::QuerySurfaces { responder } => {
                 let _ = responder.send(self.collect_surface_info());
@@ -536,15 +545,21 @@ impl CompositorHandler for WallpaperManager {
     ) {
         let key = surface_key(surface);
         if let Some(mut surface_state) = self.surfaces.remove(&key) {
-            if surface_state.pacer.should_render() {
-                if let Err(err) = surface_state.render() {
-                    surface_state.handle_render_error(err, conn, &self.compositor);
+            if surface_state.should_render(&self.policy) {
+                let sample = self.time_source.sample();
+                match surface_state.render(sample) {
+                    Ok(()) => {
+                        surface_state.mark_rendered(&self.policy);
+                    }
+                    Err(err) => {
+                        surface_state.handle_render_error(err, conn, &self.compositor);
+                    }
                 }
             } else {
                 surface_state.commit_surface();
             }
 
-            surface_state.schedule_next_frame(qh);
+            surface_state.schedule_next_frame(qh, &self.policy);
             self.surfaces.insert(key, surface_state);
         }
     }
@@ -597,10 +612,13 @@ impl LayerShellHandler for WallpaperManager {
                 return;
             }
 
-            if let Err(err) = surface_state.render() {
+            let sample = self.time_source.sample();
+            if let Err(err) = surface_state.render(sample) {
                 surface_state.handle_render_error(err, conn, &self.compositor);
+            } else {
+                surface_state.mark_rendered(&self.policy);
             }
-            surface_state.schedule_next_frame(qh);
+            surface_state.schedule_next_frame(qh, &self.policy);
             self.surfaces.insert(key, surface_state);
         }
     }
@@ -663,6 +681,7 @@ struct SurfaceState {
     gpu: Option<GpuState>,
     last_output_size: Option<PhysicalSize<u32>>,
     pacer: FramePacer,
+    rendered_once: bool,
     shader_source: PathBuf,
     channel_bindings: ChannelBindings,
     #[allow(dead_code)]
@@ -693,6 +712,7 @@ impl SurfaceState {
             gpu: None,
             last_output_size,
             pacer: FramePacer::new(target_fps),
+            rendered_once: false,
             shader_source,
             channel_bindings,
             crossfade: Duration::from_secs_f32(1.0),
@@ -727,7 +747,7 @@ impl SurfaceState {
             self.shader_compiler,
         )?;
         self.apply_surface_alpha(compositor, size);
-        self.pacer.reset();
+        self.reset_render_state();
         self.gpu = Some(gpu);
         Ok(())
     }
@@ -747,6 +767,7 @@ impl SurfaceState {
         self.shader_source = shader_source.to_path_buf();
         self.channel_bindings = channel_bindings.clone();
         self.crossfade = crossfade;
+        self.rendered_once = false;
         Ok(())
     }
 
@@ -769,11 +790,30 @@ impl SurfaceState {
             self.color_space = color_space;
             self.gpu = None;
         }
+        self.rendered_once = false;
     }
 
-    fn render(&mut self) -> Result<(), SurfaceError> {
+    fn reset_render_state(&mut self) {
+        self.rendered_once = false;
+        self.pacer.reset();
+    }
+
+    fn should_render(&mut self, policy: &RenderPolicy) -> bool {
+        match policy {
+            RenderPolicy::Still { .. } => !self.rendered_once,
+            _ => self.pacer.should_render(),
+        }
+    }
+
+    fn mark_rendered(&mut self, policy: &RenderPolicy) {
+        if matches!(policy, RenderPolicy::Still { .. }) {
+            self.rendered_once = true;
+        }
+    }
+
+    fn render(&mut self, sample: TimeSample) -> Result<(), SurfaceError> {
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.render([0.0; 4])?;
+            gpu.render([0.0; 4], Some(sample))?;
             self.layer_surface.commit();
         }
         Ok(())
@@ -806,8 +846,12 @@ impl SurfaceState {
         }
     }
 
-    fn schedule_next_frame(&mut self, qh: &QueueHandle<WallpaperManager>) {
+    fn schedule_next_frame(&mut self, qh: &QueueHandle<WallpaperManager>, policy: &RenderPolicy) {
         if self.gpu.is_none() {
+            return;
+        }
+        if matches!(policy, RenderPolicy::Still { .. }) && self.rendered_once {
+            self.pacer.is_frame_scheduled = false;
             return;
         }
         if self.pacer.is_frame_scheduled {
