@@ -200,8 +200,8 @@ This document outlines a staged plan to broaden Hyshadew beyond a Hyprland-first
 ## Summary Checklist (for progress)
 
 ### Phase 1 — Refactors (staged)
-- [ ] Stage 0: Type scaffolding (RenderPolicy, RuntimeOptions, TimeSource)
-- [ ] Stage 1: Policy + time wiring (still mode hold, no export)
+- [x] Stage 0: Type scaffolding (RenderPolicy, RuntimeOptions, TimeSource)
+- [x] Stage 1: Policy + time wiring (still mode hold, no export)
 - [ ] Stage 2: FrameScheduler seam for cadence
 - [ ] Stage 3: FillMethod + render_scale in renderer/wrapper
 - [ ] Stage 4: Export pipeline (PNG first) via FrameSink
