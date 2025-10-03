@@ -107,7 +107,7 @@ Implemented via new unit and integration coverage: default-sync tests build fake
 3. Add CI checks (or packaging tests) that fail when the release bundle omits expected defaults.
 4. Document packager expectations so downstream distributions mirror the same layout.
 
-Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, copies `local-shaders/` and `multi/` into the configured share directory, and writes a `VERSION` stamp. The script defaults to rootless installs under `~/.local/share/lambdash`, supports `--share-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p lambdash`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
+Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, copies `local-shaders/` into the configured share directory, and writes a `VERSION` stamp. The script defaults to rootless installs under `~/.local/share/lambdash`, supports `--share-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p lambdash`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
 
 ### Implementation Notes
 - Use atomic file operations when copying defaults; write to temp files then rename.

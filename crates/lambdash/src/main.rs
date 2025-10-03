@@ -45,7 +45,7 @@ fn run_defaults_sync(paths: &AppPaths, state: &mut AppState, dry_run: bool) -> R
         println!("System defaults version: (not provided)");
     }
 
-    if report.copied_shader_packs.is_empty() && report.copied_playlists.is_empty() {
+    if report.copied_assets.is_empty() {
         if dry_run {
             println!("Dry-run: no new defaults would be installed.");
         } else {
@@ -58,14 +58,13 @@ fn run_defaults_sync(paths: &AppPaths, state: &mut AppState, dry_run: bool) -> R
             println!("Installed bundled defaults:");
         }
 
-        for copy in report
-            .copied_shader_packs
-            .iter()
-            .chain(report.copied_playlists.iter())
-        {
-            let category = match copy.category {
-                defaults::DefaultCategory::ShaderPack => "shader",
-                defaults::DefaultCategory::Playlist => "playlist",
+        for copy in &report.copied_assets {
+            let category = if copy.source.is_dir() {
+                "shader"
+            } else if copy.source.extension().and_then(|ext| ext.to_str()) == Some("toml") {
+                "playlist"
+            } else {
+                "asset"
             };
             println!(
                 "  {category:<8} {} -> {}",
@@ -96,9 +95,12 @@ fn run_defaults_list(paths: &AppPaths) -> Result<()> {
 
     println!("Bundled defaults:");
     for entry in entries {
-        let category = match entry.category {
-            defaults::DefaultCategory::ShaderPack => "shader",
-            defaults::DefaultCategory::Playlist => "playlist",
+        let category = if entry.source.is_dir() {
+            "shader"
+        } else if entry.source.extension().and_then(|ext| ext.to_str()) == Some("toml") {
+            "playlist"
+        } else {
+            "asset"
         };
         println!(
             "  {category:<8} {:<28} status={:<9} target={} source={}",
@@ -127,10 +129,6 @@ fn run_defaults_where(paths: &AppPaths, state: &AppState) -> Result<()> {
     println!("  shadertoy:  {}", overview.shadertoy_cache.display());
     println!("Shader search roots:");
     for root in overview.shader_roots {
-        println!("  {}", root.display());
-    }
-    println!("Playlist search roots:");
-    for root in overview.playlist_roots {
         println!("  {}", root.display());
     }
     if let Some(version) = &state.defaults_version {

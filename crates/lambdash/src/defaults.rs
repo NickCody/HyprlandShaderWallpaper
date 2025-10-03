@@ -10,14 +10,13 @@ use crate::state::AppState;
 
 #[derive(Debug, Default)]
 pub struct DefaultsSyncReport {
-    pub copied_shader_packs: Vec<DefaultCopy>,
-    pub copied_playlists: Vec<DefaultCopy>,
+    pub copied_assets: Vec<DefaultCopy>,
     pub share_version: Option<String>,
 }
 
 impl DefaultsSyncReport {
     pub fn copied_any(&self) -> bool {
-        !(self.copied_shader_packs.is_empty() && self.copied_playlists.is_empty())
+        !self.copied_assets.is_empty()
     }
 }
 
@@ -25,13 +24,6 @@ impl DefaultsSyncReport {
 pub struct DefaultCopy {
     pub source: PathBuf,
     pub target: PathBuf,
-    pub category: DefaultCategory,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DefaultCategory {
-    ShaderPack,
-    Playlist,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -53,22 +45,13 @@ pub fn sync_defaults(
     let share_version = read_share_version(share_dir).transpose()?;
 
     let mut report = DefaultsSyncReport {
-        copied_shader_packs: vec![],
-        copied_playlists: vec![],
+        copied_assets: vec![],
         share_version,
     };
 
-    report.copied_shader_packs = copy_missing_children(
+    report.copied_assets = copy_missing_children(
         &share_dir.join("local-shaders"),
         &paths.data_dir().join("local-shaders"),
-        DefaultCategory::ShaderPack,
-        options.dry_run,
-    )?;
-
-    report.copied_playlists = copy_missing_children(
-        &share_dir.join("multi"),
-        &paths.data_dir().join("multi"),
-        DefaultCategory::Playlist,
         options.dry_run,
     )?;
 
@@ -85,8 +68,7 @@ pub fn sync_defaults(
     if !options.dry_run {
         if report.copied_any() {
             info!(
-                shaders = report.copied_shader_packs.len(),
-                playlists = report.copied_playlists.len(),
+                assets = report.copied_assets.len(),
                 "synced bundled defaults into user directory"
             );
         }
@@ -120,11 +102,10 @@ fn read_share_version(share_dir: &Path) -> Option<Result<String>> {
 fn copy_missing_children(
     source_root: &Path,
     target_root: &Path,
-    category: DefaultCategory,
     dry_run: bool,
 ) -> Result<Vec<DefaultCopy>> {
     if !source_root.exists() {
-        debug!(path = %source_root.display(), "no defaults present for category");
+        debug!(path = %source_root.display(), "no defaults present at source path");
         return Ok(Vec::new());
     }
 
@@ -185,7 +166,6 @@ fn copy_missing_children(
         copied.push(DefaultCopy {
             source: source_path.clone(),
             target: target_path.clone(),
-            category,
         });
 
         if dry_run {
@@ -243,7 +223,6 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
 #[derive(Debug, Clone)]
 pub struct DefaultEntryStatus {
     pub name: String,
-    pub category: DefaultCategory,
     pub source: PathBuf,
     pub target: PathBuf,
     pub installed: bool,
@@ -256,33 +235,15 @@ pub fn enumerate_defaults(paths: &AppPaths) -> Result<Vec<DefaultEntryStatus>> {
         return Ok(Vec::new());
     }
 
-    let mut entries = Vec::new();
-    entries.extend(status_for_category(
-        &share_dir.join("local-shaders"),
-        &paths.data_dir().join("local-shaders"),
-        DefaultCategory::ShaderPack,
-    )?);
-    entries.extend(status_for_category(
-        &share_dir.join("multi"),
-        &paths.data_dir().join("multi"),
-        DefaultCategory::Playlist,
-    )?);
-
-    entries.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(entries)
-}
-
-fn status_for_category(
-    share_root: &Path,
-    target_root: &Path,
-    category: DefaultCategory,
-) -> Result<Vec<DefaultEntryStatus>> {
+    let share_root = share_dir.join("local-shaders");
     if !share_root.exists() {
         return Ok(Vec::new());
     }
 
+    let target_root = paths.data_dir().join("local-shaders");
+
     let mut statuses = Vec::new();
-    for entry in fs::read_dir(share_root)
+    for entry in fs::read_dir(&share_root)
         .with_context(|| format!("failed to list defaults in {}", share_root.display()))?
     {
         let entry = entry?;
@@ -291,12 +252,13 @@ fn status_for_category(
         let target_path = target_root.join(&name);
         statuses.push(DefaultEntryStatus {
             name,
-            category,
             source: source_path,
             target: target_path.clone(),
             installed: target_path.exists(),
         });
     }
+
+    statuses.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(statuses)
 }
 
@@ -307,7 +269,6 @@ pub struct PathOverview {
     pub cache_dir: PathBuf,
     pub share_dir: PathBuf,
     pub shader_roots: Vec<PathBuf>,
-    pub playlist_roots: Vec<PathBuf>,
     pub shadertoy_cache: PathBuf,
     pub state_file: PathBuf,
 }
@@ -319,7 +280,6 @@ pub fn describe_paths(paths: &AppPaths) -> PathOverview {
         cache_dir: paths.cache_dir().to_path_buf(),
         share_dir: paths.share_dir().to_path_buf(),
         shader_roots: paths.shader_roots(),
-        playlist_roots: paths.playlist_roots(),
         shadertoy_cache: paths.shadertoy_cache_dir(),
         state_file: paths.state_file(),
     }
@@ -333,13 +293,11 @@ mod tests {
 
     fn create_share_layout(root: &Path) {
         let shaders_root = root.join("local-shaders");
-        let playlists_root = root.join("multi");
         fs::create_dir_all(shaders_root.join("demo")).unwrap();
-        fs::create_dir_all(playlists_root.join("default")).unwrap();
 
         fs::write(shaders_root.join("demo/shader.toml"), "name = \"Demo\"").unwrap();
         fs::write(
-            playlists_root.join("default/playlist.toml"),
+            shaders_root.join("demo-playlist.toml"),
             "playlist = \"demo\"",
         )
         .unwrap();
@@ -369,12 +327,11 @@ mod tests {
         let mut state = AppState::default();
         let report = sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
 
-        assert_eq!(report.copied_shader_packs.len(), 1);
-        assert_eq!(report.copied_playlists.len(), 1);
+        assert_eq!(report.copied_assets.len(), 2);
         assert_eq!(report.share_version.as_deref(), Some("1.0.0"));
 
         let shader_target = paths.data_dir().join("local-shaders/demo/shader.toml");
-        let playlist_target = paths.data_dir().join("multi/default/playlist.toml");
+        let playlist_target = paths.data_dir().join("local-shaders/demo-playlist.toml");
 
         assert!(shader_target.exists());
         assert!(playlist_target.exists());
@@ -397,8 +354,7 @@ mod tests {
 
         let report = sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
 
-        assert!(report.copied_shader_packs.is_empty());
-        assert!(report.copied_playlists.is_empty());
+        assert!(report.copied_assets.is_empty());
         assert_eq!(state.defaults_version.as_deref(), Some("1.0.0"));
     }
 
@@ -417,7 +373,7 @@ mod tests {
 
         let report = sync_defaults(&paths, &mut state, SyncOptions::default()).unwrap();
 
-        assert!(report.copied_shader_packs.is_empty());
+        assert!(report.copied_assets.is_empty());
 
         let shader_contents = fs::read_to_string(shader_target).unwrap();
         assert_eq!(shader_contents, "name = \"User\"");
@@ -433,15 +389,14 @@ mod tests {
         let mut state = AppState::default();
         let report = sync_defaults(&paths, &mut state, SyncOptions { dry_run: true }).unwrap();
 
-        assert_eq!(report.copied_shader_packs.len(), 1);
-        assert_eq!(report.copied_playlists.len(), 1);
+        assert_eq!(report.copied_assets.len(), 2);
         assert!(!paths
             .data_dir()
             .join("local-shaders/demo/shader.toml")
             .exists());
         assert!(!paths
             .data_dir()
-            .join("multi/default/playlist.toml")
+            .join("local-shaders/demo-playlist.toml")
             .exists());
         assert!(state.last_defaults_sync.is_none());
         assert!(state.defaults_version.is_none());

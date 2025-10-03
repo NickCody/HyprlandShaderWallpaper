@@ -44,8 +44,7 @@ pub fn run(args: RunArgs) -> Result<()> {
     }
     if defaults_report.copied_any() {
         tracing::debug!(
-            shader_packs = defaults_report.copied_shader_packs.len(),
-            playlists = defaults_report.copied_playlists.len(),
+            assets = defaults_report.copied_assets.len(),
             "bundled defaults installed on startup"
         );
     }
@@ -55,7 +54,7 @@ pub fn run(args: RunArgs) -> Result<()> {
     }
 
     let client = build_client(&args)?;
-    if let Some(path) = args.multi.as_ref() {
+    if let Some(path) = args.playlist.as_ref() {
         multi::run_multi(
             &args,
             &repo,

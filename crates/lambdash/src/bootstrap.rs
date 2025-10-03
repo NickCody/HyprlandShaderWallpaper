@@ -16,9 +16,7 @@ pub fn bootstrap_filesystem(paths: &AppPaths) -> Result<AppState> {
         paths.data_dir().to_path_buf(),
         paths.cache_dir().to_path_buf(),
         paths.config_dir().join("local-shaders"),
-        paths.config_dir().join("multi"),
         paths.data_dir().join("local-shaders"),
-        paths.data_dir().join("multi"),
         paths.cache_dir().join("shadertoy"),
     ];
 

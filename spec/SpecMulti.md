@@ -9,16 +9,16 @@ This document specifies the multi-workspace playlist system for Lambda Shader (l
 - Allow per-workspace and per-output shader selection.
 - Support time-based playlists with per-item playback duration.
 - Support per-item renderer overrides (fps cap and antialiasing).
-- Keep single-shader mode unchanged unless `--multi` is provided.
+- Keep single-shader mode unchanged unless `--playlist` is provided.
 - Integrate cleanly with caching flags (`--refresh`, `--cache-only`).
 
 ## CLI Behavior
 
-- `--multi <path>`: Enables playlist mode and loads the specified multi config TOML. When present, lambdash runs playlists instead of a single shader.
+- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`config/local-shaders`, `data/local-shaders`, `/usr/share/lambdash/local-shaders`). Absolute paths are accepted; directories are rejected.
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
-- `defaults where|list|sync`: Diagnostics for resolving multi/shader search paths. Playlist validation should instruct operators to run `lambdash defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/lambdash` to exist locally.
+- `defaults where|list|sync`: Diagnostics for resolving shader search paths. Playlist validation should instruct operators to run `lambdash defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/lambdash/local-shaders` to exist locally.
 
 Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global defaults when not overridden by playlist or per-item values.
 
@@ -33,7 +33,7 @@ Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global d
 
 ## Config File Format (TOML)
 
-Versioned format; stored anywhere, but recommended under `multi/`. The CLI accepts a file path. If a directory is passed, `default.toml` inside it is used.
+Versioned format; stored anywhere, but recommended alongside shader packs under `local-shaders/`. The CLI accepts a filename (resolved via shader search roots) or an absolute file path. Directories are rejected.
 
 ```toml
 # Required version for forwards-compatible parsing
@@ -156,7 +156,7 @@ When resolving renderer settings, the following precedence applies (highest to l
 ### Validation Rules
 
 - Unknown top-level keys → error.
-- `playlists` must not be empty when `--multi` is used.
+- `playlists` must not be empty when `--playlist` is used.
 - Each playlist must contain at least one item.
 - `handle` must be non-empty; strings that fail to parse into a shader handle produce an error at load or selection time.
 - `mode` must be `continuous` or `shuffle`.
@@ -202,7 +202,7 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
 
 ## Window Mode Behavior
 
-- `--window` with `--multi` is a playlist tester. Only the default playlist from `[defaults].playlist` is used; all `[targets]` mappings are ignored.
+- `--window` with `--playlist` is a playlist tester. Only the default playlist from `[defaults].playlist` is used; all `[targets]` mappings are ignored.
 - If the default playlist is missing or misspelled, startup fails with a helpful error instructing the user to configure one.
 - Transitions apply in window mode as specified: playlist `crossfade` between items; no workspace
   switch transitions since targets are ignored.
@@ -236,7 +236,7 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
   - Refetch guard (session-local refreshed set) consulted for caching semantics.
 
 - `lambdash`:
-  - CLI `--multi` and integration.
+  - CLI `--playlist` and integration.
   - Target resolver (Wayland-only + Hyprland-aware resolver).
   - Orchestrates one `LayerSurface` per output and swaps shaders on selection changes.
   - Applies effective `fps`/`antialias` for each surface when items change.
@@ -248,7 +248,7 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
 ## Open Questions
 
 - Shuffle reseed controls: add CLI/IPC to reseed or jump.
-- Live reload: file-watch `--multi` for hot reload of playlists.
+- Live reload: file-watch `--playlist` for hot reload of playlists.
 - Per-playlist overrides for future features (fill method, uniforms).
 
 ## Future Enhancements
@@ -341,7 +341,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 
 ### Stage 3 – Lambda Shader Integration (Playlist Runtime) (complete)
 1. Expand CLI/runtime:
-   - Add `--multi` flag handling and enforce default playlist requirements in window mode.
+   - Add `--playlist` flag handling and enforce default playlist requirements in window mode.
    - Build a target resolver (Wayland-only first) and a simple Hyprland-aware variant when available.
 2. Wire scheduler + renderer:
    - Instantiate scheduler, map targets, drive `tick` loop, and request shader swaps as selections change.
@@ -351,7 +351,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 ### Stage 4 – Enhancements & Validation
 1. Implement workspace-switch crossfade preemption and confirm transitions abort/resume correctly.
 2. Add logging/telemetry to record playlist decisions and transitions for troubleshooting.
-3. Document configuration usage (README/AGENTS.md) and provide sample configs under `multi/`.
+3. Document configuration usage (README/AGENTS.md) and provide sample configs under `local-shaders/`.
 
 Each stage builds on the previous one; stick to the sequence to minimize merge conflicts and keep the behavior testable throughout the implementation.
 

@@ -103,16 +103,6 @@ impl AppPaths {
         roots
     }
 
-    pub fn playlist_user_dirs(&self) -> Vec<PathBuf> {
-        vec![self.config_dir.join("multi"), self.data_dir.join("multi")]
-    }
-
-    pub fn playlist_roots(&self) -> Vec<PathBuf> {
-        let mut roots = self.playlist_user_dirs();
-        roots.push(self.share_dir.join("multi"));
-        roots
-    }
-
     pub fn shadertoy_cache_dir(&self) -> PathBuf {
         self.cache_dir.join("shadertoy")
     }

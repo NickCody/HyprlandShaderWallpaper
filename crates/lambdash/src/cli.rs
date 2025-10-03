@@ -28,9 +28,9 @@ pub struct RunArgs {
     #[arg(long, value_name = "URL")]
     pub shadertoy: Option<String>,
 
-    /// Enable playlist mode using the supplied multi-config TOML file or directory.
-    #[arg(long, value_name = "PATH")]
-    pub multi: Option<PathBuf>,
+    /// Enable playlist mode using the supplied playlist TOML file.
+    #[arg(long = "playlist", alias = "multi", value_name = "FILE")]
+    pub playlist: Option<PathBuf>,
 
     /// Render the shader in a desktop window instead of wallpaper mode.
     #[arg(long)]

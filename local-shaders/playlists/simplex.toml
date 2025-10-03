@@ -12,7 +12,7 @@ antialias = "auto"
 mode = "continuous"
 
 [[playlists.template.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/template"
+handle = "local-shaders/template"
 
 # Clouds
 #
@@ -20,7 +20,7 @@ handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/template"
 mode = "continuous"
 
 [[playlists.clouds.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/cache/shadertoy/WXXcRn/"
+handle = "shadertoy://WXXcRn"
 fps = 20
 
 # Simplex
@@ -29,13 +29,13 @@ fps = 20
 mode = "continuous"
 
 [[playlists.simplex.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex"
+handle = "local-shaders/simplex"
 
 [playlists.simplex-color]
 mode = "continuous"
 
 [[playlists.simplex-color.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex-color"
+handle = "local-shaders/simplex-color"
 
 [targets]
 "_default" = "clouds"

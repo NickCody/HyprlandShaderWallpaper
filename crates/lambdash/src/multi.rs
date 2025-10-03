@@ -40,15 +40,10 @@ pub fn run_multi(
     paths: &AppPaths,
     resolver: PathResolver,
 ) -> Result<()> {
-    let (config, config_path) = load_config(path)?;
-    info!(config = %config_path.display(), "loaded multi-playlist configuration");
-    let playlist_roots = paths.playlist_roots();
-    let playlist_user_dirs = paths.playlist_user_dirs();
-    debug!(
-        roots = ?playlist_roots,
-        user_dirs = ?playlist_user_dirs,
-        "multi playlist search roots"
-    );
+    let shader_roots = paths.shader_roots();
+    let (config, config_path) = load_config(path, &shader_roots)?;
+    info!(config = %config_path.display(), "loaded playlist configuration");
+    debug!(roots = ?shader_roots, "playlist search roots");
 
     if args.window {
         run_window_multi(args, repo, client, config, resolver)
@@ -57,16 +52,49 @@ pub fn run_multi(
     }
 }
 
-fn load_config(path: &Path) -> Result<(MultiConfig, PathBuf)> {
-    let resolved = if path.is_dir() {
-        path.join("default.toml")
-    } else {
-        path.to_path_buf()
-    };
+fn load_config(path: &Path, search_roots: &[PathBuf]) -> Result<(MultiConfig, PathBuf)> {
+    let resolved = resolve_playlist_path(path, search_roots)?;
     let contents = fs::read_to_string(&resolved)
-        .with_context(|| format!("failed to read multi config at {}", resolved.display()))?;
+        .with_context(|| format!("failed to read playlist at {}", resolved.display()))?;
     let config = MultiConfig::from_toml_str(&contents)?;
     Ok((config, resolved))
+}
+
+fn resolve_playlist_path(path: &Path, search_roots: &[PathBuf]) -> Result<PathBuf> {
+    if path.is_absolute() {
+        if path.is_dir() {
+            bail!(
+                "--playlist expects a file, not a directory: {}",
+                path.display()
+            );
+        }
+        if path.exists() {
+            return Ok(path.to_path_buf());
+        }
+        bail!("playlist file not found: {}", path.display());
+    }
+
+    if path.components().count() != 1 {
+        bail!("--playlist only accepts a file name (e.g. simplex.toml)");
+    }
+
+    for root in search_roots {
+        let candidate = root.join(path);
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+
+    let searched: Vec<String> = search_roots
+        .iter()
+        .map(|root| root.display().to_string())
+        .collect();
+
+    bail!(
+        "playlist '{}' not found; searched: {}",
+        path.display(),
+        searched.join(", ")
+    );
 }
 
 fn run_wallpaper_multi(
@@ -1485,7 +1513,7 @@ handle = "demo"
         let args = RunArgs {
             shader: None,
             shadertoy: None,
-            multi: None,
+            playlist: None,
             window: true,
             still: false,
             still_time: None,

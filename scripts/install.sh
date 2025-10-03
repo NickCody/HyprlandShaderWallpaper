@@ -160,13 +160,11 @@ fi
 
 echo "[lambdash-installer] Installing bundled shader defaults into $share_dir"
 mkdir -p "$share_dir"
-for subdir in local-shaders multi; do
-  if [[ -d "$repo_path/$subdir" ]]; then
-    rm -rf "$share_dir/$subdir"
-    mkdir -p "$share_dir/$subdir"
-    tar -C "$repo_path/$subdir" -cf - . | tar -C "$share_dir/$subdir" -xf -
-  fi
-done
+if [[ -d "$repo_path/local-shaders" ]]; then
+  rm -rf "$share_dir/local-shaders"
+  mkdir -p "$share_dir/local-shaders"
+  tar -C "$repo_path/local-shaders" -cf - . | tar -C "$share_dir/local-shaders" -xf -
+fi
 
 if [[ -f "$repo_path/VERSION" ]]; then
   cp "$repo_path/VERSION" "$share_dir/VERSION"

@@ -48,7 +48,10 @@ fn installer_script_copies_defaults() {
 
     let share_dir = share.path();
     assert!(share_dir.join("local-shaders").exists());
-    assert!(share_dir.join("multi").exists());
+    assert!(share_dir
+        .join("local-shaders")
+        .join("default.toml")
+        .exists());
     let version = fs::read_to_string(share_dir.join("VERSION")).unwrap();
     assert!(!version.trim().is_empty());
 }

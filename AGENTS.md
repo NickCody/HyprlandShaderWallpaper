@@ -43,7 +43,7 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
   through `scripts/launch-local`.
 - Tests covering workspace crossfades and failure handling live in `crates/lambdash/src/multi.rs` (`workspace_switch_applies_crossfade_override`
   and `engine_skips_missing_items_and_advances`).
-- Sample playlists are in `multi/default.toml` and `multi/workspaces.toml`.
+- Sample playlists are in `local-shaders/default.toml` and `local-shaders/workspaces.toml`.
 
 ### To-Do for Next Agent
 
@@ -57,7 +57,7 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - User directories: config `~/.config/lambdash`, data `~/.local/share/lambdash`, cache `~/.cache/lambdash`. Override with `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, `LAMBDASH_CACHE_DIR`, `LAMBDASH_SHARE_DIR`.
 - Inspect paths with `lambdash defaults where`. Run `lambdash defaults sync --dry-run` before making changes; `--init-defaults` performs the same sync during daemon startup.
 - The installer script defaults to user-space share directories; encourage contributors to avoid root unless packaging for system-wide deployment.
-- For packaging, reuse `scripts/install.sh --skip-build --share-dir <dest>` to stage shader assets and include the generated `VERSION` file; CI runs `cargo test -p lambdash` to exercise the script via `install_script_copies_defaults`.
+- For packaging, reuse `scripts/install.sh --skip-build --share-dir <dest>` to stage shader assets (shader packs + playlists) and include the generated `VERSION` file; CI runs `cargo test -p lambdash` to exercise the script via `install_script_copies_defaults`.
 - Expect env interpolation failures (`$VAR`) to abort load; log output will pinpoint the missing variable.
 
 ### TODO: Wallpaper Power Optimisation

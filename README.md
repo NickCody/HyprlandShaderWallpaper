@@ -102,10 +102,11 @@ Set `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, and `LAMBDASH_CACHE_DIR` to relo
 any directory. CLI flags always win over environment variables.
 
 Bundled shader packs and sample playlists live under the share directory. The
-installer script copies everything from `local-shaders/` and `multi/` into your
-chosen share root (defaulting to `~/.local/share/lambdash`) and writes a
-`VERSION` stamp capturing the Git reference. Lambda Shader never creates the share
-tree on its own; instead it syncs whatever is already present into user space.
+installer script copies everything from `local-shaders/` (shader packs plus
+playlist TOMLs) into your chosen share root (defaulting to
+`~/.local/share/lambdash`) and writes a `VERSION` stamp capturing the Git
+reference. Lambda Shader never creates the share tree on its own; instead it
+syncs whatever is already present into user space.
 
 Use `lambdash defaults` to manage those copies:
 
@@ -139,8 +140,8 @@ install). The daemon also accepts `--init-defaults` for a one-shot sync and exit
 Downstream packages and automation should mirror the installer’s behaviour:
 
 - Invoke `scripts/install.sh --skip-build --share-dir <dest>` during packaging to
-  materialise `local-shaders/` and `multi/` into a staging directory. The script
-  writes `VERSION`, so include that file in the package for upgrade detection.
+  materialise `local-shaders/` into a staging directory. The script writes
+  `VERSION`, so include that file in the package for upgrade detection.
 - When producing system packages (`.deb`, `.rpm`, etc.), call the script with
   `--system` or provide explicit `--prefix`/`--share-dir` flags that match your
   filesystem layout. Running `lambdash defaults sync --dry-run` in post-install
@@ -166,19 +167,20 @@ The repository includes a `justfile` with common workflows:
 ```
 just check      # fmt + clippy over the workspace
 just run-demo   # windowed ShaderToy demo
-just run-multi  # playlist sampler using multi/workspaces.toml
+just run-playlist  # playlist sampler using workspaces.toml
 ```
 
 Run `just --list` to discover additional recipes as they land.
 
-## Multi-Workspace Playlists
+## Playlists
 
-Enable playlist mode with `--multi <config>` to drive different shaders per workspace or
-output. The configuration format is documented in `SpecMulti.md`, and sample configs live
-under `multi/`. A quick way to experiment is:
+Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or
+output. The configuration format is documented in `SpecMulti.md`, and sample playlists live
+alongside the shader packs in `local-shaders/` (e.g. `workspaces.toml`). A quick way to
+experiment is:
 
 ```
-cargo run -p lambdash -- --multi multi/workspaces.toml
+cargo run -p lambdash -- --playlist workspaces.toml
 ```
 
 Key behaviours:

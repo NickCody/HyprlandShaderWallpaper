@@ -14,9 +14,9 @@ check:
 run-demo:
 	cargo run -p lambdash -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
 
-# Run the multi-workspace sample configuration
-run-multi:
-	cargo run -p lambdash -- --multi multi/workspaces.toml
+# Run the playlist sample configuration
+run-playlist:
+	cargo run -p lambdash -- --playlist workspaces.toml
 
 # Mirror the GitHub Actions workflow (build + tests)
 validate:
