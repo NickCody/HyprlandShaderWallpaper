@@ -14,37 +14,37 @@ crossfade = "4s"
 # Vibes
 #
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-grayday"
+handle = "/home/nic/repos/LambdaShader/vibe-grayday"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-aurora"
+handle = "/home/nic/repos/LambdaShader/vibe-aurora"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-neonrise"
+handle = "/home/nic/repos/LambdaShader/vibe-neonrise"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-coralbloom"
+handle = "/home/nic/repos/LambdaShader/vibe-coralbloom"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-lilacglow"
+handle = "/home/nic/repos/LambdaShader/vibe-lilacglow"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-midnightjazz"
+handle = "/home/nic/repos/LambdaShader/vibe-midnightjazz"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-solarflare"
+handle = "/home/nic/repos/LambdaShader/vibe-solarflare"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-deepcurrent"
+handle = "/home/nic/repos/LambdaShader/vibe-deepcurrent"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-sakurastream"
+handle = "/home/nic/repos/LambdaShader/vibe-sakurastream"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-mojitomist"
+handle = "/home/nic/repos/LambdaShader/vibe-mojitomist"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-emberdream"
+handle = "/home/nic/repos/LambdaShader/vibe-emberdream"
 
 # Grayday
 #
@@ -53,7 +53,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.grayday.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/vibe-grayday"
+handle = "/home/nic/repos/LambdaShader/vibe-grayday"
 
 # Simplex
 #
@@ -62,7 +62,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.simplex.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/simplex-color"
+handle = "/home/nic/repos/LambdaShader/simplex-color"
 
 # Fungal Apocalypse
 #
@@ -71,7 +71,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.fungal.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/fungal-apocalypse"
+handle = "/home/nic/repos/LambdaShader/fungal-apocalypse"
 
 # Kaleidoscope
 #
@@ -81,10 +81,10 @@ item_duration = "15s"
 crossfade = "1s"
 
 [[playlists.kaleidoscope.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/kal-honeycomb2"
+handle = "/home/nic/repos/LambdaShader/kal-honeycomb2"
 
 [[playlists.kaleidoscope.items]]
-handle = "/home/nic/repos/HyprlandShaderWallpaper/local-shaders/kal-petalspire"
+handle = "/home/nic/repos/LambdaShader/kal-petalspire"
 
 [targets]
 "1" = "simplex"

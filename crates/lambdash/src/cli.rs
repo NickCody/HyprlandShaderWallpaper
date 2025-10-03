@@ -118,10 +118,6 @@ pub struct RunArgs {
     /// Warm-up interval (ms) to pre-render the next shader before crossfade.
     #[arg(long, value_name = "MILLISECONDS")]
     pub prewarm_ms: Option<u64>,
-
-    /// Initialise defaults (creates directories, installs bundled content) then exit.
-    #[arg(long)]
-    pub init_defaults: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -138,19 +134,8 @@ pub struct DefaultsCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum DefaultsAction {
-    /// Copy bundled defaults into user directories.
-    Sync(DefaultsSyncArgs),
-    /// Show bundled defaults and whether they exist locally.
-    List,
     /// Print resolved directories for config, data, cache, and share roots.
     Where,
-}
-
-#[derive(Parser, Debug, Default)]
-pub struct DefaultsSyncArgs {
-    /// Preview which defaults would be copied without writing to disk.
-    #[arg(long)]
-    pub dry_run: bool,
 }
 
 pub fn parse() -> Cli {

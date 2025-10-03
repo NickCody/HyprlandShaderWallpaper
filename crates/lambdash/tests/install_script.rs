@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -25,7 +24,7 @@ fn installer_script_copies_defaults() {
     );
 
     let prefix = TempDir::new().unwrap();
-    let share = TempDir::new().unwrap();
+    let data_dir = TempDir::new().unwrap();
 
     let status = Command::new("bash")
         .current_dir(&root)
@@ -33,11 +32,10 @@ fn installer_script_copies_defaults() {
         .arg("--source")
         .arg(root.to_str().unwrap())
         .arg("--skip-build")
-        .arg("--no-sync")
         .arg("--prefix")
         .arg(prefix.path().to_str().unwrap())
-        .arg("--share-dir")
-        .arg(share.path().to_str().unwrap())
+        .arg("--data-dir")
+        .arg(data_dir.path().to_str().unwrap())
         .status()
         .expect("failed to launch installer script");
 
@@ -46,11 +44,9 @@ fn installer_script_copies_defaults() {
         "installer script returned non-zero status"
     );
 
-    let share_dir = share.path();
-    assert!(share_dir.join("local-shaders").exists());
-    assert!(share_dir
-        .join("local-shaders/playlists/default.toml")
+    let data_dir = data_dir.path();
+    assert!(data_dir.join("local-shaders").exists());
+    assert!(data_dir
+        .join("local-shaders/playlists/workspaces.toml")
         .exists());
-    let version = fs::read_to_string(share_dir.join("VERSION")).unwrap();
-    assert!(!version.trim().is_empty());
 }

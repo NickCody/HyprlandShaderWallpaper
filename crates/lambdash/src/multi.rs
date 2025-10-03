@@ -1540,7 +1540,6 @@ handle = "demo"
             shader_compiler: Default::default(),
             color_space: ColorSpaceMode::Auto,
             prewarm_ms: None,
-            init_defaults: false,
         };
 
         let resolver = PathResolver::with_cwd(temp.path());

@@ -71,27 +71,39 @@ any directory.
 
 ## Installer Script
 
-Prefer a scripted setup? Use the curl-friendly installer, which clones the
-repository, runs `cargo install`, and seeds bundled shaders/playlists into your
-user directories without requiring root:
+Prefer a scripted setup? Use the curl-friendly installer. It clones the
+upstream repository, runs `cargo install`, and copies the repo's
+`local-shaders/` tree into your wallpaper data directory without requiring
+root:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/HyprlandShaderWallpaper/main/scripts/install.sh)"
 ```
 
-By default the script copies defaults into `~/.local/share/lambdash` and runs
-`lambdash defaults sync`. Pass `--share-dir` to override the target directory or
-`--system` (with sudo) to install into `/usr/local` and `/usr/share/lambdash`.
+By default this one-liner grabs `main` from GitHub, overwriting
+`~/.local/share/lambdash/local-shaders` with the bundled shader packs and
+reinstalling the binary. Use `--data-dir` to pick a different destination or
+`--system` (with sudo) to install the packs under `/usr/share/lambdash`.
 Additional flags help with constrained environments—`--skip-build` reuses an
 existing binary, and `--offline` forwards Cargo's offline mode when crates are
-already cached. All installer options (including `--prefix`, `--ref`, and
-`--no-sync`) are documented via `bash scripts/install.sh --help`.
-Ensure `cargo`, `git`, and `tar` are available before running the script.
+already cached. All installer options (including `--prefix` and `--ref`) are
+documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and
+`tar` are available before running the script.
 
-## Defaults, Directories, and CLI Helpers
+Working from a local checkout? Run the installer directly so it mirrors *your*
+branch instead of cloning GitHub:
 
-Lambda Shader follows the XDG base directory spec and records paths in `state.toml` under
-`$XDG_CONFIG_HOME/lambdash` (default `~/.config/lambdash`). The core locations are:
+```bash
+scripts/install.sh --source . --skip-build
+```
+
+Pass `--data-dir ~/.local/share/lambdash` (or `--system`) if you need to target a
+specific location. Re-run the same command whenever you want to refresh
+`local-shaders/` while iterating on shader packs or playlists.
+
+## Directories and CLI Helpers
+
+Lambda Shader follows the XDG base directory spec. The core locations are:
 
 - Config: `~/.config/lambdash/`
 - Data: `~/.local/share/lambdash/`
@@ -101,23 +113,14 @@ Lambda Shader follows the XDG base directory spec and records paths in `state.to
 Set `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, and `LAMBDASH_CACHE_DIR` to relocate
 any directory. CLI flags always win over environment variables.
 
-Bundled shader packs and sample playlists live under the share directory. The
-installer script copies everything from `local-shaders/` (shader packs plus
-playlist TOMLs) into your chosen share root (defaulting to
-`~/.local/share/lambdash`) and writes a `VERSION` stamp capturing the Git
-reference. Lambda Shader never creates the share tree on its own; instead it
-syncs whatever is already present into user space.
+Bundled shader packs and sample playlists live under `local-shaders/` in the
+repository. The installer mirrors that directory to your data location, and you
+can rerun it any time you want to refresh the packs while developing. Keep your
+own user overrides under `~/.config/lambdash/local-shaders`—the installer never
+touches that tree.
 
-Use `lambdash defaults` to manage those copies:
-
-- `lambdash defaults sync` copies missing packs/playlists into the user data tree.
-  Add `--dry-run` to see pending changes without touching disk.
-- `lambdash defaults list` reports which bundled assets are installed locally.
-- `lambdash defaults where` prints the resolved config/data/cache/share paths.
-
-To bootstrap a new environment without launching the daemon, run
-`lambdash defaults sync --dry-run` (to inspect) and `lambdash defaults sync` (to
-install). The daemon also accepts `--init-defaults` for a one-shot sync and exit.
+Run `lambdash defaults where` to print the resolved config/data/cache/share
+paths if you need to double-check the environment.
 
 ### Still Frames & Exports
 
@@ -139,15 +142,13 @@ install). The daemon also accepts `--init-defaults` for a one-shot sync and exit
 
 Downstream packages and automation should mirror the installer’s behaviour:
 
-- Invoke `scripts/install.sh --skip-build --share-dir <dest>` during packaging to
-  materialise `local-shaders/` into a staging directory. The script writes
-  `VERSION`, so include that file in the package for upgrade detection.
+- Invoke `scripts/install.sh --skip-build --data-dir <dest>` during packaging to
+  materialise `local-shaders/` into your staging area.
 - When producing system packages (`.deb`, `.rpm`, etc.), call the script with
-  `--system` or provide explicit `--prefix`/`--share-dir` flags that match your
-  filesystem layout. Running `lambdash defaults sync --dry-run` in post-install
-  hooks gives users visibility into which assets were installed.
+  `--system` or provide explicit `--prefix`/`--data-dir` flags that match your
+  filesystem layout.
 - Avoid running as root unless shipping a system-wide package. For user-focused
-  bundles (AppImage, Flatpak, etc.) set `LAMBDASH_SHARE_DIR` to a writable path
+  bundles (AppImage, Flatpak, etc.) set `LAMBDASH_DATA_DIR` to a writable path
   and run the installer in `--skip-build` mode after the binary is staged.
 - CI should execute `cargo test -p lambdash` to cover the installer integration
   test (`install_script_copies_defaults`) and ensure future changes keep the

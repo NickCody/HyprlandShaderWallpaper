@@ -8,9 +8,7 @@ use tracing::{debug, info};
 
 use crate::cli::RunArgs;
 use crate::paths::AppPaths;
-use crate::state::AppState;
-
-pub fn bootstrap_filesystem(paths: &AppPaths) -> Result<AppState> {
+pub fn bootstrap_filesystem(paths: &AppPaths) -> Result<()> {
     let directories = vec![
         paths.config_dir().to_path_buf(),
         paths.data_dir().to_path_buf(),
@@ -24,17 +22,7 @@ pub fn bootstrap_filesystem(paths: &AppPaths) -> Result<AppState> {
         ensure_directory(&dir)?;
     }
 
-    let state_path = paths.state_file();
-    let state_exists = state_path.exists();
-    let state = AppState::load_or_default(&state_path)?;
-    if state_exists {
-        debug!(path = %state_path.display(), "loaded lambdash state file");
-    } else {
-        state.persist(&state_path)?;
-        info!(path = %state_path.display(), "initialised lambdash state file");
-    }
-
-    Ok(state)
+    Ok(())
 }
 
 fn ensure_directory(path: &Path) -> Result<()> {

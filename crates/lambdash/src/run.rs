@@ -13,45 +13,23 @@ use crate::bootstrap::{
     bootstrap_filesystem, parse_surface_size, resolve_shader_handle, SingleRunConfig,
 };
 use crate::cli::{parse_export_format, RunArgs};
-use crate::defaults::{sync_defaults, SyncOptions};
 use crate::multi;
 use crate::paths::AppPaths;
 
 pub fn run(args: RunArgs) -> Result<()> {
     let paths = AppPaths::discover()?;
-    let mut state = bootstrap_filesystem(&paths)?;
+    bootstrap_filesystem(&paths)?;
     let shader_roots = paths.shader_roots();
     let cache_root = paths.shadertoy_cache_dir();
     let (repo, resolver) = ShaderRepository::build(shader_roots.clone(), cache_root.clone())?;
-    let previous_defaults_version = state.defaults_version.clone();
-    let previous_last_sync = state.last_defaults_sync.clone();
-    let defaults_report = sync_defaults(&paths, &mut state, SyncOptions::default())?;
     tracing::debug!(
         config = %paths.config_dir().display(),
         data = %paths.data_dir().display(),
         cache_base = %paths.cache_dir().display(),
         cache = %cache_root.display(),
         share = %paths.share_dir().display(),
-        defaults_version = ?state.defaults_version,
-        defaults_last_sync = ?state.last_defaults_sync,
-        flags = ?state.flags,
         "resolved lambdash paths"
     );
-    if state.defaults_version != previous_defaults_version
-        || state.last_defaults_sync != previous_last_sync
-    {
-        state.persist(&paths.state_file())?;
-    }
-    if defaults_report.copied_any() {
-        tracing::debug!(
-            assets = defaults_report.copied_assets.len(),
-            "bundled defaults installed on startup"
-        );
-    }
-    if args.init_defaults {
-        tracing::info!("--init-defaults requested; skipping daemon startup after syncing defaults");
-        return Ok(());
-    }
 
     let client = build_client(&args)?;
     if let Some(path) = args.playlist.as_ref() {

@@ -108,23 +108,6 @@ impl AppPaths {
     }
 }
 
-#[cfg(test)]
-impl AppPaths {
-    pub fn from_raw(
-        config_dir: PathBuf,
-        data_dir: PathBuf,
-        cache_dir: PathBuf,
-        share_dir: PathBuf,
-    ) -> Self {
-        Self {
-            config_dir,
-            data_dir,
-            cache_dir,
-            share_dir,
-        }
-    }
-}
-
 fn resolve_directory(
     primary_env: &str,
     primary_default: &Path,

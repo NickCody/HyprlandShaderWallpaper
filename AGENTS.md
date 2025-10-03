@@ -14,8 +14,8 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - **ShaderToy API support**: `ShadertoyClient` downloads shader JSON, GLSL code, and assets, converting them into validated `shader.toml` manifests ready for the renderer.
 - **Local pack compatibility**: Users can place shader directories in `local-shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
 - **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
-- **Path and defaults**: Local handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the working directory, XDG config/data roots, and `/usr/share/lambdash`. Missing variables fail fast so misconfigurations surface immediately. `lambdash defaults sync|list|where` manage copies of bundled shader packs from the system share tree into user space.
-- **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/lambdash` and running `lambdash defaults sync`. Use `--system` for `/usr/local` + `/usr/share/lambdash`, or pass `--share-dir`/`--prefix` to target custom locations.
+- **Path handling**: Local handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the working directory, XDG config/data roots, and `/usr/share/lambdash`. Missing variables fail fast so misconfigurations surface immediately.
+- **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/lambdash/local-shaders`. Use `--system` for `/usr/local` + `/usr/share/lambdash`, or pass `--data-dir`/`--prefix` to target custom locations.
 - **CLI-driven daemon**: `lambdash` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 
 ## Next Steps
@@ -51,13 +51,12 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - If the pulse still fails to animate, try feeding the wrapped GLSL through naga to WGSL (or compile via shaderc/SPIR-V) to rule out wgpu's GLSL frontend quirks.
 - Once animation is confirmed, revert the pulse override to blend with `mainImage`, then restore the original shader output.
 
-### Defaults & Directory Primer
+### Directory Primer
 
-- Share tree (`/usr/share/lambdash` by default) is supplied by packaging; lambdash only mirrors its contents into user directories. If the directory is missing, `defaults::sync_defaults` logs a debug skip and does nothing.
 - User directories: config `~/.config/lambdash`, data `~/.local/share/lambdash`, cache `~/.cache/lambdash`. Override with `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, `LAMBDASH_CACHE_DIR`, `LAMBDASH_SHARE_DIR`.
-- Inspect paths with `lambdash defaults where`. Run `lambdash defaults sync --dry-run` before making changes; `--init-defaults` performs the same sync during daemon startup.
-- The installer script defaults to user-space share directories; encourage contributors to avoid root unless packaging for system-wide deployment.
-- For packaging, reuse `scripts/install.sh --skip-build --share-dir <dest>` to stage shader assets (shader packs + playlists) and include the generated `VERSION` file; CI runs `cargo test -p lambdash` to exercise the script via `install_script_copies_defaults`.
+- Inspect paths with `lambdash defaults where` to confirm the active layout.
+- The installer script overwrites `local-shaders/` under the chosen data directory; encourage contributors to avoid root unless packaging for system-wide deployment.
+- For packaging, reuse `scripts/install.sh --skip-build --data-dir <dest>` to stage shader assets (shader packs + playlists).
 - Expect env interpolation failures (`$VAR`) to abort load; log output will pinpoint the missing variable.
 
 ### TODO: Wallpaper Power Optimisation

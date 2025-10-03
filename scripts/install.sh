@@ -9,14 +9,12 @@ Usage: install.sh [options]
 
 Options:
   --prefix <path>        Cargo install prefix (passed to `cargo install --root`). Optional.
-  --share-dir <path>     Directory holding bundled shader defaults. Defaults to
-                         "${XDG_DATA_HOME:-$HOME/.local/share}/lambdash" in user mode.
-  --system               Install for all users (prefix=/usr/local, share-dir=/usr/share/lambdash).
+  --data-dir <path>      Destination for bundled shader packs (default: "${XDG_DATA_HOME:-$HOME/.local/share}/lambdash").
+  --system               Install for all users (prefix=/usr/local, data-dir=/usr/share/lambdash).
                          Requires root privileges.
   --ref <git-ref>        Git branch, tag, or commit to install from (default: main).
   --repo <git-url>       Source repository URL (default: https://github.com/NickCody/HyprlandShaderWallpaper.git).
   --source <path>        Use an existing local checkout instead of cloning.
-  --no-sync              Skip running `lambdash defaults sync` after installation.
   --skip-build           Skip `cargo install` (useful if the binary is already present).
   --offline              Pass `--offline` to cargo when building.
   --help                 Show this help message and exit.
@@ -49,12 +47,11 @@ clean_up() {
 trap clean_up EXIT
 
 prefix=""
-share_dir=""
+data_dir=""
 system_install=0
 repo_url="https://github.com/NickCody/HyprlandShaderWallpaper.git"
 ref="main"
 source_dir=""
-runs_sync=1
 skip_build=0
 cargo_offline=0
 
@@ -64,14 +61,14 @@ while [[ $# -gt 0 ]]; do
       prefix="$2"
       shift 2
       ;;
-    --share-dir)
-      share_dir="$2"
+    --data-dir|--share-dir)
+      data_dir="$2"
       shift 2
       ;;
     --system)
       system_install=1
       prefix="/usr/local"
-      share_dir="/usr/share/lambdash"
+      data_dir="/usr/share/lambdash"
       shift
       ;;
     --ref)
@@ -85,10 +82,6 @@ while [[ $# -gt 0 ]]; do
     --source)
       source_dir="$2"
       shift 2
-      ;;
-    --no-sync)
-      runs_sync=0
-      shift
       ;;
     --skip-build)
       skip_build=1
@@ -119,8 +112,8 @@ if [[ $system_install -eq 1 && $(id -u) -ne 0 ]]; then
   exit 1
 fi
 
-if [[ -z "$share_dir" ]]; then
-  share_dir="${XDG_DATA_HOME:-$HOME/.local/share}/lambdash"
+if [[ -z "$data_dir" ]]; then
+  data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/lambdash"
 fi
 
 ensure_command cargo
@@ -158,25 +151,14 @@ else
   echo "[lambdash-installer] Skipping cargo build (--skip-build)"
 fi
 
-echo "[lambdash-installer] Installing bundled shader defaults into $share_dir"
-mkdir -p "$share_dir"
+echo "[lambdash-installer] Installing bundled shaders into $data_dir"
+mkdir -p "$data_dir"
 if [[ -d "$repo_path/local-shaders" ]]; then
-  rm -rf "$share_dir/local-shaders"
-  mkdir -p "$share_dir/local-shaders"
-  tar -C "$repo_path/local-shaders" -cf - . | tar -C "$share_dir/local-shaders" -xf -
-fi
-
-if [[ -f "$repo_path/VERSION" ]]; then
-  cp "$repo_path/VERSION" "$share_dir/VERSION"
+  rm -rf "$data_dir/local-shaders"
+  mkdir -p "$data_dir/local-shaders"
+  tar -C "$repo_path/local-shaders" -cf - . | tar -C "$data_dir/local-shaders" -xf -
 else
-  printf '%s\n' "$ref" >"$share_dir/VERSION"
-fi
-
-if [[ $runs_sync -eq 1 ]]; then
-  echo "[lambdash-installer] Syncing defaults into user directories"
-  LAMBDASH_SHARE_DIR="$share_dir" lambdash defaults sync || {
-    echo "[lambdash-installer] Warning: defaults sync failed" >&2
-  }
+  echo "[lambdash-installer] Warning: no local-shaders directory found in source" >&2
 fi
 
 bin_path=$(command -v lambdash 2>/dev/null || true)
@@ -190,6 +172,6 @@ if [[ -n "$bin_path" ]]; then
 else
   echo "[lambdash-installer] Binary installed; ensure your cargo bin directory is on PATH."
 fi
-echo "[lambdash-installer] Share directory: $share_dir"
+echo "[lambdash-installer] Shader packs installed to: $data_dir/local-shaders"
 
 echo "[lambdash-installer] Run 'lambdash defaults where' to verify configuration."

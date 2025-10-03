@@ -30,7 +30,7 @@ const int GRADIENT_SIZE = 4;
 // const vec3 KEY_COLOR = vec3(0.0, 1.0, 0.0);        // green
 // const vec3 KEY_COLOR = vec3(0.0, 0.0, 1.0);        // blue
 // const vec3 KEY_COLOR = vec3(0.29, 0.0, 0.51);      // indigo
-// const vec3 KEY_COLOR = vec3(0.56, 0.0, 1.0);       // violet
+const vec3 KEY_COLOR = vec3(0.56, 0.0, 1.0);       // violet
 // const vec3 KEY_COLOR = vec3(0.992, 0.733, 0.769);  // rose
 // const vec3 KEY_COLOR = vec3(0.996, 0.894, 0.710);  // apricot
 // const vec3 KEY_COLOR = vec3(0.996, 0.980, 0.749);  // lemon chiffon
@@ -47,7 +47,7 @@ const int GRADIENT_SIZE = 4;
 // const vec3 KEY_COLOR = vec3(0.980, 0.925, 0.898);  // linen
 // const vec3 KEY_COLOR = vec3(0.858, 0.792, 0.890);  // lavender
 // const vec3 KEY_COLOR = vec3(0.776, 0.725, 0.858);  // wisteria
-const vec3 KEY_COLOR = vec3(0.054, 0.176, 0.254);     // deep teal (active)
+// const vec3 KEY_COLOR = vec3(0.054, 0.176, 0.254);     // deep teal
 
 /*
  * Rec. 709 luma coefficients weight RGB by the human eye's sensitivity curve:

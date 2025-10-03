@@ -11,34 +11,34 @@ item_duration = "7s"
 crossfade = "4s"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-grayday"
+handle = "vibe-grayday"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-aurora"
+handle = "vibe-aurora"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-neonrise"
+handle = "vibe-neonrise"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-coralbloom"
+handle = "vibe-coralbloom"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-lilacglow"
+handle = "vibe-lilacglow"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-midnightjazz"
+handle = "vibe-midnightjazz"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-solarflare"
+handle = "vibe-solarflare"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-deepcurrent"
+handle = "vibe-deepcurrent"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-sakurastream"
+handle = "vibe-sakurastream"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-mojitomist"
+handle = "vibe-mojitomist"
 
 [[playlists.vibes.items]]
-handle = "local-shaders/vibe-emberdream"
+handle = "vibe-emberdream"

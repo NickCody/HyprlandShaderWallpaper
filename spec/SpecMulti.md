@@ -18,7 +18,7 @@ This document specifies the multi-workspace playlist system for Lambda Shader (l
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
-- `defaults where|list|sync`: Diagnostics for resolving shader search paths. Playlist validation should instruct operators to run `lambdash defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/lambdash/local-shaders/playlists` to exist locally.
+- `lambdash defaults where`: Diagnostics for resolving shader search paths.
 
 Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global defaults when not overridden by playlist or per-item values.
 

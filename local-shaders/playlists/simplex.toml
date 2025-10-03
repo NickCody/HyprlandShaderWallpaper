@@ -12,7 +12,7 @@ antialias = "auto"
 mode = "continuous"
 
 [[playlists.template.items]]
-handle = "local-shaders/template"
+handle = "template"
 
 # Clouds
 #
@@ -29,14 +29,14 @@ fps = 20
 mode = "continuous"
 
 [[playlists.simplex.items]]
-handle = "local-shaders/simplex"
+handle = "simplex"
 
 [playlists.simplex-color]
 mode = "continuous"
 
 [[playlists.simplex-color.items]]
-handle = "local-shaders/simplex-color"
+handle = "simplex-color"
 
 [targets]
-"_default" = "clouds"
-"1" = "simplex"
+"_default" = "simplex-color"
+"1" = "clouds"
