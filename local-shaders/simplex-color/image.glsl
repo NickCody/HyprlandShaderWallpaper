@@ -1,6 +1,3 @@
-const float PI = 3.1415926535897932384626433832795;
-const float PI_2 = 1.57079632679489661923;
-const float PI_4 = 0.785398163397448309616;
 
 // Change these parameters for different effects
 //
@@ -56,31 +53,28 @@ const vec3 KEY_COLOR = vec3(0.56, 0.0, 1.0);       // violet
  */
 const vec3 LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
 
-vec3 applyDarkShade(vec3 color) {
-    float strength = clamp(g_dark_strength, 0.0, 1.0);
+vec3 applyDarkShade(vec3 color, float strength) {
     return mix(color, vec3(0.0), strength);
 }
 
-vec3 applyLightShade(vec3 color) {
-    float strength = clamp(g_light_strength, 0.0, 1.0);
+vec3 applyLightShade(vec3 color, float strength) {
     return mix(color, vec3(1.0), strength);
 }
 
-vec3 getGradientStop(int idx) {
+vec3 getGradientStop(int idx, float darkStrength, float lightStrength, float tailStrength) {
     vec3 base = KEY_COLOR;
-    float tail = clamp(g_tail_strength, 0.0, 1.0);
 
     if (idx == 0) {
-        return applyDarkShade(base);
+        return applyDarkShade(base, darkStrength);
     }
     if (idx == 1) {
         return base;
     }
     if (idx == 2) {
-        return applyLightShade(base);
+        return applyLightShade(base, lightStrength);
     }
     if (idx == 3) {
-        return base * tail;
+        return base * tailStrength;
     }
 
     return base;
@@ -163,29 +157,26 @@ float snoise(vec2 v)
 vec2 rotate(vec2 v, float a) {
     float s = sin(a);
     float c = cos(a);
-    mat2 m = mat2(c, -s, s, c);
-    return m * v;
-}
-
-vec2 rotateOrigin(vec2 v, vec2 center, float a) {
-    vec2 t = v - center;
-    vec2 r = rotate(t, a);
-    return r + center;
+    return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
 }
 
 vec3 sampleGradient(float t) {
+    float darkStrength = clamp(g_dark_strength, 0.0, 1.0);
+    float lightStrength = clamp(g_light_strength, 0.0, 1.0);
+    float tailStrength = clamp(g_tail_strength, 0.0, 1.0);
+
     // Interpolate between gradient stops using the provided position.
     if (GRADIENT_SIZE <= 1) {
-        return getGradientStop(0);
+        return getGradientStop(0, darkStrength, lightStrength, tailStrength);
     }
 
     t = clamp(t, 0.0, 1.0);
     float scaled = t * float(GRADIENT_SIZE - 1);
-    int idx = int(floor(scaled));
+    int idx = int(scaled);
     int nextIdx = min(idx + 1, GRADIENT_SIZE - 1);
-    float mixAmount = scaled - float(idx);
-    vec3 current = getGradientStop(idx);
-    vec3 next = getGradientStop(nextIdx);
+    float mixAmount = fract(scaled);
+    vec3 current = getGradientStop(idx, darkStrength, lightStrength, tailStrength);
+    vec3 next = getGradientStop(nextIdx, darkStrength, lightStrength, tailStrength);
     return mix(current, next, mixAmount);
 }
 
@@ -218,31 +209,28 @@ vec3 applyContrast(vec3 color, float contrast) {
 
 
 void mainImage(out vec4 out_color, vec2 fragCoord) {
-    vec2 rotated_resolution = iResolution.xy * u_rotated_scale;
-    vec2 primary_resolution = iResolution.xy * u_primary_scale;
+    vec2 rotated_center = iResolution.xy * (u_rotated_scale * 0.5);
+    vec2 primary_center = iResolution.xy * (u_primary_scale * 0.5);
 
-    vec2 rotated_fragCoord = gl_FragCoord.xy * u_rotated_scale;
-    vec2 primary_fragCoord = gl_FragCoord.xy * u_primary_scale;
+    vec2 primary_coord = gl_FragCoord.xy * u_primary_scale + primary_center;
+    vec2 rotated_offset = gl_FragCoord.xy * u_rotated_scale - rotated_center;
 
-    vec2 rotated_center = rotated_resolution.xy/2.0;
-    vec2 primary_center = primary_resolution.xy/2.0;
+    float leftAngle = iTime / u_rot_left_divisor;
+    float rightAngle = iTime / u_rot_right_divisor;
+    vec2 coord1 = rotate(rotated_offset, leftAngle) + rotated_center;
+    vec2 coord2 = rotate(rotated_offset, rightAngle) + rotated_center;
 
-    vec2 coord0 = primary_fragCoord+primary_center;
-    vec2 coord1 = rotateOrigin(rotated_fragCoord, rotated_center, iTime/u_rot_left_divisor);
-    vec2 coord2 = rotateOrigin(rotated_fragCoord, rotated_center, iTime/u_rot_right_divisor);
-
-    float n0 = snoise(coord0);
     float n1 = snoise(coord1);
     float n2 = snoise(coord2);
-    float c = (n1 + n2)/2.0;
+    float c = 0.5 * (n1 + n2);
 
-    float n = snoise(coord0 * c);
+    float n = snoise(primary_coord * c);
 
     const float GRADIENT_WRAP_EPS = 1e-5;
     float basePosition = clamp(n, 0.0, 1.0 - GRADIENT_WRAP_EPS);
-    float gradientShift = fract(iTime * max(u_gradient_speed, 0.0));
     float gradientPosition = basePosition;
     if (u_gradient_speed > 0.0) {
+        float gradientShift = fract(iTime * u_gradient_speed);
         gradientPosition = fract(basePosition + gradientShift);
     }
     vec3 final_color = sampleGradient(gradientPosition);
