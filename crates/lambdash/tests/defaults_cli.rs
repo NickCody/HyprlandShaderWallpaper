@@ -6,10 +6,11 @@ use tempfile::TempDir;
 fn create_share_layout(root: &std::path::Path) {
     let shaders_root = root.join("local-shaders");
     fs::create_dir_all(shaders_root.join("demo")).unwrap();
+    fs::create_dir_all(shaders_root.join("playlists")).unwrap();
 
     fs::write(shaders_root.join("demo/shader.toml"), "name = \"Demo\"").unwrap();
     fs::write(
-        shaders_root.join("demo-playlist.toml"),
+        shaders_root.join("playlists/demo.toml"),
         "playlist = \"demo\"",
     )
     .unwrap();
@@ -43,7 +44,7 @@ fn defaults_sync_cli_installs_assets() {
     assert!(status.success());
 
     assert!(data_dir.join("local-shaders/demo/shader.toml").exists());
-    assert!(data_dir.join("local-shaders/demo-playlist.toml").exists());
+    assert!(data_dir.join("local-shaders/playlists/demo.toml").exists());
 
     let second_status = Command::new(env!("CARGO_BIN_EXE_lambdash"))
         .env("LAMBDASH_CONFIG_DIR", &config_dir)

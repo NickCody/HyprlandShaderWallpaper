@@ -43,7 +43,7 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
   through `scripts/launch-local`.
 - Tests covering workspace crossfades and failure handling live in `crates/lambdash/src/multi.rs` (`workspace_switch_applies_crossfade_override`
   and `engine_skips_missing_items_and_advances`).
-- Sample playlists are in `local-shaders/default.toml` and `local-shaders/workspaces.toml`.
+- Sample playlists are in `local-shaders/playlists/default.toml` and `local-shaders/playlists/workspaces.toml`.
 
 ### To-Do for Next Agent
 

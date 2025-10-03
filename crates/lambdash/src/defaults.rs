@@ -294,10 +294,11 @@ mod tests {
     fn create_share_layout(root: &Path) {
         let shaders_root = root.join("local-shaders");
         fs::create_dir_all(shaders_root.join("demo")).unwrap();
+        fs::create_dir_all(shaders_root.join("playlists")).unwrap();
 
         fs::write(shaders_root.join("demo/shader.toml"), "name = \"Demo\"").unwrap();
         fs::write(
-            shaders_root.join("demo-playlist.toml"),
+            shaders_root.join("playlists/demo.toml"),
             "playlist = \"demo\"",
         )
         .unwrap();
@@ -331,7 +332,7 @@ mod tests {
         assert_eq!(report.share_version.as_deref(), Some("1.0.0"));
 
         let shader_target = paths.data_dir().join("local-shaders/demo/shader.toml");
-        let playlist_target = paths.data_dir().join("local-shaders/demo-playlist.toml");
+        let playlist_target = paths.data_dir().join("local-shaders/playlists/demo.toml");
 
         assert!(shader_target.exists());
         assert!(playlist_target.exists());
@@ -396,7 +397,7 @@ mod tests {
             .exists());
         assert!(!paths
             .data_dir()
-            .join("local-shaders/demo-playlist.toml")
+            .join("local-shaders/playlists/demo.toml")
             .exists());
         assert!(state.last_defaults_sync.is_none());
         assert!(state.defaults_version.is_none());

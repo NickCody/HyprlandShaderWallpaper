@@ -176,7 +176,7 @@ Run `just --list` to discover additional recipes as they land.
 
 Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or
 output. The configuration format is documented in `SpecMulti.md`, and sample playlists live
-alongside the shader packs in `local-shaders/` (e.g. `workspaces.toml`). A quick way to
+under `local-shaders/playlists/` (e.g. `workspaces.toml`). A quick way to
 experiment is:
 
 ```

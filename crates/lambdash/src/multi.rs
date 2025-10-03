@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
@@ -74,8 +74,16 @@ fn resolve_playlist_path(path: &Path, search_roots: &[PathBuf]) -> Result<PathBu
         bail!("playlist file not found: {}", path.display());
     }
 
-    if path.components().count() != 1 {
-        bail!("--playlist only accepts a file name (e.g. simplex.toml)");
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        bail!(
+            "--playlist does not allow parent or absolute segments: {}",
+            path.display()
+        );
     }
 
     for root in search_roots {

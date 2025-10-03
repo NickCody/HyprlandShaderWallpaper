@@ -18,7 +18,7 @@ This document specifies the multi-workspace playlist system for Lambda Shader (l
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
-- `defaults where|list|sync`: Diagnostics for resolving shader search paths. Playlist validation should instruct operators to run `lambdash defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/lambdash/local-shaders` to exist locally.
+- `defaults where|list|sync`: Diagnostics for resolving shader search paths. Playlist validation should instruct operators to run `lambdash defaults sync` (or `--init-defaults`) before expecting bundled playlists under `/usr/share/lambdash/local-shaders/playlists` to exist locally.
 
 Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global defaults when not overridden by playlist or per-item values.
 
@@ -33,7 +33,7 @@ Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global d
 
 ## Config File Format (TOML)
 
-Versioned format; stored anywhere, but recommended alongside shader packs under `local-shaders/`. The CLI accepts a filename (resolved via shader search roots) or an absolute file path. Directories are rejected.
+Versioned format; stored anywhere, but recommended under `local-shaders/playlists/`. The CLI accepts a filename (resolved via shader search roots) or an absolute file path. Directories are rejected.
 
 ```toml
 # Required version for forwards-compatible parsing
@@ -351,7 +351,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 ### Stage 4 – Enhancements & Validation
 1. Implement workspace-switch crossfade preemption and confirm transitions abort/resume correctly.
 2. Add logging/telemetry to record playlist decisions and transitions for troubleshooting.
-3. Document configuration usage (README/AGENTS.md) and provide sample configs under `local-shaders/`.
+3. Document configuration usage (README/AGENTS.md) and provide sample configs under `local-shaders/playlists/`.
 
 Each stage builds on the previous one; stick to the sequence to minimize merge conflicts and keep the behavior testable throughout the implementation.
 
