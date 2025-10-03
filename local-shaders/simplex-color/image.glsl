@@ -154,12 +154,6 @@ float snoise(vec2 v)
     return 130.0 * dot(m, g);
 }
 
-vec2 rotate(vec2 v, float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
-}
-
 vec3 sampleGradient(float t) {
     float darkStrength = clamp(g_dark_strength, 0.0, 1.0);
     float lightStrength = clamp(g_light_strength, 0.0, 1.0);
@@ -180,62 +174,61 @@ vec3 sampleGradient(float t) {
     return mix(current, next, mixAmount);
 }
 
-
 vec3 applyVibrance(vec3 color, float vibrance) {
     if (abs(vibrance) < 1e-5) {
-        return clamp(color, 0.0, 1.0);
+        return color;
     }
-
     float luma = dot(color, LUMA_WEIGHTS);
     vec3 chroma = color - vec3(luma);
-    float saturation = length(chroma);
+
+    // Approximate saturation without sqrt
+    float saturation = max(max(abs(chroma.r), abs(chroma.g)), abs(chroma.b));
+    // Original (for reference): float saturation = length(chroma);
+
     float influence = 1.0 - clamp(saturation, 0.0, 1.0);
     float scale = max(0.0, 1.0 + vibrance * influence);
-    vec3 adjusted = vec3(luma) + chroma * scale;
-    return clamp(adjusted, 0.0, 1.0);
+    return vec3(luma) + chroma * scale;
 }
-
 
 vec3 applyContrast(vec3 color, float contrast) {
     float safeContrast = max(contrast, 0.0);
     if (abs(safeContrast - 1.0) < 1e-5) {
-        return clamp(color, 0.0, 1.0);
+        return color;
     }
-
     vec3 pivot = vec3(0.5);
-    vec3 adjusted = (color - pivot) * safeContrast + pivot;
-    return clamp(adjusted, 0.0, 1.0);
+    return (color - pivot) * safeContrast + pivot;
 }
-
 
 void mainImage(out vec4 out_color, vec2 fragCoord) {
     vec2 rotated_center = iResolution.xy * (u_rotated_scale * 0.5);
     vec2 primary_center = iResolution.xy * (u_primary_scale * 0.5);
 
-    vec2 primary_coord = gl_FragCoord.xy * u_primary_scale + primary_center;
-    vec2 rotated_offset = gl_FragCoord.xy * u_rotated_scale - rotated_center;
+    // Use provided fragCoord to allow wrapper to manage transforms
+    vec2 primary_coord = fragCoord * u_primary_scale + primary_center;
+    vec2 rotated_offset = fragCoord * u_rotated_scale - rotated_center;
 
     float leftAngle = iTime / u_rot_left_divisor;
     float rightAngle = iTime / u_rot_right_divisor;
-    vec2 coord1 = rotate(rotated_offset, leftAngle) + rotated_center;
-    vec2 coord2 = rotate(rotated_offset, rightAngle) + rotated_center;
 
-    float n1 = snoise(coord1);
-    float n2 = snoise(coord2);
-    float c = 0.5 * (n1 + n2);
+    // Hoist trig and rotate via mat2
+    float sL = sin(leftAngle),  cL = cos(leftAngle);
+    float sR = sin(rightAngle), cR = cos(rightAngle);
+    mat2 rotL = mat2(cL, -sL, sL, cL);
+    mat2 rotR = mat2(cR, -sR, sR, cR);
 
+    float c = snoise(rotL * rotated_offset + rotated_center);
     float n = snoise(primary_coord * c);
 
+    // Branchless gradient shift; keep wrap epsilon to preserve original look
     const float GRADIENT_WRAP_EPS = 1e-5;
     float basePosition = clamp(n, 0.0, 1.0 - GRADIENT_WRAP_EPS);
-    float gradientPosition = basePosition;
-    if (u_gradient_speed > 0.0) {
-        float gradientShift = fract(iTime * u_gradient_speed);
-        gradientPosition = fract(basePosition + gradientShift);
-    }
+    float gradientShift = fract(iTime * max(u_gradient_speed, 0.0));
+    float gradientPosition = fract(basePosition + gradientShift);
+
     vec3 final_color = sampleGradient(gradientPosition);
     final_color = applyVibrance(final_color, u_vibrance);
     final_color = applyContrast(final_color, u_contrast);
+    final_color = clamp(final_color, 0.0, 1.0);
 
     out_color = vec4(final_color, 1.0);
 }
