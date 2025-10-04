@@ -97,12 +97,12 @@ impl AppPaths {
     pub fn shader_user_dirs(&self) -> Vec<PathBuf> {
         let mut dirs = vec![self.data_dir.clone()];
 
-        let legacy_config = self.config_dir.join("local-shaders");
+        let legacy_config = self.config_dir.join("shaders");
         if !dirs.contains(&legacy_config) {
             dirs.push(legacy_config);
         }
 
-        let legacy_data = self.data_dir.join("local-shaders");
+        let legacy_data = self.data_dir.join("shaders");
         if !dirs.contains(&legacy_data) {
             dirs.push(legacy_data);
         }
@@ -112,9 +112,9 @@ impl AppPaths {
 
     pub fn shader_roots(&self) -> Vec<PathBuf> {
         let mut roots = self.shader_user_dirs();
-        roots.push(self.share_dir.join("local-shaders"));
+        roots.push(self.share_dir.join("shaders"));
         if let Some(dev_root) = &self.dev_root {
-            let candidate = dev_root.join("local-shaders");
+            let candidate = dev_root.join("shaders");
             if !roots.contains(&candidate) {
                 roots.push(candidate);
             }
@@ -199,7 +199,7 @@ fn detect_dev_root() -> Option<PathBuf> {
 
     let mut current = env::current_dir().ok()?;
     loop {
-        let candidate = current.join("local-shaders");
+        let candidate = current.join("shaders");
         if candidate.is_dir() {
             return Some(current.clone());
         }

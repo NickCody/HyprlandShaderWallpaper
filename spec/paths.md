@@ -10,7 +10,7 @@
 - **PWD** — process working directory when `lambdash` starts.
 - **AppDirs** — resolved trio of XDG-style roots (`config_dir`, `data_dir`, `cache_dir`).
 - **Share Dir** — read-only installation root (e.g. `/usr/share/lambdash`) that ships bundled assets.
-- **Repo Assets** — checked-in sample shader packs used during development (`local-shaders/` in-tree).
+- **Repo Assets** — checked-in sample shader packs used during development (`shaders/` in-tree).
 
 ## Handle Classes
 
@@ -29,7 +29,7 @@
 - Search order (first match wins):
   1. `AppDirs.data_dir/<name>`
   2. `Share Dir/<name>`
-  3. Repo assets when running from a checkout: `REPO_ROOT/local-shaders/<name>` (only if `REPO_ROOT` detected via `LAMBDASH_DEV_ROOT` or heuristics).
+  3. Repo assets when running from a checkout: `REPO_ROOT/shaders/<name>` (only if `REPO_ROOT` detected via `LAMBDASH_DEV_ROOT` or heuristics).
 - The resolved path must be a directory; fail if missing or not a dir.
 
 ### 4. `playlist://<name>`
@@ -37,7 +37,7 @@
 - Search order (first match wins):
   1. `AppDirs.data_dir/<name>.toml`
   2. `Share Dir/playlists/<name>.toml`
-  3. Repo assets: `REPO_ROOT/local-shaders/playlists/<name>.toml`.
+  3. Repo assets: `REPO_ROOT/shaders/playlists/<name>.toml`.
 - Reject directories; require readable TOML file.
 
 ### 5. Future Schemes
@@ -57,14 +57,14 @@ $DATA_DIR/
   workspace-rotation.toml
   cache/                    # optional runtime scratch (not copied from repo)
 ```
-- Installer and bootstrap routines copy repo `local-shaders/<pack>` into `$DATA_DIR/<pack>`.
-- Playlist samples move from `local-shaders/playlists/*.toml` to top-level `$DATA_DIR/*.toml` during the packaging step.
-- Runtime should tolerate existing `local-shaders/` or `playlists/` directories for now but log deprecation.
+- Installer and bootstrap routines copy repo `shaders/<pack>` into `$DATA_DIR/<pack>`.
+- Playlist samples move from `shaders/playlists/*.toml` to top-level `$DATA_DIR/*.toml` during the packaging step.
+- Runtime should tolerate existing `shaders/` or `playlists/` directories for now but log deprecation.
 
 ## Developer Workflow
-- Run commands from repo root: `cargo run -p lambdash -- ./local-shaders/simplex-color` to use in-tree assets literally.
+- Run commands from repo root: `cargo run -p lambdash -- ./shaders/simplex-color` to use in-tree assets literally.
 - To test installed layouts, invoke `scripts/install.sh --data-dir ~/.local/share/lambdash` then run `lambdash local://simplex-color`.
-- When editing default packs, modify files under `local-shaders/<pack>` and rerun the installer; the copy will mirror into the flattened data layout.
+- When editing default packs, modify files under `shaders/<pack>` and rerun the installer; the copy will mirror into the flattened data layout.
 
 ## User Workflow
 - End users rely on `local://` / `playlist://` handles; they edit files under `$DATA_DIR` directly.

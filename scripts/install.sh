@@ -154,10 +154,10 @@ fi
 
 echo "[lambdash-installer] Installing bundled shaders into $data_dir"
 mkdir -p "$data_dir"
-if [[ -d "$repo_path/local-shaders" ]]; then
-  rm -rf "$data_dir/local-shaders"
+if [[ -d "$repo_path/shaders" ]]; then
+  rm -rf "$data_dir/shaders"
 
-  for entry in "$repo_path"/local-shaders/*; do
+  for entry in "$repo_path"/shaders/*; do
     [[ -e "$entry" ]] || continue
     name=$(basename "$entry")
     if [[ "$name" == "playlists" ]]; then
@@ -181,8 +181,8 @@ if [[ -d "$repo_path/local-shaders" ]]; then
     fi
   done
 
-  if [[ -d "$repo_path/local-shaders/playlists" ]]; then
-    for playlist in "$repo_path"/local-shaders/playlists/*.toml; do
+  if [[ -d "$repo_path/shaders/playlists" ]]; then
+    for playlist in "$repo_path"/shaders/playlists/*.toml; do
       [[ -e "$playlist" ]] || continue
       name=$(basename "$playlist")
       dest="$data_dir/$name"
@@ -191,7 +191,7 @@ if [[ -d "$repo_path/local-shaders" ]]; then
     done
   fi
 else
-  echo "[lambdash-installer] Warning: no local-shaders directory found in source" >&2
+  echo "[lambdash-installer] Warning: no shaders directory found in source" >&2
 fi
 
 bin_path=$(command -v lambdash 2>/dev/null || true)

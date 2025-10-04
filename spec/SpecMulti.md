@@ -14,7 +14,7 @@ This document specifies the multi-workspace playlist system for Lambda Shader (l
 
 ## CLI Behavior
 
-- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`$DATA_DIR`, legacy `config/local-shaders`, legacy `data/local-shaders`, `/usr/share/lambdash/local-shaders`). Absolute paths are accepted; directories are rejected.
+- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`$DATA_DIR`, legacy `config/shaders`, legacy `data/shaders`, `/usr/share/lambdash/shaders`). Absolute paths are accepted; directories are rejected.
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
@@ -33,7 +33,7 @@ Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global d
 
 ## Config File Format (TOML)
 
-Versioned format; stored anywhere, but recommended under `local-shaders/playlists/`. The CLI accepts a filename (resolved via shader search roots) or an absolute file path. Directories are rejected.
+Versioned format; stored anywhere, but recommended under `shaders/playlists/`. The CLI accepts a filename (resolved via shader search roots) or an absolute file path. Directories are rejected.
 
 ```toml
 # Required version for forwards-compatible parsing
@@ -128,7 +128,7 @@ handle = "local://rotating-voronoise"
   - `antialias` (string|number, optional): playlist-level default AA.
   - `[[playlists.<name>.items]]` (one or more):
     - `handle` (string, required): shader handle. Examples:
-      - `local://<pack>` (searches `$DATA_DIR`, legacy `local-shaders/` trees, `/usr/share/lambdash/local-shaders/`)
+      - `local://<pack>` (searches `$DATA_DIR`, legacy `shaders/` trees, `/usr/share/lambdash/shaders/`)
       - `shadertoy://<ID>`
       - absolute or relative filesystem path (anything containing a `/` after expansion)
       - `${MY_SHADER_PACK}` (environment variable expansion)

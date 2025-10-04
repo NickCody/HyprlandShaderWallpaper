@@ -7,14 +7,14 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - `crates/lambdash`: Wayland-facing daemon. Handles configuration, CLI flags, ShaderToy client setup, and orchestrates rendering.
 - `crates/renderer`: Rendering abstraction that will host `wgpu`/OpenGL logic and manage frame uniforms for ShaderToy-style shaders.
 - `crates/shadertoy`: Integration layer that fetches ShaderToy metadata, caches shaders/assets locally, validates manifest layouts, and unifies local/remote shader sources.
-- `local-shaders/`: User drop-in shader packs mirroring ShaderToy renderpass structure (GLSL sources, textures, cubemaps, audio, manifest).
+- `shaders/`: User drop-in shader packs mirroring ShaderToy renderpass structure (GLSL sources, textures, cubemaps, audio, manifest).
 
 ## Key Features
 
 - **ShaderToy API support**: `ShadertoyClient` downloads shader JSON, GLSL code, and assets, converting them into validated `shader.toml` manifests ready for the renderer.
-- **Local pack compatibility**: Users can place shader directories in `local-shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
+- **Local pack compatibility**: Users can place shader directories in `shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
 - **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
-- **Path handling**: `local://<pack>` and `playlist://<name>` handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the data dir, legacy `local-shaders/` trees, and `/usr/share/lambdash`. Anything containing a `/` is interpreted literally after expansion. Missing variables fail fast so misconfigurations surface immediately.
+- **Path handling**: `local://<pack>` and `playlist://<name>` handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the data dir, legacy `shaders/` trees, and `/usr/share/lambdash`. Anything containing a `/` is interpreted literally after expansion. Missing variables fail fast so misconfigurations surface immediately.
 - **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/lambdash/` (packs become subdirectories, playlists flatten to top-level `.toml`). Use `--system` for `/usr/local` + `/usr/share/lambdash`, or pass `--data-dir`/`--prefix` to target custom locations.
 - **CLI-driven daemon**: `lambdash` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 
@@ -43,7 +43,7 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
   through `scripts/launch-local`.
 - Tests covering workspace crossfades and failure handling live in `crates/lambdash/src/multi.rs` (`workspace_switch_applies_crossfade_override`
   and `engine_skips_missing_items_and_advances`).
-- Sample playlists live in `local-shaders/playlists/` within the repo and install as `$DATA_DIR/*.toml`.
+- Sample playlists live in `shaders/playlists/` within the repo and install as `$DATA_DIR/*.toml`.
 
 ### To-Do for Next Agent
 

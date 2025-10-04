@@ -73,7 +73,7 @@ any directory.
 
 Prefer a scripted setup? Use the curl-friendly installer. It clones the
 upstream repository, runs `cargo install`, and copies the repo's
-`local-shaders/` tree into your wallpaper data directory without requiring
+`shaders/` tree into your wallpaper data directory without requiring
 root:
 
 ```bash
@@ -81,7 +81,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/HyprlandShaderW
 ```
 
 By default this one-liner grabs `main` from GitHub, overwriting
-`~/.local/share/lambdash/local-shaders` with the bundled shader packs and
+`~/.local/share/lambdash/shaders` with the bundled shader packs and
 reinstalling the binary. Use `--data-dir` to pick a different destination or
 `--system` (with sudo) to install the packs under `/usr/share/lambdash`.
 Additional flags help with constrained environments—`--skip-build` reuses an
@@ -99,7 +99,7 @@ scripts/install.sh --source . --skip-build
 
 Pass `--data-dir ~/.local/share/lambdash` (or `--system`) if you need to target a
 specific location. Re-run the same command whenever you want to refresh
-`local-shaders/` while iterating on shader packs or playlists.
+`shaders/` while iterating on shader packs or playlists.
 
 ## Directories and CLI Helpers
 
@@ -113,10 +113,10 @@ Lambda Shader follows the XDG base directory spec. The core locations are:
 Set `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, and `LAMBDASH_CACHE_DIR` to relocate
 any directory. CLI flags always win over environment variables.
 
-Bundled shader packs and sample playlists live under `local-shaders/` in the
+Bundled shader packs and sample playlists live under `shaders/` in the
 repository. The installer mirrors that directory to your data location, and you
 can rerun it any time you want to refresh the packs while developing. Keep your
-own user overrides under `~/.config/lambdash/local-shaders`—the installer never
+own user overrides under `~/.config/lambdash/shaders`—the installer never
 touches that tree.
 
 Run `lambdash defaults where` to print the resolved config/data/cache/share
@@ -159,7 +159,7 @@ Downstream packages and automation should mirror the installer’s behaviour:
 - `crates/lambdash`: Daemon entry point and CLI that orchestrates rendering.
 - `crates/renderer`: Rendering abstraction that manages shader wrapping and frame uniforms.
 - `crates/shadertoy`: Integration layer for ShaderToy downloads, caching, and manifest validation.
-- `local-shaders/`: User-provided shader packs mirroring ShaderToy render pass structure.
+- `shaders/`: User-provided shader packs mirroring ShaderToy render pass structure.
 
 ## Development Tasks
 
@@ -177,7 +177,7 @@ Run `just --list` to discover additional recipes as they land.
 
 Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or
 output. The configuration format is documented in `SpecMulti.md`, and sample playlists live
-under `local-shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied to `$DATA_DIR/*.toml` by the installer. A quick way to
+under `shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied to `$DATA_DIR/*.toml` by the installer. A quick way to
 experiment is:
 
 ```
@@ -203,7 +203,7 @@ Local shader handles accept shell-style expansions so configs stay portable:
 - `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
   error so typos show up immediately.
 - Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
-- `local://<pack>` searches `$DATA_DIR` (or `LAMBDASH_DATA_DIR`), then legacy `local-shaders/` trees under the config/data dirs, and finally `/usr/share/lambdash/local-shaders/`.
+- `local://<pack>` searches `$DATA_DIR` (or `LAMBDASH_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/lambdash/shaders/`.
 
 This logic applies across CLI handles (`lambdash $HOME/shaders/demo`), playlist manifests, and
 the defaults bootstrap. Run `lambdash defaults where` to inspect which directories are currently

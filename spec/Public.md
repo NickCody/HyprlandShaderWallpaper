@@ -41,7 +41,7 @@ Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (conf
 
 ### Phase 2 — Directory Bootstrapping *(complete)*
 1. Ensure required directories exist during startup and create them with clear error handling.
-2. Seed logical subfolders (`config/local-shaders`, `config/multi`, `data/local-shaders`, `data/multi`, `cache/shadertoy`).
+2. Seed logical subfolders (`config/shaders`, `config/multi`, `data/shaders`, `data/multi`, `cache/shadertoy`).
 3. Write a `state.toml` in `config_dir` capturing metadata (defaults version, last sync, flags).
 4. Emit telemetry when directories are created or missing for easier diagnostics.
 
@@ -102,7 +102,7 @@ Implemented via new unit and integration coverage: installer tests build temp tr
 2. Add CI checks (or packaging tests) that fail when the release bundle omits expected defaults.
 3. Document packager expectations so downstream distributions mirror the same layout.
 
-Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, and flattens `local-shaders/` into the configured data directory (packs become `$DATA_DIR/<pack>/`, playlists land at `$DATA_DIR/<name>.toml`). The script defaults to rootless installs under `~/.local/share/lambdash`, supports `--data-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p lambdash`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
+Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, and flattens `shaders/` into the configured data directory (packs become `$DATA_DIR/<pack>/`, playlists land at `$DATA_DIR/<name>.toml`). The script defaults to rootless installs under `~/.local/share/lambdash`, supports `--data-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p lambdash`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
 
 ### Implementation Notes
 - Use atomic file operations when copying defaults; write to temp files then rename.

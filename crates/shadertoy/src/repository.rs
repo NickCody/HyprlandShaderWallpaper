@@ -44,14 +44,14 @@ impl ShaderRepository {
 
     pub fn build_with_defaults() -> Result<(Self, PathResolver)> {
         Self::build(
-            vec![PathBuf::from("local-shaders")],
+            vec![PathBuf::from("shaders")],
             PathBuf::from("cache/shadertoy"),
         )
     }
 
     pub fn with_defaults() -> Self {
         Self::new(
-            vec![PathBuf::from("local-shaders")],
+            vec![PathBuf::from("shaders")],
             PathBuf::from("cache/shadertoy"),
         )
     }
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn resolves_local_relative_pack() {
         let temp = tempfile::tempdir().unwrap();
-        let packs_root = temp.path().join("local-shaders");
+        let packs_root = temp.path().join("shaders");
         std::fs::create_dir_all(&packs_root).unwrap();
         let pack_dir = packs_root.join("demo");
         std::fs::create_dir_all(&pack_dir).unwrap();

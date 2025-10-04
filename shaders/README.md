@@ -5,7 +5,7 @@ ShaderToy's render pass structure and must include a `shader.toml` manifest that
 declares the passes and channel bindings.
 
 ```
-local-shaders/
+shaders/
   cloudy-evening/
     shader.toml
     image.glsl
