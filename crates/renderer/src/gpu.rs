@@ -843,14 +843,16 @@ impl GpuState {
             "writing uniforms for render pass"
         );
         self.recompute_view_uniforms();
-        
+
         // Write uniforms to a staging buffer, then copy to the uniform buffer within the encoder.
         // This ensures each render pass sees its own uniform values.
-        let staging = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform staging"),
-            contents: bytemuck::bytes_of(&self.uniforms),
-            usage: wgpu::BufferUsages::COPY_SRC,
-        });
+        let staging = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("uniform staging"),
+                contents: bytemuck::bytes_of(&self.uniforms),
+                usage: wgpu::BufferUsages::COPY_SRC,
+            });
         encoder.copy_buffer_to_buffer(
             &staging,
             0,

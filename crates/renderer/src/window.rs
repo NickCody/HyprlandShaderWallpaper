@@ -277,6 +277,21 @@ impl RenderPolicyDriver {
         self.time_source.sample()
     }
 
+    pub(crate) fn update_policy(&mut self, policy: RenderPolicy) -> Result<()> {
+        let previous = self.scheduler.policy().clone();
+        let preserve_time = matches!(
+            (&previous, &policy),
+            (RenderPolicy::Animate { .. }, RenderPolicy::Animate { .. })
+        );
+
+        if !preserve_time {
+            self.time_source = time_source_for_policy(&policy)?;
+        }
+
+        self.scheduler.update_policy(policy);
+        Ok(())
+    }
+
     pub(crate) fn mark_rendered(&mut self) {
         self.scheduler.mark_rendered();
     }
@@ -292,6 +307,57 @@ impl RenderPolicyDriver {
     pub(crate) fn reset(&mut self) {
         self.time_source.reset();
         self.scheduler.reset();
+    }
+}
+
+#[cfg(test)]
+mod policy_driver_tests {
+    use super::*;
+
+    #[test]
+    fn animate_policy_preserves_time_on_update() {
+        let mut driver = RenderPolicyDriver::new(RenderPolicy::Animate {
+            target_fps: None,
+            adaptive: true,
+        })
+        .expect("driver initialises");
+
+        let first = driver.sample();
+        assert_eq!(first.frame_index, 0);
+
+        let second = driver.sample();
+        assert_eq!(second.frame_index, 1);
+
+        driver
+            .update_policy(RenderPolicy::Animate {
+                target_fps: Some(30.0),
+                adaptive: false,
+            })
+            .expect("policy update succeeds");
+
+        let third = driver.sample();
+        assert_eq!(third.frame_index, 2);
+        assert!(third.seconds >= second.seconds);
+    }
+
+    #[test]
+    fn switching_to_still_resets_time_source() {
+        let mut driver = RenderPolicyDriver::new(RenderPolicy::Animate {
+            target_fps: None,
+            adaptive: false,
+        })
+        .expect("driver initialises");
+
+        driver.sample();
+        driver.sample();
+
+        driver
+            .update_policy(RenderPolicy::Still { time: Some(1.5) })
+            .expect("policy update succeeds");
+
+        let sample = driver.sample();
+        assert_eq!(sample.frame_index, 0);
+        assert_eq!(sample.seconds, 1.5);
     }
 }
 
@@ -480,15 +546,11 @@ fn run_window_thread(
                     ) {
                         error!("failed to swap window shader: {err:?}");
                     } else {
-                        let updated_driver = match RenderPolicyDriver::new(policy.clone()) {
-                            Ok(driver) => driver,
-                            Err(err) => {
-                                error!("failed to update render policy: {err:?}");
-                                policy_driver.reset();
-                                return;
-                            }
-                        };
-                        policy_driver = updated_driver;
+                        if let Err(err) = policy_driver.update_policy(policy.clone()) {
+                            error!("failed to update render policy: {err:?}");
+                            policy_driver.reset();
+                            return;
+                        }
                         current_policy = policy.clone();
                         if policy_driver.ready_for_frame(Instant::now()) {
                             state.window().request_redraw();

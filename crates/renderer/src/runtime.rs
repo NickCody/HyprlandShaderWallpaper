@@ -297,7 +297,6 @@ impl FrameScheduler {
     }
 
     /// Replaces the active policy and resets cadence state.
-    #[allow(dead_code)]
     pub fn update_policy(&mut self, policy: RenderPolicy) {
         self.policy = policy;
         self.target_interval = match &self.policy {
@@ -372,7 +371,6 @@ impl FrameScheduler {
     }
 
     /// Exposes the current policy.
-    #[allow(dead_code)]
     pub fn policy(&self) -> &RenderPolicy {
         &self.policy
     }

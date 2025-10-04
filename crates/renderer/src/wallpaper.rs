@@ -934,8 +934,16 @@ impl SurfaceState {
     }
 
     fn set_policy(&mut self, policy: RenderPolicy) -> Result<()> {
+        let previous = self.policy.clone();
+        let preserve_time = matches!(
+            (&previous, &policy),
+            (RenderPolicy::Animate { .. }, RenderPolicy::Animate { .. })
+        );
+
         self.policy = policy.clone();
-        self.time_source = time_source_for_policy(&self.policy)?;
+        if !preserve_time {
+            self.time_source = time_source_for_policy(&self.policy)?;
+        }
         self.reset_render_state();
         Ok(())
     }
