@@ -678,18 +678,17 @@ impl GpuState {
                     prev_pixel = ?debug_pixels.previous,
                     curr_pixel = ?debug_pixels.current,
                     blended_pixel = ?debug_pixels.blended,
+                    prev_shader = ?previous_pipeline.as_ref().map(|p| p.shader_path()),
+                    curr_shader = ?current_pipeline_ref.shader_path(),
                     "crossfade pixel samples"
                 );
-                // TODO: debug
-                // self.write_color_sample(&debug_pixels, curr_mix);
+                self.write_color_sample(&debug_pixels, curr_mix);
             }
             if prev_mix > f32::EPSILON {
                 if let Some(prev) = previous_pipeline.as_ref() {
                     self.render_with_pipeline(&mut encoder, &view, prev, prev_mix, load);
                     load = wgpu::LoadOp::Load;
                 }
-            } else {
-                previous_pipeline = None;
             }
 
             if curr_mix > f32::EPSILON {
@@ -838,9 +837,27 @@ impl GpuState {
             self.uniforms.i_channel_resolution[index] = resource.resolution;
         }
         self.uniforms.i_fade = mix;
+        tracing::trace!(
+            shader = %pipeline.shader_path().display(),
+            i_fade = mix,
+            "writing uniforms for render pass"
+        );
         self.recompute_view_uniforms();
-        self.queue
-            .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniforms));
+        
+        // Write uniforms to a staging buffer, then copy to the uniform buffer within the encoder.
+        // This ensures each render pass sees its own uniform values.
+        let staging = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform staging"),
+            contents: bytemuck::bytes_of(&self.uniforms),
+            usage: wgpu::BufferUsages::COPY_SRC,
+        });
+        encoder.copy_buffer_to_buffer(
+            &staging,
+            0,
+            &self.uniform_buffer,
+            0,
+            std::mem::size_of::<ShadertoyUniforms>() as u64,
+        );
 
         let (attachment_view, resolve_target) = if self.sample_count > 1 {
             let msaa = self
