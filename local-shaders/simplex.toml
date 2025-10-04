@@ -5,38 +5,25 @@ workspace_switch_crossfade = "1500ms"
 playlist = "simplex"
 fps = 0
 antialias = "auto"
+duration = "5s"
 
 # Template
-#
-[playlists.template]
-mode = "continuous"
-
-[[playlists.template.items]]
-handle = "template"
-
-# Clouds
-#
-[playlists.clouds]
-mode = "continuous"
-
-[[playlists.clouds.items]]
-handle = "shadertoy://WXXcRn"
-fps = 20
-
-# Simplex
 #
 [playlists.simplex]
 mode = "continuous"
 
 [[playlists.simplex.items]]
+handle = "template"
+
+[[playlists.simplex.items]]
+handle = "shadertoy://WXXcRn"
+fps = 20
+
+[[playlists.simplex.items]]
 handle = "simplex"
 
-[playlists.simplex-color]
-mode = "continuous"
-
-[[playlists.simplex-color.items]]
+[[playlists.simplex.items]]
 handle = "simplex-color"
 
 [targets]
-"_default" = "simplex-color"
-"1" = "clouds"
+"_default" = "simplex"
