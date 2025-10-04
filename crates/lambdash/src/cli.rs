@@ -22,7 +22,7 @@ pub struct Cli {
 
 #[derive(Parser, Debug)]
 pub struct RunArgs {
-    /// Shader or playlist handle (`shadertoy://abc123`, `local://demo`, `playlist://demo`, or `./local-shaders/demo`).
+    /// Shader or playlist handle (`shadertoy://abc123`, `local://demo`, `playlist://focus`, or `./shaders/demo`).
     #[arg(value_name = "HANDLE")]
     pub shader: Option<LaunchHandleArg>,
 

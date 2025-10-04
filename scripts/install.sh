@@ -119,6 +119,7 @@ fi
 ensure_command cargo
 ensure_command git
 ensure_command tar
+ensure_command install
 
 TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t lambdash-install)
 repo_path="${TMPDIR_ROOT}/LambdaShade"
@@ -155,8 +156,40 @@ echo "[lambdash-installer] Installing bundled shaders into $data_dir"
 mkdir -p "$data_dir"
 if [[ -d "$repo_path/local-shaders" ]]; then
   rm -rf "$data_dir/local-shaders"
-  mkdir -p "$data_dir/local-shaders"
-  tar -C "$repo_path/local-shaders" -cf - . | tar -C "$data_dir/local-shaders" -xf -
+
+  for entry in "$repo_path"/local-shaders/*; do
+    [[ -e "$entry" ]] || continue
+    name=$(basename "$entry")
+    if [[ "$name" == "playlists" ]]; then
+      continue
+    fi
+
+    if [[ -d "$entry" ]]; then
+      dest="$data_dir/$name"
+      rm -rf "$dest"
+      mkdir -p "$dest"
+      tar -C "$entry" -cf - . | tar -C "$dest" -xf -
+      echo "[lambdash-installer]   pack: $name"
+    elif [[ "$entry" == *.toml ]]; then
+      dest="$data_dir/$name"
+      mkdir -p "$(dirname "$dest")"
+      install -m 0644 "$entry" "$dest"
+      echo "[lambdash-installer]   playlist: $name"
+    else
+      dest="$data_dir/$name"
+      install -m 0644 "$entry" "$dest"
+    fi
+  done
+
+  if [[ -d "$repo_path/local-shaders/playlists" ]]; then
+    for playlist in "$repo_path"/local-shaders/playlists/*.toml; do
+      [[ -e "$playlist" ]] || continue
+      name=$(basename "$playlist")
+      dest="$data_dir/$name"
+      install -m 0644 "$playlist" "$dest"
+      echo "[lambdash-installer]   playlist: $name"
+    done
+  fi
 else
   echo "[lambdash-installer] Warning: no local-shaders directory found in source" >&2
 fi
@@ -172,6 +205,6 @@ if [[ -n "$bin_path" ]]; then
 else
   echo "[lambdash-installer] Binary installed; ensure your cargo bin directory is on PATH."
 fi
-echo "[lambdash-installer] Shader packs installed to: $data_dir/local-shaders"
+echo "[lambdash-installer] Shader assets installed to: $data_dir"
 
 echo "[lambdash-installer] Run 'lambdash defaults where' to verify configuration."

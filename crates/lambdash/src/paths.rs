@@ -95,10 +95,19 @@ impl AppPaths {
     }
 
     pub fn shader_user_dirs(&self) -> Vec<PathBuf> {
-        vec![
-            self.config_dir.join("local-shaders"),
-            self.data_dir.join("local-shaders"),
-        ]
+        let mut dirs = vec![self.data_dir.clone()];
+
+        let legacy_config = self.config_dir.join("local-shaders");
+        if !dirs.contains(&legacy_config) {
+            dirs.push(legacy_config);
+        }
+
+        let legacy_data = self.data_dir.join("local-shaders");
+        if !dirs.contains(&legacy_data) {
+            dirs.push(legacy_data);
+        }
+
+        dirs
     }
 
     pub fn shader_roots(&self) -> Vec<PathBuf> {

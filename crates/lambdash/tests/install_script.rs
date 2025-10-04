@@ -45,8 +45,7 @@ fn installer_script_copies_defaults() {
     );
 
     let data_dir = data_dir.path();
-    assert!(data_dir.join("local-shaders").exists());
-    assert!(data_dir
-        .join("local-shaders/playlists/workspaces.toml")
-        .exists());
+    assert!(!data_dir.join("local-shaders").exists());
+    assert!(data_dir.join("simplex").is_dir());
+    assert!(data_dir.join("simplex.toml").is_file());
 }

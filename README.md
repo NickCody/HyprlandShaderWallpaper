@@ -143,7 +143,7 @@ paths if you need to double-check the environment.
 Downstream packages and automation should mirror the installer’s behaviour:
 
 - Invoke `scripts/install.sh --skip-build --data-dir <dest>` during packaging to
-  materialise `local-shaders/` into your staging area.
+  stage the bundled shader packs (`<dest>/<pack>/`) and playlists (`<dest>/*.toml`).
 - When producing system packages (`.deb`, `.rpm`, etc.), call the script with
   `--system` or provide explicit `--prefix`/`--data-dir` flags that match your
   filesystem layout.
@@ -177,7 +177,7 @@ Run `just --list` to discover additional recipes as they land.
 
 Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or
 output. The configuration format is documented in `SpecMulti.md`, and sample playlists live
-under `local-shaders/playlists/` (e.g. `workspaces.toml`). A quick way to
+under `local-shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied to `$DATA_DIR/*.toml` by the installer. A quick way to
 experiment is:
 
 ```
@@ -202,8 +202,8 @@ Local shader handles accept shell-style expansions so configs stay portable:
 - `~` expands to the current user's home directory (e.g. `~/shaders/demo`).
 - `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
   error so typos show up immediately.
-- Relative paths first check the process working directory, then the resolved XDG config/data
-  directories, and finally `/usr/share/lambdash`.
+- Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
+- `local://<pack>` searches `$DATA_DIR` (or `LAMBDASH_DATA_DIR`), then legacy `local-shaders/` trees under the config/data dirs, and finally `/usr/share/lambdash/local-shaders/`.
 
 This logic applies across CLI handles (`lambdash $HOME/shaders/demo`), playlist manifests, and
 the defaults bootstrap. Run `lambdash defaults where` to inspect which directories are currently

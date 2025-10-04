@@ -14,37 +14,37 @@ crossfade = "4s"
 # Vibes
 #
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-grayday"
+handle = "vibe-grayday"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-aurora"
+handle = "vibe-aurora"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-neonrise"
+handle = "vibe-neonrise"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-coralbloom"
+handle = "vibe-coralbloom"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-lilacglow"
+handle = "vibe-lilacglow"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-midnightjazz"
+handle = "vibe-midnightjazz"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-solarflare"
+handle = "vibe-solarflare"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-deepcurrent"
+handle = "vibe-deepcurrent"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-sakurastream"
+handle = "vibe-sakurastream"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-mojitomist"
+handle = "vibe-mojitomist"
 
 [[playlists.vibes.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-emberdream"
+handle = "vibe-emberdream"
 
 # Grayday
 #
@@ -53,7 +53,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.grayday.items]]
-handle = "/home/nic/repos/LambdaShader/vibe-grayday"
+handle = "vibe-grayday"
 
 # Simplex
 #
@@ -62,7 +62,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.simplex.items]]
-handle = "/home/nic/repos/LambdaShader/simplex-color"
+handle = "simplex-color"
 
 # Fungal Apocalypse
 #
@@ -71,7 +71,7 @@ mode = "continuous"
 item_duration = "10m"
 
 [[playlists.fungal.items]]
-handle = "/home/nic/repos/LambdaShader/fungal-apocalypse"
+handle = "fungal-apocalypse"
 
 # Kaleidoscope
 #
@@ -81,10 +81,10 @@ item_duration = "15s"
 crossfade = "1s"
 
 [[playlists.kaleidoscope.items]]
-handle = "/home/nic/repos/LambdaShader/kal-honeycomb2"
+handle = "kal-honeycomb2"
 
 [[playlists.kaleidoscope.items]]
-handle = "/home/nic/repos/LambdaShader/kal-petalspire"
+handle = "kal-petalspire"
 
 [targets]
 "1" = "simplex"

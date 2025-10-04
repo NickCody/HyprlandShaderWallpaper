@@ -14,7 +14,7 @@ This document specifies the multi-workspace playlist system for Lambda Shader (l
 
 ## CLI Behavior
 
-- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`config/local-shaders`, `data/local-shaders`, `/usr/share/lambdash/local-shaders`). Absolute paths are accepted; directories are rejected.
+- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`$DATA_DIR`, legacy `config/local-shaders`, legacy `data/local-shaders`, `/usr/share/lambdash/local-shaders`). Absolute paths are accepted; directories are rejected.
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
@@ -69,7 +69,7 @@ fps = 0                    # 0=uncapped
 antialias = "auto"
 
 [[playlists.ambient.items]]
-handle = "local-shaders/grayday"  # directory or shadertoy handle
+handle = "local://grayday"  # local pack or shadertoy handle
 duration = "300s"
 fps = 0
 antialias = "auto"
@@ -91,10 +91,10 @@ fps = 0
 antialias = "auto"
 
 [[playlists.focus.items]]
-handle = "local-shaders/simplex"
+handle = "local://simplex"
 
 [[playlists.focus.items]]
-handle = "local-shaders/rotating-voronoise"
+handle = "local://rotating-voronoise"
 
 [targets]
 # Map workspaces and outputs to playlists. Multiple selectors can point to the same playlist.
@@ -128,14 +128,12 @@ handle = "local-shaders/rotating-voronoise"
   - `antialias` (string|number, optional): playlist-level default AA.
   - `[[playlists.<name>.items]]` (one or more):
     - `handle` (string, required): shader handle. Examples:
-      - `local-shaders/<dir>`
+      - `local://<pack>` (searches `$DATA_DIR`, legacy `local-shaders/` trees, `/usr/share/lambdash/local-shaders/`)
       - `shadertoy://<ID>`
-      - absolute or relative pack path
+      - absolute or relative filesystem path (anything containing a `/` after expansion)
       - `${MY_SHADER_PACK}` (environment variable expansion)
       - `~/shaders/demo` (home directory expansion)
-      After expansion, relative paths search the current working directory, then the XDG config/data
-      `local-shaders/` directories, and finally `/usr/share/lambdash/local-shaders/`. Unset environment
-      variables abort with a descriptive error.
+      Unset environment variables abort with a descriptive error. Handles without slashes or schemes must use the `local://` form.
     - `duration` (string|number, optional): per-item duration.
     - `fps` (number >= 0, optional): per-item FPS cap.
     - `antialias` (string|number, optional): per-item AA.
@@ -276,7 +274,7 @@ mode = "continuous"
 item_duration = "300s"
 
 [[playlists.ambient.items]]
-handle = "local-shaders/grayday"
+handle = "local://grayday"
 
 [[playlists.ambient.items]]
 handle = "shadertoy://3dXyWj"
@@ -298,10 +296,10 @@ mode = "continuous"
 item_duration = "5m"
 
 [[playlists.ambient.items]]
-handle = "local-shaders/grayday"
+handle = "local://grayday"
 
 [[playlists.ambient.items]]
-handle = "local-shaders/fungal-apocalypse"
+handle = "local://fungal-apocalypse"
 fps = 30
 antialias = 4
 
@@ -310,10 +308,10 @@ mode = "shuffle"
 item_duration = "90s"
 
 [[playlists.focus.items]]
-handle = "local-shaders/simplex"
+handle = "local://simplex"
 
 [[playlists.focus.items]]
-handle = "local-shaders/rotating-voronoise"
+handle = "local://rotating-voronoise"
 
 [targets]
 "workspace:2" = "focus"
@@ -351,7 +349,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 ### Stage 4 – Enhancements & Validation
 1. Implement workspace-switch crossfade preemption and confirm transitions abort/resume correctly.
 2. Add logging/telemetry to record playlist decisions and transitions for troubleshooting.
-3. Document configuration usage (README/AGENTS.md) and provide sample configs under `local-shaders/playlists/`.
+3. Document configuration usage (README/AGENTS.md) and provide sample configs alongside the bundled assets (`$DATA_DIR/*.toml`).
 
 Each stage builds on the previous one; stick to the sequence to minimize merge conflicts and keep the behavior testable throughout the implementation.
 

@@ -86,8 +86,8 @@ $DATA_DIR/
 - Gate the existing search logic behind `local://` and `playlist://`, updating error messages to describe the new scheme expectations.
 
 ### Phase 2 — Asset Layout & Installer Updates
-- Adjust bootstrap/install scripts to copy shader packs directly into `$DATA_DIR/<pack>` and playlists to `$DATA_DIR/*.toml`, cleaning up legacy `local-shaders/` or `playlists/` directories when safe.
-- Update runtime bootstrap to tolerate both old and new layouts temporarily, with warnings prompting migration (since project not yet released, focus on repo coherence).
+- Adjust bootstrap/install scripts to copy shader packs directly into `$DATA_DIR/<pack>` and playlists to `$DATA_DIR/*.toml`.
+- Update runtime search paths to tolerate legacy trees temporarily (project is unreleased, so migrations can be manual).
 - Refresh documentation stubs (`README`, `AGENTS`, sample configs) to advertise the flattened layout and scheme usage.
 
 ### Phase 3 — Codebase Sweep & Tooling
