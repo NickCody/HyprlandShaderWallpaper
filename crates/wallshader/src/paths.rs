@@ -95,16 +95,21 @@ impl AppPaths {
     }
 
     pub fn shader_user_dirs(&self) -> Vec<PathBuf> {
-        let mut dirs = vec![self.data_dir.clone()];
+        let mut dirs = vec![
+            self.config_dir.join("shaders"),
+            self.data_dir.join("shaders"),
+        ];
 
+        // Legacy support: also search the data_dir root for existing setups
+        let legacy_data_root = self.data_dir.clone();
+        if !dirs.contains(&legacy_data_root) {
+            dirs.push(legacy_data_root);
+        }
+
+        // Legacy support: also search config_dir/shaders (already in dirs)
         let legacy_config = self.config_dir.join("shaders");
         if !dirs.contains(&legacy_config) {
             dirs.push(legacy_config);
-        }
-
-        let legacy_data = self.data_dir.join("shaders");
-        if !dirs.contains(&legacy_data) {
-            dirs.push(legacy_data);
         }
 
         dirs
@@ -124,6 +129,25 @@ impl AppPaths {
 
     pub fn shadertoy_cache_dir(&self) -> PathBuf {
         self.cache_dir.join("shadertoy")
+    }
+
+    pub fn playlist_user_dirs(&self) -> Vec<PathBuf> {
+        vec![
+            self.config_dir.join("playlists"),
+            self.data_dir.join("playlists"),
+        ]
+    }
+
+    pub fn playlist_roots(&self) -> Vec<PathBuf> {
+        let mut roots = self.playlist_user_dirs();
+        roots.push(self.share_dir.join("playlists"));
+        if let Some(dev_root) = &self.dev_root {
+            let candidate = dev_root.join("playlists");
+            if !roots.contains(&candidate) {
+                roots.push(candidate);
+            }
+        }
+        roots
     }
 }
 

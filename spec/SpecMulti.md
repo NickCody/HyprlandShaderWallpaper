@@ -69,7 +69,7 @@ fps = 0                    # 0=uncapped
 antialias = "auto"
 
 [[playlists.ambient.items]]
-handle = "local://grayday"  # local pack or shadertoy handle
+handle = "shader://grayday"  # shader pack or shadertoy handle
 duration = "300s"
 fps = 0
 antialias = "auto"
@@ -91,10 +91,10 @@ fps = 0
 antialias = "auto"
 
 [[playlists.focus.items]]
-handle = "local://simplex"
+handle = "shader://simplex"
 
 [[playlists.focus.items]]
-handle = "local://rotating-voronoise"
+handle = "shader://rotating-voronoise"
 
 [targets]
 # Map workspaces and outputs to playlists. Multiple selectors can point to the same playlist.
@@ -128,12 +128,12 @@ handle = "local://rotating-voronoise"
   - `antialias` (string|number, optional): playlist-level default AA.
   - `[[playlists.<name>.items]]` (one or more):
     - `handle` (string, required): shader handle. Examples:
-      - `local://<pack>` (searches `$DATA_DIR`, legacy `shaders/` trees, `/usr/share/wallshader/shaders/`)
+      - `shader://<pack>` (searches `$DATA_DIR`, legacy `shaders/` trees, `/usr/share/wallshader/shaders/`)
       - `shadertoy://<ID>`
       - absolute or relative filesystem path (anything containing a `/` after expansion)
       - `${MY_SHADER_PACK}` (environment variable expansion)
       - `~/shaders/demo` (home directory expansion)
-      Unset environment variables abort with a descriptive error. Handles without slashes or schemes must use the `local://` form.
+      Unset environment variables abort with a descriptive error. Handles without slashes or schemes must use the `shader://` form.
     - `duration` (string|number, optional): per-item duration.
     - `fps` (number >= 0, optional): per-item FPS cap.
     - `antialias` (string|number, optional): per-item AA.
@@ -274,7 +274,7 @@ mode = "continuous"
 item_duration = "300s"
 
 [[playlists.ambient.items]]
-handle = "local://grayday"
+handle = "shader://grayday"
 
 [[playlists.ambient.items]]
 handle = "shadertoy://3dXyWj"
@@ -296,10 +296,10 @@ mode = "continuous"
 item_duration = "5m"
 
 [[playlists.ambient.items]]
-handle = "local://grayday"
+handle = "shader://grayday"
 
 [[playlists.ambient.items]]
-handle = "local://fungal-apocalypse"
+handle = "shader://fungal-apocalypse"
 fps = 30
 antialias = 4
 
@@ -308,10 +308,10 @@ mode = "shuffle"
 item_duration = "90s"
 
 [[playlists.focus.items]]
-handle = "local://simplex"
+handle = "shader://simplex"
 
 [[playlists.focus.items]]
-handle = "local://rotating-voronoise"
+handle = "shader://rotating-voronoise"
 
 [targets]
 "workspace:2" = "focus"

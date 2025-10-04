@@ -152,46 +152,43 @@ else
   echo "[wallshader-installer] Skipping cargo build (--skip-build)"
 fi
 
-echo "[wallshader-installer] Installing bundled shaders into $data_dir"
-mkdir -p "$data_dir"
-if [[ -d "$repo_path/shaders" ]]; then
-  rm -rf "$data_dir/shaders"
+echo "[wallshader-installer] Installing bundled shaders and playlists into $data_dir"
+mkdir -p "$data_dir/shaders" "$data_dir/playlists"
 
+# Install shader packs
+if [[ -d "$repo_path/shaders" ]]; then
   for entry in "$repo_path"/shaders/*; do
     [[ -e "$entry" ]] || continue
     name=$(basename "$entry")
+    
+    # Skip legacy playlists directory if present in shaders/
     if [[ "$name" == "playlists" ]]; then
       continue
     fi
-
+    
     if [[ -d "$entry" ]]; then
-      dest="$data_dir/$name"
+      dest="$data_dir/shaders/$name"
       rm -rf "$dest"
       mkdir -p "$dest"
       tar -C "$entry" -cf - . | tar -C "$dest" -xf -
-      echo "[wallshader-installer]   pack: $name"
-    elif [[ "$entry" == *.toml ]]; then
-      dest="$data_dir/$name"
-      mkdir -p "$(dirname "$dest")"
-      install -m 0644 "$entry" "$dest"
-      echo "[wallshader-installer]   playlist: $name"
-    else
-      dest="$data_dir/$name"
-      install -m 0644 "$entry" "$dest"
+      echo "[wallshader-installer]   shader pack: $name"
     fi
   done
-
-  if [[ -d "$repo_path/shaders/playlists" ]]; then
-    for playlist in "$repo_path"/shaders/playlists/*.toml; do
-      [[ -e "$playlist" ]] || continue
-      name=$(basename "$playlist")
-      dest="$data_dir/$name"
-      install -m 0644 "$playlist" "$dest"
-      echo "[wallshader-installer]   playlist: $name"
-    done
-  fi
 else
   echo "[wallshader-installer] Warning: no shaders directory found in source" >&2
+fi
+
+# Install playlists
+if [[ -d "$repo_path/playlists" ]]; then
+  for playlist in "$repo_path"/playlists/*.toml; do
+    [[ -e "$playlist" ]] || continue
+    name=$(basename "$playlist")
+    dest="$data_dir/playlists/$name"
+    install -m 0644 "$playlist" "$dest"
+    echo "[wallshader-installer]   playlist: $name"
+  done
+else
+  echo "[wallshader-installer] Warning: no playlists directory found in source" >&2
 fi
 
 bin_path=$(command -v wallshader 2>/dev/null || true)

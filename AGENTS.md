@@ -12,9 +12,9 @@ WallShader (wallshader) is a Rust-based wallpaper engine focused on Wayland comp
 ## Key Features
 
 - **ShaderToy API support**: `ShadertoyClient` downloads shader JSON, GLSL code, and assets, converting them into validated `shader.toml` manifests ready for the renderer.
-- **Local pack compatibility**: Users can place shader directories in `shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
-- **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
-- **Path handling**: `local://<pack>` and `playlist://<name>` handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the data dir, legacy `shaders/` trees, and `/usr/share/wallshader`. Anything containing a `/` is interpreted literally after expansion. Missing variables fail fast so misconfigurations surface immediately.
+- **Shader pack compatibility**: Users can place shader directories in `shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
+- **Unified repository**: `ShaderRepository` resolves shader packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
+- **Path handling**: `shader://<pack>` and `playlist://<name>` handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the data dir, legacy `shaders/` trees, and `/usr/share/wallshader`. Anything containing a `/` is interpreted literally after expansion. Missing variables fail fast so misconfigurations surface immediately.
 - **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/wallshader/` (packs become subdirectories, playlists flatten to top-level `.toml`). Use `--system` for `/usr/local` + `/usr/share/wallshader`, or pass `--data-dir`/`--prefix` to target custom locations.
 - **CLI-driven daemon**: `wallshader` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 

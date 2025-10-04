@@ -24,7 +24,7 @@
 - Behaviour unchanged: resolve via `ShadertoyClient`, cache under `AppDirs.cache_dir/shadertoy/<ID>`.
 - Valid IDs follow ShaderToy rules (alphanumeric + `_`). Reject missing IDs with user-facing errors.
 
-### 3. `local://<name>`
+### 3. `shader://<name>`
 - Represents a shader pack directory containing manifests + GLSL.
 - Search order (first match wins):
   1. `AppDirs.data_dir/<name>`
@@ -63,17 +63,17 @@ $DATA_DIR/
 
 ## Developer Workflow
 - Run commands from repo root: `cargo run -p wallshader -- ./shaders/simplex-color` to use in-tree assets literally.
-- To test installed layouts, invoke `scripts/install.sh --data-dir ~/.local/share/wallshader` then run `wallshader local://simplex-color`.
+- To test installed layouts, invoke `scripts/install.sh --data-dir ~/.local/share/wallshader` then run `wallshader shader://simplex-color`.
 - When editing default packs, modify files under `shaders/<pack>` and rerun the installer; the copy will mirror into the flattened data layout.
 
 ## User Workflow
-- End users rely on `local://` / `playlist://` handles; they edit files under `$DATA_DIR` directly.
+- End users rely on `shader://` / `playlist://` handles; they edit files under `$DATA_DIR` directly.
 - To override a bundled shader, copy the share-dir version into the data dir and continue editing; the search order ensures the user copy wins.
 - Bare filesystem paths work for advanced users who keep assets elsewhere (e.g. `wallshader ~/Shaders/custom-pack`).
 
 ## Implementation Notes
 - Centralize parsing in a `Handle` enum (`RawPath`, `Shadertoy(id)`, `LocalPack(name)`, `Playlist(name)`).
-- Enforce "slash means raw" before scheme detection to avoid `local://` being misinterpreted.
+- Enforce "slash means raw" before scheme detection to avoid `shader://` being misinterpreted.
 - Provide descriptive errors: include the search roots that were checked, and suggest using an explicit scheme when a bare handle is ambiguous.
 - Update `scripts/install.sh` to flatten the copy layout (dirs move up one level, playlists emitted as top-level `.toml`).
 - Document the final behaviour in `README.md` and `AGENTS.md` once implemented.
@@ -83,7 +83,7 @@ $DATA_DIR/
 ### Phase 1 — Resolver & CLI Wiring
 - Introduce the `Handle` enum and parser, update CLI argument handling to produce typed handles, and switch consumers (daemon, tests, tools) to use the new abstraction.
 - Ensure raw paths execute the literal-path semantics (env expansion + POSIX resolution) and add targeted tests covering edge cases like undefined vars and trailing slashes.
-- Gate the existing search logic behind `local://` and `playlist://`, updating error messages to describe the new scheme expectations.
+- Gate the existing search logic behind `shader://` and `playlist://`, updating error messages to describe the new scheme expectations.
 
 ### Phase 2 — Asset Layout & Installer Updates
 - Adjust bootstrap/install scripts to copy shader packs directly into `$DATA_DIR/<pack>` and playlists to `$DATA_DIR/*.toml`.

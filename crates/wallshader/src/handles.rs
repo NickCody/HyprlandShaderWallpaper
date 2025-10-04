@@ -67,8 +67,8 @@ impl EntryHandle {
             return Ok(Self::Shadertoy { id: id.to_string() });
         }
 
-        if let Some(rest) = trimmed.strip_prefix("local://") {
-            let name = parse_named_handle(rest, "local pack")?;
+        if let Some(rest) = trimmed.strip_prefix("shader://") {
+            let name = parse_named_handle(rest, "shader pack")?;
             return Ok(Self::LocalPack { name });
         }
 
@@ -83,7 +83,7 @@ impl EntryHandle {
         }
 
         bail!(
-            "unable to infer handle type from '{trimmed}'. Use local://{trimmed} or provide a filesystem path"
+            "unable to infer handle type from '{trimmed}'. Use shader://{trimmed} or provide a filesystem path"
         );
     }
 
@@ -102,7 +102,7 @@ impl EntryHandle {
                 } else {
                     debug!(
                         handle = %trimmed,
-                        "defaulting bare handle to local://{}",
+                        "defaulting bare handle to shader://{}",
                         trimmed
                     );
                     Ok(Self::LocalPack {
@@ -145,6 +145,67 @@ impl PlaylistHandle {
 
         bail!(
             "unable to infer playlist handle from '{trimmed}'. Use playlist://{trimmed} or provide a filesystem path"
+        );
+    }
+
+    pub fn resolve_path(&self, search_roots: &[PathBuf]) -> Result<PathBuf> {
+        
+        match self {
+            PlaylistHandle::RawPath(path) => {
+                if path.is_absolute() {
+                    if path.is_dir() {
+                        bail!("playlist expects a file, not a directory: {}", path.display());
+                    }
+                    if path.exists() {
+                        return Ok(path.clone());
+                    }
+                    bail!("playlist file not found: {}", path.display());
+                }
+                
+                // For relative raw paths, search in playlist directories
+                self.search_in_roots(path, search_roots)
+            }
+            PlaylistHandle::Named { name } => {
+                // Add .toml extension if not present
+                let filename = if name.ends_with(".toml") {
+                    name.clone()
+                } else {
+                    format!("{}.toml", name)
+                };
+                let path = PathBuf::from(filename);
+                self.search_in_roots(&path, search_roots)
+            }
+        }
+    }
+
+    fn search_in_roots(&self, path: &Path, search_roots: &[PathBuf]) -> Result<PathBuf> {
+        use std::path::Component;
+        
+        if path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        }) {
+            bail!("playlist path does not allow parent or absolute segments: {}", path.display());
+        }
+
+        for root in search_roots {
+            let candidate = root.join(path);
+            if candidate.is_file() {
+                return Ok(candidate);
+            }
+        }
+
+        let searched: Vec<String> = search_roots
+            .iter()
+            .map(|root| root.display().to_string())
+            .collect();
+
+        bail!(
+            "playlist '{}' not found; searched: {}",
+            path.display(),
+            searched.join(", ")
         );
     }
 }
@@ -192,7 +253,7 @@ impl fmt::Display for LaunchHandleArg {
         match &self.0 {
             LaunchHandle::Entry(entry) => match entry {
                 EntryHandle::RawPath(path) => write!(f, "{}", path.display()),
-                EntryHandle::LocalPack { name } => write!(f, "local://{name}"),
+                EntryHandle::LocalPack { name } => write!(f, "shader://{name}"),
                 EntryHandle::Shadertoy { id } => write!(f, "shadertoy://{id}"),
             },
             LaunchHandle::Playlist(playlist) => PlaylistHandleArg(playlist.clone()).fmt(f),
@@ -229,8 +290,8 @@ mod tests {
     }
 
     #[test]
-    fn parses_local_scheme() {
-        let handle = EntryHandle::parse("local://demo").unwrap();
+    fn parses_shader_scheme() {
+        let handle = EntryHandle::parse("shader://demo").unwrap();
         assert_eq!(
             handle,
             EntryHandle::LocalPack {
@@ -251,7 +312,7 @@ mod tests {
     #[test]
     fn bare_names_error() {
         let err = EntryHandle::parse("demo").unwrap_err();
-        assert!(err.to_string().contains("local://demo"));
+        assert!(err.to_string().contains("shader://demo"));
     }
 
     #[test]
@@ -285,7 +346,7 @@ mod tests {
 
     #[test]
     fn launch_parses_entry_scheme() {
-        let handle = LaunchHandleArg::from_str("local://demo").unwrap();
+        let handle = LaunchHandleArg::from_str("shader://demo").unwrap();
         match handle.into_inner() {
             LaunchHandle::Entry(EntryHandle::LocalPack { name }) => assert_eq!(name, "demo"),
             _ => panic!("expected entry launch handle"),

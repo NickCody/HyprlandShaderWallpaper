@@ -443,7 +443,7 @@ item_duration = "300s"
 crossfade = "1s"
 
 [[playlists.ambient.items]]
-handle = "local://grayday"
+handle = "shader://grayday"
 
 [[playlists.ambient.items]]
 handle = "shadertoy://3dXyWj"
@@ -457,7 +457,7 @@ mode = "shuffle"
 item_duration = "90s"
 
 [[playlists.focus.items]]
-handle = "local://simplex"
+handle = "shader://simplex"
 
 [targets]
 "workspace:2" = "focus"
@@ -486,7 +486,7 @@ mode = "continuous"
 item_duration = 60
 
 [[playlists.main.items]]
-handle = "local://demo"
+handle = "shader://demo"
 
 [defaults]
 playlist = "missing"
@@ -505,7 +505,7 @@ mode = "continuous"
 item_duration = 60
 
 [[playlists.main.items]]
-handle = "local://demo"
+handle = "shader://demo"
 
 [targets]
 "badselector" = "main"

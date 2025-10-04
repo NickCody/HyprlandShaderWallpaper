@@ -36,7 +36,7 @@ WebGL defaults used on shadertoy.com. You can override this at several levels:
 - **CLI:** `--color-space {auto|gamma|linear}`. `auto` behaves like ShaderToy
   (`gamma`), while `linear` requests sRGB swapchains/textures so physically based
   shaders can output linear light.
-- **Manifest:** Local packs may set `color_space = "gamma"` (or `"linear"`) in
+- **Manifest:** Shader packs may set `color_space = "gamma"` (or `"linear"`) in
   `shader.toml`. CLI overrides manifest; manifest overrides the default.
 - **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
   dominates, otherwise each pack’s manifest decides the swapchain format.
@@ -203,7 +203,7 @@ Local shader handles accept shell-style expansions so configs stay portable:
 - `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
   error so typos show up immediately.
 - Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
-- `local://<pack>` searches `$DATA_DIR` (or `WALLSHADER_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/wallshader/shaders/`.
+- `shader://<pack>` searches `$DATA_DIR` (or `WALLSHADER_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/wallshader/shaders/`.
 
 This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlist manifests, and
 the defaults bootstrap. Run `wallshader defaults where` to inspect which directories are currently

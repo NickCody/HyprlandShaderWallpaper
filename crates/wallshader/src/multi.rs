@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
@@ -38,11 +38,11 @@ pub fn run_multi(
     paths: &AppPaths,
     resolver: PathResolver,
 ) -> Result<()> {
-    let shader_roots = paths.shader_roots();
-    let playlist_path = playlist_handle_to_path(handle)?;
-    let (config, config_path) = load_config(&playlist_path, &shader_roots)?;
+    let playlist_roots = paths.playlist_roots();
+    let config_path = handle.resolve_path(&playlist_roots)?;
+    let config = load_config(&config_path)?;
     info!(config = %config_path.display(), "loaded playlist configuration");
-    debug!(roots = ?shader_roots, "playlist search roots");
+    debug!(roots = ?playlist_roots, "playlist search roots");
 
     if args.window {
         run_window_multi(args, repo, client, config, resolver)
@@ -51,72 +51,14 @@ pub fn run_multi(
     }
 }
 
-fn load_config(path: &Path, search_roots: &[PathBuf]) -> Result<(MultiConfig, PathBuf)> {
-    let resolved = resolve_playlist_path(path, search_roots)?;
-    let contents = fs::read_to_string(&resolved)
-        .with_context(|| format!("failed to read playlist at {}", resolved.display()))?;
+fn load_config(path: &Path) -> Result<MultiConfig> {
+    let contents = fs::read_to_string(path)
+        .with_context(|| format!("failed to read playlist at {}", path.display()))?;
     let config = MultiConfig::from_toml_str(&contents)?;
-    Ok((config, resolved))
+    Ok(config)
 }
 
-fn playlist_handle_to_path(handle: PlaylistHandle) -> Result<PathBuf> {
-    match handle {
-        PlaylistHandle::RawPath(path) => Ok(path),
-        PlaylistHandle::Named { name } => {
-            let candidate = if name.ends_with(".toml") {
-                name
-            } else {
-                format!("{name}.toml")
-            };
-            Ok(PathBuf::from(candidate))
-        }
-    }
-}
 
-fn resolve_playlist_path(path: &Path, search_roots: &[PathBuf]) -> Result<PathBuf> {
-    if path.is_absolute() {
-        if path.is_dir() {
-            bail!(
-                "--playlist expects a file, not a directory: {}",
-                path.display()
-            );
-        }
-        if path.exists() {
-            return Ok(path.to_path_buf());
-        }
-        bail!("playlist file not found: {}", path.display());
-    }
-
-    if path.components().any(|component| {
-        matches!(
-            component,
-            Component::ParentDir | Component::RootDir | Component::Prefix(_)
-        )
-    }) {
-        bail!(
-            "--playlist does not allow parent or absolute segments: {}",
-            path.display()
-        );
-    }
-
-    for root in search_roots {
-        let candidate = root.join(path);
-        if candidate.is_file() {
-            return Ok(candidate);
-        }
-    }
-
-    let searched: Vec<String> = search_roots
-        .iter()
-        .map(|root| root.display().to_string())
-        .collect();
-
-    bail!(
-        "playlist '{}' not found; searched: {}",
-        path.display(),
-        searched.join(", ")
-    );
-}
 
 fn run_wallpaper_multi(
     args: &RunArgs,

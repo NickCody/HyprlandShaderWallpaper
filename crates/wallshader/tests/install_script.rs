@@ -45,7 +45,13 @@ fn installer_script_copies_defaults() {
     );
 
     let data_dir = data_dir.path();
-    assert!(!data_dir.join("shaders").exists());
-    assert!(data_dir.join("simplex").is_dir());
-    assert!(data_dir.join("simplex.toml").is_file());
+    // Check that the new directory structure is created
+    assert!(data_dir.join("shaders").exists());
+    assert!(data_dir.join("playlists").exists());
+    
+    // Check that shader packs are in the shaders subdirectory
+    assert!(data_dir.join("shaders/simplex").is_dir());
+    
+    // Check that playlists are in the playlists subdirectory
+    assert!(data_dir.join("playlists/simplex.toml").is_file());
 }

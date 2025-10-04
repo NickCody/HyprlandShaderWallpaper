@@ -80,7 +80,7 @@ impl ShaderRepository {
 
     fn load_local_pack(&self, path: &Path) -> Result<LocalPack> {
         if path.as_os_str().is_empty() {
-            return Err(anyhow!("local pack path must not be empty"));
+            return Err(anyhow!("shader pack path must not be empty"));
         }
 
         debug!(requested = %path.display(), roots = ?self.local_roots, "resolving local shader pack");
@@ -100,7 +100,7 @@ impl ShaderRepository {
                     Ok(pack) => {
                         ensure_glsl_sources(&pack).map_err(|err| match err {
                             PackError::ManifestValidation(items) => anyhow!(
-                                "local pack '{}' failed validation: {:?}",
+                                "shader pack '{}' failed validation: {:?}",
                                 candidate.display(),
                                 items
                             ),
@@ -117,9 +117,9 @@ impl ShaderRepository {
             }
         }
 
-        warn!(requested = %path.display(), roots = ?self.local_roots, "local shader pack missing");
+        warn!(requested = %path.display(), roots = ?self.local_roots, "shader pack missing");
         Err(anyhow!(
-            "unable to locate local shader pack '{}'. searched roots: {:?}",
+            "unable to locate shader pack '{}'. searched roots: {:?}",
             path.display(),
             self.local_roots
         ))
@@ -232,14 +232,14 @@ mod tests {
         let handle = ShaderHandle::LocalPack(PathBuf::from("demo"));
         let source = repo
             .resolve(&handle, None, false)
-            .expect("resolve local pack");
+            .expect("resolve shader pack");
         match source {
             ShaderSource::Local(pack) => {
                 assert_eq!(pack.root(), pack_dir);
                 let entry = load_entry_shader(&ShaderSource::Local(pack.clone())).unwrap();
                 assert!(entry.ends_with("image.glsl"));
             }
-            _ => panic!("expected local pack"),
+            _ => panic!("expected shader pack"),
         }
     }
 
