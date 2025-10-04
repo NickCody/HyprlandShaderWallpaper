@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use renderer::{Antialiasing, ColorSpaceMode, ExportFormat, FillMethod, ShaderCompiler};
 
+use crate::handles::{LaunchHandleArg, PlaylistHandleArg};
+
 #[derive(Parser, Debug)]
 #[command(
     name = "lambdash",
@@ -20,17 +22,17 @@ pub struct Cli {
 
 #[derive(Parser, Debug)]
 pub struct RunArgs {
-    /// Shader handle (e.g. `shadertoy://abc123` or `local-shaders/demo`)
+    /// Shader or playlist handle (`shadertoy://abc123`, `local://demo`, `playlist://demo`, or `./local-shaders/demo`).
     #[arg(value_name = "HANDLE")]
-    pub shader: Option<String>,
+    pub shader: Option<LaunchHandleArg>,
 
     /// Convenience flag for specifying a Shadertoy URL or ID.
     #[arg(long, value_name = "URL")]
     pub shadertoy: Option<String>,
 
-    /// Enable playlist mode using the supplied playlist TOML file.
-    #[arg(long = "playlist", alias = "multi", value_name = "FILE")]
-    pub playlist: Option<PathBuf>,
+    /// Enable playlist mode using the supplied handle (`playlist://demo` or a filesystem path).
+    #[arg(long = "playlist", alias = "multi", value_name = "HANDLE")]
+    pub playlist: Option<PlaylistHandleArg>,
 
     /// Render the shader in a desktop window instead of wallpaper mode.
     #[arg(long)]

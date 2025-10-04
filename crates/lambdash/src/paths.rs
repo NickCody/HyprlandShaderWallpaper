@@ -23,6 +23,7 @@ const LEGACY_ENV_SHARE_DIR: &str = "HYSHADEW_SHARE_DIR";
 
 const LEGACY_ORGANISATION: &str = "Hyprland";
 const LEGACY_APPLICATION: &str = "Hyshadew";
+const ENV_DEV_ROOT: &str = "LAMBDASH_DEV_ROOT";
 
 #[derive(Debug, Clone)]
 pub struct AppPaths {
@@ -30,6 +31,7 @@ pub struct AppPaths {
     data_dir: PathBuf,
     cache_dir: PathBuf,
     share_dir: PathBuf,
+    dev_root: Option<PathBuf>,
 }
 
 impl AppPaths {
@@ -61,12 +63,14 @@ impl AppPaths {
         )?;
 
         let share_dir = resolve_share_dir(&project_dirs, legacy_dirs.as_ref())?;
+        let dev_root = detect_dev_root();
 
         Ok(Self {
             config_dir,
             data_dir,
             cache_dir,
             share_dir,
+            dev_root,
         })
     }
 
@@ -100,6 +104,12 @@ impl AppPaths {
     pub fn shader_roots(&self) -> Vec<PathBuf> {
         let mut roots = self.shader_user_dirs();
         roots.push(self.share_dir.join("local-shaders"));
+        if let Some(dev_root) = &self.dev_root {
+            let candidate = dev_root.join("local-shaders");
+            if !roots.contains(&candidate) {
+                roots.push(candidate);
+            }
+        }
         roots
     }
 
@@ -171,6 +181,25 @@ fn env_override(name: &str) -> Option<PathBuf> {
         Some(value) if !value.as_os_str().is_empty() => Some(PathBuf::from(value)),
         _ => None,
     }
+}
+
+fn detect_dev_root() -> Option<PathBuf> {
+    if let Some(explicit) = env_override(ENV_DEV_ROOT) {
+        return Some(explicit);
+    }
+
+    let mut current = env::current_dir().ok()?;
+    loop {
+        let candidate = current.join("local-shaders");
+        if candidate.is_dir() {
+            return Some(current.clone());
+        }
+        match current.parent() {
+            Some(parent) => current = parent.to_path_buf(),
+            None => break,
+        }
+    }
+    None
 }
 
 fn migrate_legacy_directory(

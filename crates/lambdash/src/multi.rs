@@ -16,10 +16,7 @@ use renderer::{
 };
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
-use shadertoy::{
-    load_entry_shader, parse_shader_handle, PathResolver, ShaderRepository, ShaderSource,
-    ShadertoyClient,
-};
+use shadertoy::{load_entry_shader, PathResolver, ShaderRepository, ShaderSource, ShadertoyClient};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::bindings::{
@@ -27,6 +24,7 @@ use crate::bindings::{
 };
 use crate::bootstrap::parse_surface_size;
 use crate::cli::RunArgs;
+use crate::handles::{EntryHandle, PlaylistHandle};
 use crate::paths::AppPaths;
 use crate::run::{resolve_render_scale, validate_occlusion_args};
 
@@ -36,12 +34,13 @@ pub fn run_multi(
     args: &RunArgs,
     repo: &ShaderRepository,
     client: Option<&ShadertoyClient>,
-    path: &Path,
+    handle: PlaylistHandle,
     paths: &AppPaths,
     resolver: PathResolver,
 ) -> Result<()> {
     let shader_roots = paths.shader_roots();
-    let (config, config_path) = load_config(path, &shader_roots)?;
+    let playlist_path = playlist_handle_to_path(handle)?;
+    let (config, config_path) = load_config(&playlist_path, &shader_roots)?;
     info!(config = %config_path.display(), "loaded playlist configuration");
     debug!(roots = ?shader_roots, "playlist search roots");
 
@@ -58,6 +57,20 @@ fn load_config(path: &Path, search_roots: &[PathBuf]) -> Result<(MultiConfig, Pa
         .with_context(|| format!("failed to read playlist at {}", resolved.display()))?;
     let config = MultiConfig::from_toml_str(&contents)?;
     Ok((config, resolved))
+}
+
+fn playlist_handle_to_path(handle: PlaylistHandle) -> Result<PathBuf> {
+    match handle {
+        PlaylistHandle::RawPath(path) => Ok(path),
+        PlaylistHandle::Named { name } => {
+            let candidate = if name.ends_with(".toml") {
+                name
+            } else {
+                format!("{name}.toml")
+            };
+            Ok(PathBuf::from(candidate))
+        }
+    }
 }
 
 fn resolve_playlist_path(path: &Path, search_roots: &[PathBuf]) -> Result<PathBuf> {
@@ -393,8 +406,9 @@ impl<'a> ShaderCache<'a> {
             }
         }
 
-        let shader_handle = parse_shader_handle(&self.resolver, handle)
+        let entry_handle = EntryHandle::parse_with_resolver_or_local(&self.resolver, handle)
             .with_context(|| format!("failed to parse shader handle '{handle}'"))?;
+        let shader_handle = entry_handle.into_shader_handle();
         debug!(handle = %handle, refresh, "resolving shader handle");
         let source = self
             .repo

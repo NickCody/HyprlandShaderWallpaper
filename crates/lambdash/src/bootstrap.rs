@@ -3,10 +3,11 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use renderer::RendererConfig;
-use shadertoy::{normalize_shadertoy_reference, parse_shader_handle, PathResolver, ShaderHandle};
+use shadertoy::normalize_shadertoy_reference;
 use tracing::{debug, info};
 
 use crate::cli::RunArgs;
+use crate::handles::{EntryHandle, LaunchHandle};
 use crate::paths::AppPaths;
 pub fn bootstrap_filesystem(paths: &AppPaths) -> Result<()> {
     let directories = vec![
@@ -42,18 +43,25 @@ fn ensure_directory(path: &Path) -> Result<()> {
     }
 }
 
-pub fn resolve_shader_handle(args: &RunArgs, resolver: &PathResolver) -> Result<ShaderHandle> {
+pub fn resolve_entry_handle(args: &RunArgs) -> Result<EntryHandle> {
     if let Some(ref shadertoy) = args.shadertoy {
         let normalized = normalize_shadertoy_reference(shadertoy)?;
-        return parse_shader_handle(resolver, &normalized);
+        let handle = EntryHandle::parse(&normalized)?;
+        return Ok(handle);
     }
 
-    let raw = args
-        .shader
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| "local-demo".to_string());
-    parse_shader_handle(resolver, &raw)
+    if let Some(launch) = args.shader.as_ref() {
+        match launch.inner() {
+            LaunchHandle::Entry(entry) => return Ok(entry.clone()),
+            LaunchHandle::Playlist(_) => {
+                bail!("playlist handle is not valid when resolving an entry shader")
+            }
+        }
+    }
+
+    Ok(EntryHandle::LocalPack {
+        name: "local-demo".to_string(),
+    })
 }
 
 pub fn parse_surface_size(spec: &str) -> Result<(u32, u32)> {

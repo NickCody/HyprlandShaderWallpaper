@@ -103,7 +103,10 @@ impl WindowState {
     }
 
     pub(crate) fn adapter_profile(&self) -> &AdapterProfile {
-        self.gpu.as_ref().expect("gpu initialized").adapter_profile()
+        self.gpu
+            .as_ref()
+            .expect("gpu initialized")
+            .adapter_profile()
     }
 
     pub(crate) fn window(&self) -> &Window {
@@ -138,8 +141,7 @@ impl WindowState {
                 if state.captured {
                     Ok(RenderFrameStatus::Captured(state.target.path.clone()))
                 } else {
-                    self
-                        .gpu
+                    self.gpu
                         .as_mut()
                         .expect("gpu initialized")
                         .render_export(mouse_uniform, Some(time_sample), &state.target)
@@ -174,12 +176,8 @@ impl WindowState {
             self.color_space = color_space;
         }
         let layout_signature = channel_bindings.layout_signature();
-        let layout_changed = self
-            .gpu
-            .as_ref()
-            .expect("gpu initialized")
-            .channel_kinds()
-            != &layout_signature;
+        let layout_changed =
+            self.gpu.as_ref().expect("gpu initialized").channel_kinds() != &layout_signature;
         if self.antialiasing != antialiasing || layout_changed || preferences_changed {
             if layout_changed {
                 info!("channel binding layout changed; rebuilding GPU state without crossfade");
@@ -204,11 +202,7 @@ impl WindowState {
             )?;
             self.gpu = Some(new_gpu);
         } else {
-            self
-                .gpu
-                .as_mut()
-                .expect("gpu initialized")
-                .set_shader(
+            self.gpu.as_mut().expect("gpu initialized").set_shader(
                 shader_source,
                 channel_bindings,
                 crossfade,

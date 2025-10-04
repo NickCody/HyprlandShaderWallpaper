@@ -1,5 +1,5 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use directories_next::BaseDirs;
@@ -18,6 +18,10 @@ impl PathResolver {
 
     pub fn with_cwd<P: Into<PathBuf>>(cwd: P) -> Self {
         Self { cwd: cwd.into() }
+    }
+
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
     }
 
     pub fn expand_path(&self, input: &str) -> Result<PathBuf> {

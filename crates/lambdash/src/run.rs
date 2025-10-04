@@ -10,9 +10,10 @@ use crate::bindings::{
     channel_bindings_from_pack, map_manifest_alpha, map_manifest_color, resolve_color_space,
 };
 use crate::bootstrap::{
-    bootstrap_filesystem, parse_surface_size, resolve_shader_handle, SingleRunConfig,
+    bootstrap_filesystem, parse_surface_size, resolve_entry_handle, SingleRunConfig,
 };
 use crate::cli::{parse_export_format, RunArgs};
+use crate::handles::{EntryHandle, LaunchHandle};
 use crate::multi;
 use crate::paths::AppPaths;
 
@@ -32,21 +33,65 @@ pub fn run(args: RunArgs) -> Result<()> {
     );
 
     let client = build_client(&args)?;
-    if let Some(path) = args.playlist.as_ref() {
-        multi::run_multi(
+    let playlist_handle = args
+        .playlist
+        .clone()
+        .map(|arg| arg.into_inner())
+        .or_else(|| {
+            args.shader.clone().and_then(|arg| match arg.into_inner() {
+                LaunchHandle::Playlist(handle) => Some(handle),
+                LaunchHandle::Entry(_) => None,
+            })
+        });
+
+    if let Some(handle) = playlist_handle {
+        return multi::run_multi(
             &args,
             &repo,
             client.as_ref(),
-            path,
+            handle,
             &paths,
             resolver.clone(),
-        )
-    } else {
-        let handle = resolve_shader_handle(&args, &resolver)?;
-        tracing::info!(?handle, "bootstrapping lambdash wallpaper daemon");
-        log_handle_warnings(&args, &handle, client.as_ref());
-        let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
-        run_single(context)
+        );
+    }
+
+    let entry_handle = resolve_entry_handle(&args)?;
+    log_entry_handle(&entry_handle, &paths);
+    let handle = entry_handle.clone().into_shader_handle();
+    tracing::info!(?handle, "bootstrapping lambdash wallpaper daemon");
+    log_handle_warnings(&args, &handle, client.as_ref());
+    let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
+    run_single(context)
+}
+
+fn log_entry_handle(handle: &EntryHandle, paths: &AppPaths) {
+    match handle {
+        EntryHandle::RawPath(path) => {
+            let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+            tracing::info!(resource = %resolved.display(), "selected shader path");
+        }
+        EntryHandle::LocalPack { name } => {
+            let mut searched = Vec::new();
+            for root in paths.shader_roots() {
+                let candidate = root.join(name);
+                searched.push(candidate.display().to_string());
+                if candidate.exists() {
+                    let resolved = candidate
+                        .canonicalize()
+                        .unwrap_or_else(|_| candidate.clone());
+                    tracing::info!(resource = %resolved.display(), "selected local shader pack");
+                    return;
+                }
+            }
+            tracing::info!(
+                handle = %name,
+                searched = searched.join(", "),
+                "local shader pack not found in search roots"
+            );
+        }
+        EntryHandle::Shadertoy { id } => {
+            tracing::info!(shader = %id, "selected shadertoy shader");
+        }
     }
 }
 
