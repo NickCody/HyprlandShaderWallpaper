@@ -779,7 +779,6 @@ struct SurfaceState {
     rendered_once: bool,
     shader_source: PathBuf,
     channel_bindings: ChannelBindings,
-    #[allow(dead_code)]
     crossfade: Duration,
     output_key: Option<OutputId>,
     antialiasing: Antialiasing,
@@ -875,7 +874,6 @@ impl SurfaceState {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn set_shader(
         &mut self,
         now: Instant,
@@ -974,7 +972,6 @@ impl SurfaceState {
 
     fn render(&mut self) -> Result<(), SurfaceError> {
         if let Some(gpu) = self.gpu.as_mut() {
-            tracing::debug!(policy = ?self.policy, "surface render");
             let sample = self.time_source.sample();
             let export_result = match &self.policy {
                 RenderPolicy::Export { path, format, .. } => {

@@ -1,8 +1,8 @@
 use std::fmt;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{mpsc, Mutex, OnceLock};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
@@ -26,8 +26,6 @@ const KEYBOARD_TEXTURE_WIDTH: u32 = 256;
 const KEYBOARD_TEXTURE_HEIGHT: u32 = 3;
 const KEYBOARD_BYTES_PER_PIXEL: u32 = 4;
 
-static COLOR_LOG: OnceLock<Option<Mutex<File>>> = OnceLock::new();
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedColorSpace {
     Gamma,
@@ -46,13 +44,8 @@ pub(crate) struct GpuState {
     multisample_target: Option<MultisampleTarget>,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
-    #[allow(dead_code)]
-    uniform_layout: wgpu::BindGroupLayout,
-    #[allow(dead_code)]
     channel_layout: wgpu::BindGroupLayout,
-    #[allow(dead_code)]
     pipeline_layout: wgpu::PipelineLayout,
-    #[allow(dead_code)]
     vertex_module: wgpu::ShaderModule,
     color_space: ResolvedColorSpace,
     shader_compiler: ShaderCompiler,
@@ -65,11 +58,8 @@ pub(crate) struct GpuState {
     start_time: Instant,
     last_frame_time: Instant,
     frame_count: u32,
-    last_log_time: Instant,
     last_override_sample: Option<TimeSample>,
-    #[allow(dead_code)]
     render_scale: f32,
-    #[allow(dead_code)]
     fill_method: FillMethod,
     adapter_profile: AdapterProfile,
     surface_supports_copy: bool,
@@ -436,7 +426,6 @@ impl GpuState {
             multisample_target,
             uniform_buffer,
             uniform_bind_group,
-            uniform_layout,
             channel_layout,
             pipeline_layout,
             vertex_module,
@@ -451,7 +440,6 @@ impl GpuState {
             start_time: Instant::now(),
             last_frame_time: Instant::now(),
             frame_count: 0,
-            last_log_time: Instant::now(),
             last_override_sample: None,
             render_scale,
             fill_method,
@@ -537,7 +525,6 @@ impl GpuState {
         self.recompute_view_uniforms();
     }
 
-    #[allow(dead_code)]
     pub(crate) fn set_shader(
         &mut self,
         shader_source: &Path,
@@ -589,11 +576,6 @@ impl GpuState {
     ) -> Result<(), wgpu::SurfaceError> {
         let frame = self.render_internal(mouse, time_sample, |_, _| {})?;
         frame.present();
-        tracing::trace!(
-            "presented frame size={}x{}",
-            self.size.width,
-            self.size.height
-        );
         Ok(())
     }
 
@@ -666,24 +648,6 @@ impl GpuState {
         let current_pipeline_ptr = &self.current as *const ShaderPipeline;
 
         if let Some((prev_mix, curr_mix)) = self.crossfade.as_ref().map(CrossfadeState::mixes) {
-            tracing::debug!(prev_mix, curr_mix, progress = curr_mix, "crossfade weights");
-            let current_pipeline_ref = unsafe { &*current_pipeline_ptr };
-            if let Some(debug_pixels) = self.debug_crossfade_pixels(
-                previous_pipeline.as_ref(),
-                current_pipeline_ref,
-                prev_mix,
-                curr_mix,
-            ) {
-                tracing::debug!(
-                    prev_pixel = ?debug_pixels.previous,
-                    curr_pixel = ?debug_pixels.current,
-                    blended_pixel = ?debug_pixels.blended,
-                    prev_shader = ?previous_pipeline.as_ref().map(|p| p.shader_path()),
-                    curr_shader = ?current_pipeline_ref.shader_path(),
-                    "crossfade pixel samples"
-                );
-                self.write_color_sample(&debug_pixels, curr_mix);
-            }
             if prev_mix > f32::EPSILON {
                 if let Some(prev) = previous_pipeline.as_ref() {
                     self.render_with_pipeline(&mut encoder, &view, prev, prev_mix, load);
@@ -837,11 +801,6 @@ impl GpuState {
             self.uniforms.i_channel_resolution[index] = resource.resolution;
         }
         self.uniforms.i_fade = mix;
-        tracing::trace!(
-            shader = %pipeline.shader_path().display(),
-            i_fade = mix,
-            "writing uniforms for render pass"
-        );
         self.recompute_view_uniforms();
 
         // Write uniforms to a staging buffer, then copy to the uniform buffer within the encoder.
@@ -956,18 +915,6 @@ impl GpuState {
             local_now.day() as f32,
             seconds_since_midnight,
         ];
-
-        if now.duration_since(self.last_log_time) >= Duration::from_secs(1) {
-            tracing::debug!(
-                i_time = self.uniforms.i_time,
-                i_frame = self.uniforms.i_frame,
-                i_mouse = ?self.uniforms.i_mouse,
-                width = self.size.width,
-                height = self.size.height,
-                "updated shader uniforms"
-            );
-            self.last_log_time = now;
-        }
     }
 
     fn begin_crossfade(&mut self, pipeline: ShaderPipeline, crossfade: Duration, _now: Instant) {
@@ -989,120 +936,12 @@ impl GpuState {
             let duration_secs = crossfade.as_secs_f32().max(f32::EPSILON);
             let fps = self.last_measured_fps.max(1.0);
             let steps = (duration_secs * fps).ceil().max(1.0) as u32;
-            tracing::debug!(
-                duration_ms = crossfade.as_millis(),
-                fps = self.last_measured_fps,
-                steps,
-                "beginning step-based crossfade"
-            );
             self.crossfade = Some(CrossfadeState::new(steps));
         }
     }
-
-    fn debug_crossfade_pixels(
-        &self,
-        previous: Option<&ShaderPipeline>,
-        current: &ShaderPipeline,
-        prev_mix: f32,
-        curr_mix: f32,
-    ) -> Option<DebugPixels> {
-        let current_base = Self::debug_constant_color(current.shader_path())?;
-        let current_scaled = Self::scale_color(current_base, curr_mix);
-        let previous_scaled = previous
-            .and_then(|pipeline| Self::debug_constant_color(pipeline.shader_path()))
-            .map(|color| Self::scale_color(color, prev_mix))
-            .unwrap_or([0.0, 0.0, 0.0, 0.0]);
-        let blended = Self::blend_colors(previous_scaled, current_scaled);
-        Some(DebugPixels {
-            previous: previous_scaled,
-            current: current_scaled,
-            blended,
-        })
-    }
-
-    fn debug_constant_color(path: &Path) -> Option<[f32; 4]> {
-        let parent = path.parent()?;
-        let name = parent.file_name()?.to_str()?;
-        match name {
-            "black" => Some([0.0, 0.0, 0.0, 1.0]),
-            "white" => Some([1.0, 1.0, 1.0, 1.0]),
-            _ => None,
-        }
-    }
-
-    fn scale_color(mut color: [f32; 4], mix: f32) -> [f32; 4] {
-        for component in &mut color {
-            *component *= mix;
-        }
-        color
-    }
-
-    fn blend_colors(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
-        let mut blended = [0.0; 4];
-        for index in 0..4 {
-            blended[index] = (a[index] + b[index]).clamp(0.0, 1.0);
-        }
-        blended
-    }
-
-    fn write_color_sample(&self, pixels: &DebugPixels, progress: f32) {
-        if let Some(file) = color_log_file() {
-            if let Ok(mut file) = file.lock() {
-                let prev_r = (pixels.previous[0] * 255.0).clamp(0.0, 255.0).round() as u32;
-                let curr_r = (pixels.current[0] * 255.0).clamp(0.0, 255.0).round() as u32;
-                let blended_r = (pixels.blended[0] * 255.0).clamp(0.0, 255.0).round() as u32;
-                let line = format!(
-                    "{prev},{curr},{blend},{progress:.6}\n",
-                    prev = prev_r,
-                    curr = curr_r,
-                    blend = blended_r,
-                    progress = progress
-                );
-                if let Err(err) = file.write_all(line.as_bytes()) {
-                    tracing::error!(?err, "failed to append colors.csv");
-                }
-            }
-        }
-    }
-}
-
-struct DebugPixels {
-    previous: [f32; 4],
-    current: [f32; 4],
-    blended: [f32; 4],
-}
-
-fn color_log_file() -> Option<&'static Mutex<File>> {
-    COLOR_LOG
-        .get_or_init(|| {
-            match OpenOptions::new()
-                .create(true)
-                .append(true)
-                .read(true)
-                .open("colors.csv")
-            {
-                Ok(mut file) => {
-                    let needs_header = file.metadata().map(|meta| meta.len()).unwrap_or(0) == 0;
-                    if needs_header {
-                        if let Err(err) = file.write_all(b"source_r,dest_r,final_r,progress\n") {
-                            tracing::error!(?err, "failed to write colors.csv header");
-                            return None;
-                        }
-                    }
-                    Some(Mutex::new(file))
-                }
-                Err(err) => {
-                    tracing::error!(?err, "failed to open colors.csv for logging");
-                    None
-                }
-            }
-        })
-        .as_ref()
 }
 
 struct ShaderPipeline {
-    #[allow(dead_code)]
-    shader_path: PathBuf,
     pipeline: wgpu::RenderPipeline,
     channel_bind_group: wgpu::BindGroup,
     channel_resources: Vec<ChannelResources>,
@@ -1203,7 +1042,6 @@ impl ShaderPipeline {
         });
 
         Ok(Self {
-            shader_path: shader_path.to_path_buf(),
             pipeline,
             channel_bind_group,
             channel_resources,
@@ -1223,10 +1061,6 @@ impl ShaderPipeline {
         for resource in &self.channel_resources {
             resource.update_keyboard(queue, data);
         }
-    }
-
-    fn shader_path(&self) -> &Path {
-        &self.shader_path
     }
 }
 

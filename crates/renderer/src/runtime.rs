@@ -307,21 +307,6 @@ impl FrameScheduler {
         self.next_frame_due = self.target_interval.map(|_| Instant::now());
     }
 
-    /// Adjusts the target FPS without rebuilding the policy (used by wallpaper swaps).
-    #[allow(dead_code)]
-    pub fn set_target_fps(&mut self, target_fps: Option<f32>) {
-        if let RenderPolicy::Animate {
-            target_fps: policy_fps,
-            ..
-        } = &mut self.policy
-        {
-            *policy_fps = target_fps;
-        }
-        self.target_interval = interval_from_fps(target_fps);
-        self.next_frame_due = self.target_interval.map(|_| Instant::now());
-        self.rendered_once = false;
-    }
-
     /// Resets internal counters (e.g., on shader swap).
     pub fn reset(&mut self) {
         self.rendered_once = false;
