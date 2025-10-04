@@ -1,8 +1,8 @@
 use std::fmt;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{mpsc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
@@ -25,6 +25,8 @@ use crate::types::{
 const KEYBOARD_TEXTURE_WIDTH: u32 = 256;
 const KEYBOARD_TEXTURE_HEIGHT: u32 = 3;
 const KEYBOARD_BYTES_PER_PIXEL: u32 = 4;
+
+static COLOR_LOG: OnceLock<Option<Mutex<File>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedColorSpace {
@@ -71,6 +73,9 @@ pub(crate) struct GpuState {
     fill_method: FillMethod,
     adapter_profile: AdapterProfile,
     surface_supports_copy: bool,
+    fps_sample_frame: u32,
+    fps_sample_time: Instant,
+    last_measured_fps: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -452,6 +457,9 @@ impl GpuState {
             fill_method,
             adapter_profile,
             surface_supports_copy,
+            fps_sample_frame: 0,
+            fps_sample_time: Instant::now(),
+            last_measured_fps: 60.0,
         };
         state.recompute_view_uniforms();
         state.queue.write_buffer(
@@ -565,17 +573,11 @@ impl GpuState {
             "swapping shader pipeline"
         );
 
-        self.pending = None;
-
-        if warmup < Duration::from_millis(1) {
-            self.begin_crossfade(new_pipeline, crossfade, now);
-        } else {
-            self.pending = Some(PendingPipeline {
-                pipeline: new_pipeline,
-                crossfade,
-                warmup_end: now + warmup,
-            });
-        }
+        self.pending = Some(PendingPipeline {
+            pipeline: new_pipeline,
+            crossfade,
+            warmup_end: now + warmup,
+        });
 
         Ok(())
     }
@@ -648,16 +650,6 @@ impl GpuState {
             }
         }
 
-        let mut mix_prev = None;
-        if let Some(fade) = self.crossfade.as_mut() {
-            if fade.is_finished(now) || self.previous.is_none() {
-                self.previous = None;
-                self.crossfade = None;
-            } else {
-                mix_prev = Some((fade.previous_mix(now), fade.current_mix(now)));
-            }
-        }
-
         let frame = self.surface.get_current_texture()?;
         let view = frame
             .texture
@@ -673,7 +665,7 @@ impl GpuState {
         let mut previous_pipeline = self.previous.take();
         let current_pipeline_ptr = &self.current as *const ShaderPipeline;
 
-        if let Some((prev_mix, curr_mix)) = mix_prev {
+        if let Some((prev_mix, curr_mix)) = self.crossfade.as_ref().map(CrossfadeState::mixes) {
             tracing::debug!(prev_mix, curr_mix, progress = curr_mix, "crossfade weights");
             let current_pipeline_ref = unsafe { &*current_pipeline_ptr };
             if let Some(debug_pixels) = self.debug_crossfade_pixels(
@@ -688,18 +680,19 @@ impl GpuState {
                     blended_pixel = ?debug_pixels.blended,
                     "crossfade pixel samples"
                 );
+                // TODO: debug
+                // self.write_color_sample(&debug_pixels, curr_mix);
             }
-            if prev_mix > 0.0 {
+            if prev_mix > f32::EPSILON {
                 if let Some(prev) = previous_pipeline.as_ref() {
                     self.render_with_pipeline(&mut encoder, &view, prev, prev_mix, load);
                     load = wgpu::LoadOp::Load;
                 }
             } else {
                 previous_pipeline = None;
-                self.crossfade = None;
             }
 
-            if curr_mix > 0.0 {
+            if curr_mix > f32::EPSILON {
                 unsafe {
                     self.render_with_pipeline(
                         &mut encoder,
@@ -711,13 +704,14 @@ impl GpuState {
                 }
             }
 
-            if self
-                .crossfade
-                .as_ref()
-                .map(|fade| fade.is_finished(now))
-                .unwrap_or(false)
-                || curr_mix >= 1.0
-            {
+            let finished = if let Some(fade) = self.crossfade.as_mut() {
+                fade.advance();
+                fade.is_finished()
+            } else {
+                false
+            };
+
+            if finished || curr_mix >= 1.0 {
                 previous_pipeline = None;
                 self.crossfade = None;
             }
@@ -924,6 +918,16 @@ impl GpuState {
         self.uniforms.i_resolution[3] = self.uniforms.i_time;
         self.uniforms.i_mouse = mouse;
 
+        let fps_elapsed = now.saturating_duration_since(self.fps_sample_time);
+        if fps_elapsed >= Duration::from_secs(1) {
+            let frames_since = self.frame_count.saturating_sub(self.fps_sample_frame);
+            if frames_since > 0 && fps_elapsed.as_secs_f32() > f32::EPSILON {
+                self.last_measured_fps = frames_since as f32 / fps_elapsed.as_secs_f32();
+            }
+            self.fps_sample_time = now;
+            self.fps_sample_frame = self.frame_count;
+        }
+
         let local_now = Local::now();
         let seconds_since_midnight = local_now.num_seconds_from_midnight() as f32
             + local_now.nanosecond() as f32 / 1_000_000_000.0;
@@ -947,7 +951,7 @@ impl GpuState {
         }
     }
 
-    fn begin_crossfade(&mut self, pipeline: ShaderPipeline, crossfade: Duration, now: Instant) {
+    fn begin_crossfade(&mut self, pipeline: ShaderPipeline, crossfade: Duration, _now: Instant) {
         // TODO: allow this to be dynamic based on framerate
         // 16ms ~ 1/60 a second, below that is a hard-cut
         let crossfade = if crossfade < Duration::from_millis(16) {
@@ -963,7 +967,16 @@ impl GpuState {
         } else {
             let previous = std::mem::replace(&mut self.current, pipeline);
             self.previous = Some(previous);
-            self.crossfade = Some(CrossfadeState::new(now, crossfade));
+            let duration_secs = crossfade.as_secs_f32().max(f32::EPSILON);
+            let fps = self.last_measured_fps.max(1.0);
+            let steps = (duration_secs * fps).ceil().max(1.0) as u32;
+            tracing::debug!(
+                duration_ms = crossfade.as_millis(),
+                fps = self.last_measured_fps,
+                steps,
+                "beginning step-based crossfade"
+            );
+            self.crossfade = Some(CrossfadeState::new(steps));
         }
     }
 
@@ -1012,12 +1025,60 @@ impl GpuState {
         }
         blended
     }
+
+    fn write_color_sample(&self, pixels: &DebugPixels, progress: f32) {
+        if let Some(file) = color_log_file() {
+            if let Ok(mut file) = file.lock() {
+                let prev_r = (pixels.previous[0] * 255.0).clamp(0.0, 255.0).round() as u32;
+                let curr_r = (pixels.current[0] * 255.0).clamp(0.0, 255.0).round() as u32;
+                let blended_r = (pixels.blended[0] * 255.0).clamp(0.0, 255.0).round() as u32;
+                let line = format!(
+                    "{prev},{curr},{blend},{progress:.6}\n",
+                    prev = prev_r,
+                    curr = curr_r,
+                    blend = blended_r,
+                    progress = progress
+                );
+                if let Err(err) = file.write_all(line.as_bytes()) {
+                    tracing::error!(?err, "failed to append colors.csv");
+                }
+            }
+        }
+    }
 }
 
 struct DebugPixels {
     previous: [f32; 4],
     current: [f32; 4],
     blended: [f32; 4],
+}
+
+fn color_log_file() -> Option<&'static Mutex<File>> {
+    COLOR_LOG
+        .get_or_init(|| {
+            match OpenOptions::new()
+                .create(true)
+                .append(true)
+                .read(true)
+                .open("colors.csv")
+            {
+                Ok(mut file) => {
+                    let needs_header = file.metadata().map(|meta| meta.len()).unwrap_or(0) == 0;
+                    if needs_header {
+                        if let Err(err) = file.write_all(b"source_r,dest_r,final_r,progress\n") {
+                            tracing::error!(?err, "failed to write colors.csv header");
+                            return None;
+                        }
+                    }
+                    Some(Mutex::new(file))
+                }
+                Err(err) => {
+                    tracing::error!(?err, "failed to open colors.csv for logging");
+                    None
+                }
+            }
+        })
+        .as_ref()
 }
 
 struct ShaderPipeline {
@@ -1151,36 +1212,38 @@ impl ShaderPipeline {
 }
 
 struct CrossfadeState {
-    start: Instant,
-    duration: Duration,
+    steps: u32,
+    current_step: u32,
+    step_size: f32,
+    progress: f32,
 }
 
 impl CrossfadeState {
-    #[allow(dead_code)]
-    fn new(start: Instant, duration: Duration) -> Self {
-        Self { start, duration }
-    }
-
-    fn progress(&self, now: Instant) -> f32 {
-        if self.duration.is_zero() {
-            1.0
-        } else {
-            ((now.saturating_duration_since(self.start).as_secs_f32())
-                / self.duration.as_secs_f32())
-            .clamp(0.0, 1.0)
+    fn new(steps: u32) -> Self {
+        let steps = steps.max(1);
+        let step_size = 1.0 / steps as f32;
+        Self {
+            steps,
+            current_step: 0,
+            step_size,
+            progress: 0.0,
         }
     }
 
-    fn previous_mix(&self, now: Instant) -> f32 {
-        1.0 - self.progress(now)
+    fn mixes(&self) -> (f32, f32) {
+        (1.0 - self.progress, self.progress)
     }
 
-    fn current_mix(&self, now: Instant) -> f32 {
-        self.progress(now)
+    fn advance(&mut self) {
+        if self.current_step < self.steps {
+            self.current_step += 1;
+            let next = self.current_step as f32 * self.step_size;
+            self.progress = next.min(1.0);
+        }
     }
 
-    fn is_finished(&self, now: Instant) -> bool {
-        self.progress(now) >= 1.0
+    fn is_finished(&self) -> bool {
+        self.progress >= 1.0
     }
 }
 
@@ -2103,7 +2166,6 @@ impl FileExportTarget {
 mod tests {
     use super::*;
     use std::mem::{align_of, size_of};
-    use std::time::{Duration, Instant};
 
     #[test]
     fn shadertoy_uniforms_follow_std140_layout() {
@@ -2132,27 +2194,36 @@ mod tests {
 
     #[test]
     fn crossfade_weights_sum_to_one() {
-        let start = Instant::now();
-        let fade = CrossfadeState::new(start, Duration::from_secs(2));
-        let midpoint = start + Duration::from_secs(1);
+        let mut fade = CrossfadeState::new(2);
+        // initial state: 100% previous, 0% current
+        let (prev_start, curr_start) = fade.mixes();
+        assert!((prev_start - 1.0).abs() < 1e-5);
+        assert!(curr_start.abs() < 1e-5);
 
-        let prev = fade.previous_mix(midpoint);
-        let curr = fade.current_mix(midpoint);
+        fade.advance();
+        let (prev_mid, curr_mid) = fade.mixes();
+        assert!((prev_mid + curr_mid - 1.0).abs() < 1e-5);
+        assert!((prev_mid - 0.5).abs() < 1e-5);
+        assert!((curr_mid - 0.5).abs() < 1e-5);
 
-        assert!((prev + curr - 1.0).abs() < 1e-5);
-        assert!((prev - 0.5).abs() < 1e-5);
-        assert!((curr - 0.5).abs() < 1e-5);
+        fade.advance();
+        let (prev_end, curr_end) = fade.mixes();
+        assert!(fade.is_finished());
+        assert!(prev_end.abs() < 1e-5);
+        assert!((curr_end - 1.0).abs() < 1e-5);
     }
 
     #[test]
     fn zero_duration_crossfade_is_hard_cut() {
-        let start = Instant::now();
-        let fade = CrossfadeState::new(start, Duration::ZERO);
-        let later = start + Duration::from_millis(5);
+        let mut fade = CrossfadeState::new(1);
+        let (prev_start, curr_start) = fade.mixes();
+        assert!((prev_start - 1.0).abs() < 1e-5);
+        assert!(curr_start.abs() < 1e-5);
 
-        assert!(fade.is_finished(start));
-        assert!(fade.is_finished(later));
-        assert_eq!(fade.previous_mix(later), 0.0);
-        assert_eq!(fade.current_mix(later), 1.0);
+        fade.advance();
+        let (prev_end, curr_end) = fade.mixes();
+        assert!(fade.is_finished());
+        assert!(prev_end.abs() < 1e-5);
+        assert!((curr_end - 1.0).abs() < 1e-5);
     }
 }

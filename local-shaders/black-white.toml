@@ -2,31 +2,13 @@ version = 1
 
 [defaults]
 playlist = "debug"
-fps = 0
+fps = 10
 antialias = "auto"
 
 [playlists.debug]
 mode = "continuous"
 item_duration = "5s"
-crossfade = "1s"
-
-[[playlists.debug.items]]
-handle = "black"
-
-[[playlists.debug.items]]
-handle = "white"
-
-[[playlists.debug.items]]
-handle = "black"
-
-[[playlists.debug.items]]
-handle = "white"
-
-[[playlists.debug.items]]
-handle = "black"
-
-[[playlists.debug.items]]
-handle = "white"
+crossfade = "3s"
 
 [[playlists.debug.items]]
 handle = "black"
