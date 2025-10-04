@@ -436,6 +436,25 @@ impl<'a> ShaderCache<'a> {
         }
         let channel_bindings = channel_report.bindings;
         let shader_path = load_entry_shader(&source)?;
+        match &source {
+            ShaderSource::Local(pack) => {
+                info!(
+                    handle = %handle,
+                    path = %shader_path.display(),
+                    root = %pack.root().display(),
+                    "playlist resolved local shader"
+                );
+            }
+            ShaderSource::CachedRemote(remote) => {
+                info!(
+                    handle = %handle,
+                    shader = %remote.id,
+                    path = %shader_path.display(),
+                    cache = %remote.cache_dir.display(),
+                    "playlist resolved cached shader"
+                );
+            }
+        }
         self.entries.insert(
             handle.to_string(),
             CachedShader {

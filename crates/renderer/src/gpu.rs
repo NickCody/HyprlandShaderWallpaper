@@ -674,6 +674,21 @@ impl GpuState {
         let current_pipeline_ptr = &self.current as *const ShaderPipeline;
 
         if let Some((prev_mix, curr_mix)) = mix_prev {
+            tracing::debug!(prev_mix, curr_mix, progress = curr_mix, "crossfade weights");
+            let current_pipeline_ref = unsafe { &*current_pipeline_ptr };
+            if let Some(debug_pixels) = self.debug_crossfade_pixels(
+                previous_pipeline.as_ref(),
+                current_pipeline_ref,
+                prev_mix,
+                curr_mix,
+            ) {
+                tracing::debug!(
+                    prev_pixel = ?debug_pixels.previous,
+                    curr_pixel = ?debug_pixels.current,
+                    blended_pixel = ?debug_pixels.blended,
+                    "crossfade pixel samples"
+                );
+            }
             if prev_mix > 0.0 {
                 if let Some(prev) = previous_pipeline.as_ref() {
                     self.render_with_pipeline(&mut encoder, &view, prev, prev_mix, load);
@@ -933,6 +948,8 @@ impl GpuState {
     }
 
     fn begin_crossfade(&mut self, pipeline: ShaderPipeline, crossfade: Duration, now: Instant) {
+        // TODO: allow this to be dynamic based on framerate
+        // 16ms ~ 1/60 a second, below that is a hard-cut
         let crossfade = if crossfade < Duration::from_millis(16) {
             Duration::ZERO
         } else {
@@ -949,6 +966,58 @@ impl GpuState {
             self.crossfade = Some(CrossfadeState::new(now, crossfade));
         }
     }
+
+    fn debug_crossfade_pixels(
+        &self,
+        previous: Option<&ShaderPipeline>,
+        current: &ShaderPipeline,
+        prev_mix: f32,
+        curr_mix: f32,
+    ) -> Option<DebugPixels> {
+        let current_base = Self::debug_constant_color(current.shader_path())?;
+        let current_scaled = Self::scale_color(current_base, curr_mix);
+        let previous_scaled = previous
+            .and_then(|pipeline| Self::debug_constant_color(pipeline.shader_path()))
+            .map(|color| Self::scale_color(color, prev_mix))
+            .unwrap_or([0.0, 0.0, 0.0, 0.0]);
+        let blended = Self::blend_colors(previous_scaled, current_scaled);
+        Some(DebugPixels {
+            previous: previous_scaled,
+            current: current_scaled,
+            blended,
+        })
+    }
+
+    fn debug_constant_color(path: &Path) -> Option<[f32; 4]> {
+        let parent = path.parent()?;
+        let name = parent.file_name()?.to_str()?;
+        match name {
+            "black" => Some([0.0, 0.0, 0.0, 1.0]),
+            "white" => Some([1.0, 1.0, 1.0, 1.0]),
+            _ => None,
+        }
+    }
+
+    fn scale_color(mut color: [f32; 4], mix: f32) -> [f32; 4] {
+        for component in &mut color {
+            *component *= mix;
+        }
+        color
+    }
+
+    fn blend_colors(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+        let mut blended = [0.0; 4];
+        for index in 0..4 {
+            blended[index] = (a[index] + b[index]).clamp(0.0, 1.0);
+        }
+        blended
+    }
+}
+
+struct DebugPixels {
+    previous: [f32; 4],
+    current: [f32; 4],
+    blended: [f32; 4],
 }
 
 struct ShaderPipeline {
@@ -1074,6 +1143,10 @@ impl ShaderPipeline {
         for resource in &self.channel_resources {
             resource.update_keyboard(queue, data);
         }
+    }
+
+    fn shader_path(&self) -> &Path {
+        &self.shader_path
     }
 }
 
