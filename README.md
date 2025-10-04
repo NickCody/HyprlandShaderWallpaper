@@ -1,19 +1,39 @@
 # WallShader
 
-WallShader is a Rust-based wallpaper engine
-for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live
-backgrounds and supports both remote ShaderToy content and local shader packs.
+WallShader is a Rust-based wallpaper engine for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
 
 ## Prerequisites
 
 - Rust toolchain (`rustup` with the `stable` channel) plus the `rustfmt` and `clippy` components
 - Wayland development headers (`wayland-protocols`, `wayland-client`, `pkg-config`)
 - GPU drivers with Vulkan or OpenGL support (Mesa on Linux works well)
-- Optional utilities: [`just`](https://github.com/casey/just) for running the helper recipes below
+
+Optional utilities: [`just`](https://github.com/casey/just) for running the helper recipes below
 
 Install `just` via your package manager or with `cargo install just`.
 
-## Quick Start
+## Installation
+
+### One-liner Installer
+
+Prefer a scripted setup? Use the curl-friendly installer. It clones the upstream repository, runs `cargo install`, and copies the repo's `shaders/` tree into your wallpaper data directory without requiring
+root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
+```
+
+By default this one-liner grabs `main` from GitHub, overwriting `~/.local/share/wallshader/shaders` with the bundled shader packs and reinstalling the binary. Use `--data-dir` to pick a different destination or `--system` (with sudo) to install the packs under `/usr/share/wallshader`. Additional flags help with constrained environments—`--skip-build` reuses an existing binary, and `--offline` forwards Cargo's offline mode when crates are already cached. All installer options (including `--prefix` and `--ref`) are documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and `tar` are available before running the script.
+
+Working from a local checkout? Run the installer directly so it mirrors *your* branch instead of cloning GitHub:
+
+```bash
+scripts/install.sh --source . --skip-build
+```
+
+Pass `--data-dir ~/.local/share/wallshader` (or `--system`) if you need to target a specific location. Re-run the same command whenever you want to refresh `shaders/` while iterating on shader packs or playlists.
+
+### Installing from Source
 
 ```bash
 git clone https://github.com/NickCody/WallShader.git
@@ -22,31 +42,21 @@ just setup
 just run-demo
 ```
 
-`just setup` will install the required toolchain components and pre-fetch crates
-so the first build runs quickly. The demo uses a ShaderToy URL; provide your own
-API key via `--shadertoy-api-key` or the `SHADERTOY_API_KEY` environment variable
-if the shader is not cached locally.
+The repository includes a `justfile` with common workflows:
 
-## Color Space & Gamma Handling
+`just setup` will install the required toolchain components and pre-fetch crates so the first build runs quickly. The demo uses a ShaderToy URL; provide your own API key via `--shadertoy-api-key` or the `SHADERTOY_API_KEY` environment variable if the shader is not cached locally.
 
-By default WallShader assumes ShaderToy-style gamma output: it creates a non-sRGB
-swapchain and binds textures without automatic colour conversion, matching the
-WebGL defaults used on shadertoy.com. You can override this at several levels:
+```
+just check      # fmt + clippy over the workspace
+just run-demo   # windowed ShaderToy demo
+just run-playlist  # playlist sampler using workspaces.toml
+```
 
-- **CLI:** `--color-space {auto|gamma|linear}`. `auto` behaves like ShaderToy
-  (`gamma`), while `linear` requests sRGB swapchains/textures so physically based
-  shaders can output linear light.
-- **Manifest:** Shader packs may set `color_space = "gamma"` (or `"linear"`) in
-  `shader.toml`. CLI overrides manifest; manifest overrides the default.
-- **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
-  dominates, otherwise each pack’s manifest decides the swapchain format.
+Run `just --list` to discover additional recipes as they land.
 
-When switching between modes WallShader rebuilds GPU resources so playlists can mix
-gamma-authored and linear-authored content without restarting the daemon.
+### Cargo Install from repo
 
-## Install from Git
-
-Install the binary straight from this repository without cloning it:
+Or, install the binary straight from this repository without cloning it:
 
 ```bash
 cargo install \
@@ -56,8 +66,7 @@ cargo install \
   wallshader
 ```
 
-During active development you can substitute `--branch main` to follow the latest
-changes. Add `--force` to reinstall after pulling a new tag.
+During active development you can substitute `--branch main` to follow the latest changes. Add `--force` to reinstall after pulling a new tag.
 
 If you already have the repository checked out, the same command works locally:
 
@@ -65,43 +74,47 @@ If you already have the repository checked out, the same command works locally:
 cargo install --path crates/wallshader --locked --force wallshader
 ```
 
-The installed `wallshader` binary accepts the same CLI flags documented below, so you
-can run `wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from
-any directory.
+The installed `wallshader` binary accepts the same CLI flags documented below, so you can run `wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from any directory.
 
-## Installer Script
+## Features
 
-Prefer a scripted setup? Use the curl-friendly installer. It clones the
-upstream repository, runs `cargo install`, and copies the repo's
-`shaders/` tree into your wallpaper data directory without requiring
-root:
+### ShaderToy Integration
 
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
+WallShader can fetch and cache public ShaderToy shaders using the `--shadertoy <url>` flag. Supply your API key via `--shadertoy-api-key <key>` or the `SHADERTOY_API_KEY` environment variable. The installer bundles a few popular shaders under `shaders/shadertoy/` so you can try them without an API key.
+
+### Color Space & Gamma Handling
+
+By default WallShader assumes ShaderToy-style gamma output: it creates a non-sRGB swapchain and binds textures without automatic colour conversion, matching the WebGL defaults used on shadertoy.com. You can override this at several levels:
+
+- **CLI:** `--color-space {auto|gamma|linear}`. `auto` behaves like ShaderToy
+  (`gamma`), while `linear` requests sRGB swapchains/textures so physically based
+  shaders can output linear light.
+- **Manifest:** Shader packs may set `color_space = "gamma"` (or `"linear"`) in
+  `shader.toml`. CLI overrides manifest; manifest overrides the default.
+- **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
+  dominates, otherwise each pack’s manifest decides the swapchain format.
+
+When switching between modes WallShader rebuilds GPU resources so playlists can mix gamma-authored and linear-authored content without restarting the daemon.
+
+### Playlists
+
+Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or output. The configuration format is documented in `SpecMulti.md`, and sample playlists live under `shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied to `$DATA_DIR/*.toml` by the installer. A quick way to experiment is:
+
+```
+cargo run -p wallshader -- --playlist workspaces.toml
 ```
 
-By default this one-liner grabs `main` from GitHub, overwriting
-`~/.local/share/wallshader/shaders` with the bundled shader packs and
-reinstalling the binary. Use `--data-dir` to pick a different destination or
-`--system` (with sudo) to install the packs under `/usr/share/wallshader`.
-Additional flags help with constrained environments—`--skip-build` reuses an
-existing binary, and `--offline` forwards Cargo's offline mode when crates are
-already cached. All installer options (including `--prefix` and `--ref`) are
-documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and
-`tar` are available before running the script.
+Key behaviours:
 
-Working from a local checkout? Run the installer directly so it mirrors *your*
-branch instead of cloning GitHub:
+- Each output resolves to a playlist via workspace or output selectors.
+- Workspace changes interrupt any active transition and start a new crossfade using
+  `workspace_switch_crossfade` (set to `0` for hard cuts).
+- Playlist items can override FPS caps, antialiasing, and opt-in to one-time refreshes.
+- Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
 
-```bash
-scripts/install.sh --source . --skip-build
-```
+Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs with the `[wallshader]` prefix highlight shader compilation or timing diagnostics.
 
-Pass `--data-dir ~/.local/share/wallshader` (or `--system`) if you need to target a
-specific location. Re-run the same command whenever you want to refresh
-`shaders/` while iterating on shader packs or playlists.
-
-## Directories and CLI Helpers
+### Directories and CLI Helpers
 
 WallShader follows the XDG base directory spec. The core locations are:
 
@@ -110,17 +123,24 @@ WallShader follows the XDG base directory spec. The core locations are:
 - Cache: `~/.cache/wallshader/`
 - System defaults: `/usr/share/wallshader/` (overridable via `WALLSHADER_SHARE_DIR`)
 
-Set `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, and `WALLSHADER_CACHE_DIR` to relocate
-any directory. CLI flags always win over environment variables.
+Set `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, and `WALLSHADER_CACHE_DIR` to relocate any directory. CLI flags always win over environment variables.
 
-Bundled shader packs and sample playlists live under `shaders/` in the
-repository. The installer mirrors that directory to your data location, and you
-can rerun it any time you want to refresh the packs while developing. Keep your
-own user overrides under `~/.config/wallshader/shaders`—the installer never
-touches that tree.
+Bundled shader packs and sample playlists live under `shaders/` in the repository. The installer mirrors that directory to your data location, and you can rerun it any time you want to refresh the packs while developing. Keep your own user overrides under `~/.config/wallshader/shaders`—the installer never touches that tree.
 
 Run `wallshader defaults where` to print the resolved config/data/cache/share
 paths if you need to double-check the environment.
+
+### Path Resolution & Environment Variables
+
+Local shader handles accept shell-style expansions so configs stay portable:
+
+- `~` expands to the current user's home directory (e.g. `~/shaders/demo`).
+- `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
+  error so typos show up immediately.
+- Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
+- `shader://<pack>` searches `$DATA_DIR` (or `WALLSHADER_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/wallshader/shaders/`.
+
+This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlist manifests, and the defaults bootstrap. Run `wallshader defaults where` to inspect which directories are currently active.
 
 ### Still Frames & Exports
 
@@ -142,17 +162,7 @@ paths if you need to double-check the environment.
 
 Downstream packages and automation should mirror the installer’s behaviour:
 
-- Invoke `scripts/install.sh --skip-build --data-dir <dest>` during packaging to
-  stage the bundled shader packs (`<dest>/<pack>/`) and playlists (`<dest>/*.toml`).
-- When producing system packages (`.deb`, `.rpm`, etc.), call the script with
-  `--system` or provide explicit `--prefix`/`--data-dir` flags that match your
-  filesystem layout.
-- Avoid running as root unless shipping a system-wide package. For user-focused
-  bundles (AppImage, Flatpak, etc.) set `WALLSHADER_DATA_DIR` to a writable path
-  and run the installer in `--skip-build` mode after the binary is staged.
-- CI should execute `cargo test -p wallshader` to cover the installer integration
-  test (`install_script_copies_defaults`) and ensure future changes keep the
-  script functional.
+- Invoke `scripts/install.sh --skip-build --data-dir <dest>` during packaging to stage the bundled shader packs (`<dest>/<pack>/`) and playlists (`<dest>/*.toml`). When producing system packages (`.deb`, `.rpm`, etc.), call the script with `--system` or provide explicit `--prefix`/`--data-dir` flags that match your filesystem layout. Avoid running as root unless shipping a system-wide package. For user-focused bundles (AppImage, Flatpak, etc.) set `WALLSHADER_DATA_DIR` to a writable path and run the installer in `--skip-build` mode after the binary is staged. CI should execute `cargo test -p wallshader` to cover the installer integration test (`install_script_copies_defaults`) and ensure future changes keep the script functional.
 
 ## Workspace Layout
 
@@ -160,54 +170,7 @@ Downstream packages and automation should mirror the installer’s behaviour:
 - `crates/renderer`: Rendering abstraction that manages shader wrapping and frame uniforms.
 - `crates/shadertoy`: Integration layer for ShaderToy downloads, caching, and manifest validation.
 - `shaders/`: User-provided shader packs mirroring ShaderToy render pass structure.
-
-## Development Tasks
-
-The repository includes a `justfile` with common workflows:
-
-```
-just check      # fmt + clippy over the workspace
-just run-demo   # windowed ShaderToy demo
-just run-playlist  # playlist sampler using workspaces.toml
-```
-
-Run `just --list` to discover additional recipes as they land.
-
-## Playlists
-
-Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or
-output. The configuration format is documented in `SpecMulti.md`, and sample playlists live
-under `shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied to `$DATA_DIR/*.toml` by the installer. A quick way to
-experiment is:
-
-```
-cargo run -p wallshader -- --playlist workspaces.toml
-```
-
-Key behaviours:
-
-- Each output resolves to a playlist via workspace or output selectors.
-- Workspace changes interrupt any active transition and start a new crossfade using
-  `workspace_switch_crossfade` (set to `0` for hard cuts).
-- Playlist items can override FPS caps, antialiasing, and opt-in to one-time refreshes.
-- Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
-
-Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs
-with the `[wallshader]` prefix highlight shader compilation or timing diagnostics.
-
-### Path Resolution & Environment Variables
-
-Local shader handles accept shell-style expansions so configs stay portable:
-
-- `~` expands to the current user's home directory (e.g. `~/shaders/demo`).
-- `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
-  error so typos show up immediately.
-- Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
-- `shader://<pack>` searches `$DATA_DIR` (or `WALLSHADER_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/wallshader/shaders/`.
-
-This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlist manifests, and
-the defaults bootstrap. Run `wallshader defaults where` to inspect which directories are currently
-active.
+- `playlists/`: User-provided playlist manifests for multi-shader scheduling.
 
 ## Release Notes
 
