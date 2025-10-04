@@ -29,7 +29,7 @@ const SOFTWARE_FPS_CAP: f32 = 15.0;
 /// Aggregates GPU state for the windowed preview path.
 pub(crate) struct WindowState {
     window: Arc<Window>,
-    gpu: GpuState,
+    gpu: Option<GpuState>,
     mouse: MouseState,
     keyboard: KeyboardState,
     antialiasing: Antialiasing,
@@ -87,7 +87,7 @@ impl WindowState {
 
         let mut state = Self {
             window,
-            gpu,
+            gpu: Some(gpu),
             mouse: MouseState::default(),
             keyboard: KeyboardState::default(),
             antialiasing: config.antialiasing,
@@ -103,7 +103,7 @@ impl WindowState {
     }
 
     pub(crate) fn adapter_profile(&self) -> &AdapterProfile {
-        self.gpu.adapter_profile()
+        self.gpu.as_ref().expect("gpu initialized").adapter_profile()
     }
 
     pub(crate) fn window(&self) -> &Window {
@@ -111,11 +111,13 @@ impl WindowState {
     }
 
     pub(crate) fn size(&self) -> PhysicalSize<u32> {
-        self.gpu.size()
+        self.gpu.as_ref().expect("gpu initialized").size()
     }
 
     pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        self.gpu.resize(new_size);
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.resize(new_size);
+        }
     }
 
     pub(crate) fn render_frame(
@@ -127,6 +129,8 @@ impl WindowState {
         let result = match &mut self.frame_sink {
             FrameSinkDriver::Surface => self
                 .gpu
+                .as_mut()
+                .expect("gpu initialized")
                 .render(mouse_uniform, Some(time_sample))
                 .map(|_| RenderFrameStatus::Presented)
                 .map_err(RenderExportError::Surface),
@@ -134,7 +138,10 @@ impl WindowState {
                 if state.captured {
                     Ok(RenderFrameStatus::Captured(state.target.path.clone()))
                 } else {
-                    self.gpu
+                    self
+                        .gpu
+                        .as_mut()
+                        .expect("gpu initialized")
                         .render_export(mouse_uniform, Some(time_sample), &state.target)
                         .map(|path| {
                             state.captured = true;
@@ -167,14 +174,24 @@ impl WindowState {
             self.color_space = color_space;
         }
         let layout_signature = channel_bindings.layout_signature();
-        let layout_changed = self.gpu.channel_kinds() != &layout_signature;
+        let layout_changed = self
+            .gpu
+            .as_ref()
+            .expect("gpu initialized")
+            .channel_kinds()
+            != &layout_signature;
         if self.antialiasing != antialiasing || layout_changed || preferences_changed {
             if layout_changed {
                 info!("channel binding layout changed; rebuilding GPU state without crossfade");
             }
             self.antialiasing = antialiasing;
             let size = self.window.inner_size();
-            self.gpu = GpuState::new(
+            // Drop the old surface/device before creating a new one to avoid
+            // multiple wgpu surfaces bound to the same Wayland wl_surface.
+            if let Some(old) = self.gpu.take() {
+                drop(old);
+            }
+            let new_gpu = GpuState::new(
                 self.window.as_ref(),
                 size,
                 shader_source,
@@ -185,8 +202,13 @@ impl WindowState {
                 self.render_scale,
                 self.fill_method,
             )?;
+            self.gpu = Some(new_gpu);
         } else {
-            self.gpu.set_shader(
+            self
+                .gpu
+                .as_mut()
+                .expect("gpu initialized")
+                .set_shader(
                 shader_source,
                 channel_bindings,
                 crossfade,
@@ -207,7 +229,12 @@ impl WindowState {
     }
 
     fn sync_keyboard(&mut self, force: bool) {
-        if !self.gpu.has_keyboard_channel() {
+        if !self
+            .gpu
+            .as_ref()
+            .expect("gpu initialized")
+            .has_keyboard_channel()
+        {
             if force {
                 self.keyboard.clear_dirty();
             }
@@ -216,18 +243,24 @@ impl WindowState {
 
         if force {
             let snapshot = self.keyboard.snapshot();
-            self.gpu.update_keyboard_channels(&snapshot);
+            if let Some(gpu) = self.gpu.as_ref() {
+                gpu.update_keyboard_channels(&snapshot);
+            }
         }
 
         while let Some(snapshot) = self.keyboard.take_dirty_snapshot() {
-            self.gpu.update_keyboard_channels(&snapshot);
+            if let Some(gpu) = self.gpu.as_ref() {
+                gpu.update_keyboard_channels(&snapshot);
+            }
         }
     }
 
     fn flush_keyboard_pulses(&mut self) {
         if let Some(snapshot) = self.keyboard.take_pulse_reset_snapshot() {
-            if self.gpu.has_keyboard_channel() {
-                self.gpu.update_keyboard_channels(&snapshot);
+            if let Some(gpu) = self.gpu.as_ref() {
+                if gpu.has_keyboard_channel() {
+                    gpu.update_keyboard_channels(&snapshot);
+                }
             }
         }
     }

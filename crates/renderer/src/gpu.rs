@@ -324,12 +324,22 @@ impl GpuState {
             );
         }
 
+        // Prefer FIFO present mode for maximum stability on Wayland/NVIDIA.
+        // This avoids driver quirks seen with other modes on some stacks.
+        let present_mode = surface_caps
+            .present_modes
+            .iter()
+            .copied()
+            .find(|m| *m == wgpu::PresentMode::Fifo)
+            .unwrap_or_else(|| surface_caps.present_modes[0]);
+        tracing::info!(?present_mode, "using present mode");
+
         let config = wgpu::SurfaceConfiguration {
             usage: surface_usage,
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: surface_caps.present_modes[0],
+            present_mode,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 1,
