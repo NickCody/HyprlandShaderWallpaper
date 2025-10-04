@@ -1,6 +1,6 @@
-# Lambda Shader (lambdash)
+# WallShader (wallshader)
 
-Lambda Shader is a Rust-based wallpaper engine
+WallShader is a Rust-based wallpaper engine
 for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live
 backgrounds and supports both remote ShaderToy content and local shader packs.
 
@@ -16,8 +16,8 @@ Install `just` via your package manager or with `cargo install just`.
 ## Quick Start
 
 ```bash
-git clone https://github.com/NickCody/HyprlandShaderWallpaper.git
-cd HyprlandShaderWallpaper
+git clone https://github.com/NickCody/WallShader.git
+cd WallShader
 just setup
 just run-demo
 ```
@@ -29,7 +29,7 @@ if the shader is not cached locally.
 
 ## Color Space & Gamma Handling
 
-By default Lambda Shader assumes ShaderToy-style gamma output: it creates a non-sRGB
+By default WallShader assumes ShaderToy-style gamma output: it creates a non-sRGB
 swapchain and binds textures without automatic colour conversion, matching the
 WebGL defaults used on shadertoy.com. You can override this at several levels:
 
@@ -41,7 +41,7 @@ WebGL defaults used on shadertoy.com. You can override this at several levels:
 - **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
   dominates, otherwise each pack’s manifest decides the swapchain format.
 
-When switching between modes Lambda Shader rebuilds GPU resources so playlists can mix
+When switching between modes WallShader rebuilds GPU resources so playlists can mix
 gamma-authored and linear-authored content without restarting the daemon.
 
 ## Install from Git
@@ -50,10 +50,10 @@ Install the binary straight from this repository without cloning it:
 
 ```bash
 cargo install \
-  --git https://github.com/NickCody/HyprlandShaderWallpaper \
+  --git https://github.com/NickCody/WallShader \
   --tag v0.9.1 \
   --locked \
-  lambdash
+  wallshader
 ```
 
 During active development you can substitute `--branch main` to follow the latest
@@ -62,11 +62,11 @@ changes. Add `--force` to reinstall after pulling a new tag.
 If you already have the repository checked out, the same command works locally:
 
 ```bash
-cargo install --path crates/lambdash --locked --force lambdash
+cargo install --path crates/wallshader --locked --force wallshader
 ```
 
-The installed `lambdash` binary accepts the same CLI flags documented below, so you
-can run `lambdash --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from
+The installed `wallshader` binary accepts the same CLI flags documented below, so you
+can run `wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from
 any directory.
 
 ## Installer Script
@@ -77,13 +77,13 @@ upstream repository, runs `cargo install`, and copies the repo's
 root:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/HyprlandShaderWallpaper/main/scripts/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
 ```
 
 By default this one-liner grabs `main` from GitHub, overwriting
-`~/.local/share/lambdash/shaders` with the bundled shader packs and
+`~/.local/share/wallshader/shaders` with the bundled shader packs and
 reinstalling the binary. Use `--data-dir` to pick a different destination or
-`--system` (with sudo) to install the packs under `/usr/share/lambdash`.
+`--system` (with sudo) to install the packs under `/usr/share/wallshader`.
 Additional flags help with constrained environments—`--skip-build` reuses an
 existing binary, and `--offline` forwards Cargo's offline mode when crates are
 already cached. All installer options (including `--prefix` and `--ref`) are
@@ -97,29 +97,29 @@ branch instead of cloning GitHub:
 scripts/install.sh --source . --skip-build
 ```
 
-Pass `--data-dir ~/.local/share/lambdash` (or `--system`) if you need to target a
+Pass `--data-dir ~/.local/share/wallshader` (or `--system`) if you need to target a
 specific location. Re-run the same command whenever you want to refresh
 `shaders/` while iterating on shader packs or playlists.
 
 ## Directories and CLI Helpers
 
-Lambda Shader follows the XDG base directory spec. The core locations are:
+WallShader follows the XDG base directory spec. The core locations are:
 
-- Config: `~/.config/lambdash/`
-- Data: `~/.local/share/lambdash/`
-- Cache: `~/.cache/lambdash/`
-- System defaults: `/usr/share/lambdash/` (overridable via `LAMBDASH_SHARE_DIR`)
+- Config: `~/.config/wallshader/`
+- Data: `~/.local/share/wallshader/`
+- Cache: `~/.cache/wallshader/`
+- System defaults: `/usr/share/wallshader/` (overridable via `WALLSHADER_SHARE_DIR`)
 
-Set `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, and `LAMBDASH_CACHE_DIR` to relocate
+Set `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, and `WALLSHADER_CACHE_DIR` to relocate
 any directory. CLI flags always win over environment variables.
 
 Bundled shader packs and sample playlists live under `shaders/` in the
 repository. The installer mirrors that directory to your data location, and you
 can rerun it any time you want to refresh the packs while developing. Keep your
-own user overrides under `~/.config/lambdash/shaders`—the installer never
+own user overrides under `~/.config/wallshader/shaders`—the installer never
 touches that tree.
 
-Run `lambdash defaults where` to print the resolved config/data/cache/share
+Run `wallshader defaults where` to print the resolved config/data/cache/share
 paths if you need to double-check the environment.
 
 ### Still Frames & Exports
@@ -127,8 +127,8 @@ paths if you need to double-check the environment.
 - `--still` renders one frame and pauses the scheduler, keeping the surface alive for previews.
 - `--still-time <seconds|auto>` selects the timestamp for still/export captures (auto currently falls back to `0`).
 - `--still-export <path.png>` grabs the next frame to disk; the renderer forces window mode for capture.
-- `--still-exit <true|false>` controls whether Lambda Shader exits after finishing a still export (defaults to `true`).
-  When exporting, Lambda Shader hides the preview window unless `--window` is supplied, so headless
+- `--still-exit <true|false>` controls whether WallShader exits after finishing a still export (defaults to `true`).
+  When exporting, WallShader hides the preview window unless `--window` is supplied, so headless
   captures complete without flashing a surface.
 
 ### Quality & Adaptive Controls
@@ -148,15 +148,15 @@ Downstream packages and automation should mirror the installer’s behaviour:
   `--system` or provide explicit `--prefix`/`--data-dir` flags that match your
   filesystem layout.
 - Avoid running as root unless shipping a system-wide package. For user-focused
-  bundles (AppImage, Flatpak, etc.) set `LAMBDASH_DATA_DIR` to a writable path
+  bundles (AppImage, Flatpak, etc.) set `WALLSHADER_DATA_DIR` to a writable path
   and run the installer in `--skip-build` mode after the binary is staged.
-- CI should execute `cargo test -p lambdash` to cover the installer integration
+- CI should execute `cargo test -p wallshader` to cover the installer integration
   test (`install_script_copies_defaults`) and ensure future changes keep the
   script functional.
 
 ## Workspace Layout
 
-- `crates/lambdash`: Daemon entry point and CLI that orchestrates rendering.
+- `crates/wallshader`: Daemon entry point and CLI that orchestrates rendering.
 - `crates/renderer`: Rendering abstraction that manages shader wrapping and frame uniforms.
 - `crates/shadertoy`: Integration layer for ShaderToy downloads, caching, and manifest validation.
 - `shaders/`: User-provided shader packs mirroring ShaderToy render pass structure.
@@ -181,7 +181,7 @@ under `shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied t
 experiment is:
 
 ```
-cargo run -p lambdash -- --playlist workspaces.toml
+cargo run -p wallshader -- --playlist workspaces.toml
 ```
 
 Key behaviours:
@@ -193,7 +193,7 @@ Key behaviours:
 - Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
 
 Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs
-with the `[lambdash]` prefix highlight shader compilation or timing diagnostics.
+with the `[wallshader]` prefix highlight shader compilation or timing diagnostics.
 
 ### Path Resolution & Environment Variables
 
@@ -203,10 +203,10 @@ Local shader handles accept shell-style expansions so configs stay portable:
 - `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
   error so typos show up immediately.
 - Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
-- `local://<pack>` searches `$DATA_DIR` (or `LAMBDASH_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/lambdash/shaders/`.
+- `local://<pack>` searches `$DATA_DIR` (or `WALLSHADER_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/wallshader/shaders/`.
 
-This logic applies across CLI handles (`lambdash $HOME/shaders/demo`), playlist manifests, and
-the defaults bootstrap. Run `lambdash defaults where` to inspect which directories are currently
+This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlist manifests, and
+the defaults bootstrap. Run `wallshader defaults where` to inspect which directories are currently
 active.
 
 ## Release Notes

@@ -7,10 +7,10 @@ use crate::handles::{LaunchHandleArg, PlaylistHandleArg};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "lambdash",
+    name = "wallshader",
     author,
     version,
-    about = "Lambda Shader daemon",
+    about = "WallShader daemon",
     arg_required_else_help = false
 )]
 pub struct Cli {

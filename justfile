@@ -12,11 +12,11 @@ check:
 
 # Run the default windowed demo shader
 run-demo:
-	cargo run -p lambdash -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
+	cargo run -p wallshader -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
 
 # Run the playlist sample configuration
 run-playlist:
-	cargo run -p lambdash -- --playlist workspaces.toml
+	cargo run -p wallshader -- --playlist workspaces.toml
 
 # Mirror the GitHub Actions workflow (build + tests)
 validate:

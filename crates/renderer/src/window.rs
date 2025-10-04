@@ -383,7 +383,7 @@ impl WindowRuntime {
         let (ready_tx, ready_rx) = bounded(1);
         let (signal_tx, signal_rx) = unbounded();
         let handle = thread::Builder::new()
-            .name("lambdash-window".into())
+            .name("wallshader-window".into())
             .spawn(move || run_window_thread(config, ready_tx, signal_tx))
             .map_err(|err| anyhow!("failed to spawn window thread: {err}"))?;
 
@@ -460,7 +460,7 @@ fn run_window_thread(
 
     let window_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
     let mut builder = WindowBuilder::new()
-        .with_title("Lambda Shader Preview")
+        .with_title("WallShader Preview")
         .with_inner_size(window_size);
     if !config.show_window {
         builder = builder.with_visible(false);

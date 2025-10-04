@@ -1,5 +1,5 @@
 - [x] Baseline repository setup for contributors
-- [x] Publish `lambdash` via Cargo install
+- [x] Publish `wallshader` via Cargo install
 - [ ] Automate tagged releases with binaries
 - [ ] Package for popular Linux distributions
 - [ ] Provide an optional installer helper
@@ -7,19 +7,19 @@
 - [ ] Implement defaults & user configuration
 
 ## Baseline repository setup for contributors
-Pin the Rust toolchain (`rust-toolchain.toml`), list system dependencies (Wayland dev packages, GPU drivers) in `README.md`, and document the quick start commands (`git clone`, `cargo build --release`, `cargo run -p lambdash -- --help`). Add a `justfile`/`Makefile` with `setup`, `check`, and demo targets so newcomers have reproducible entry points. Tag releases and maintain a `CHANGELOG.md` using Keep a Changelog plus semantic versioning for downstream consumers.
+Pin the Rust toolchain (`rust-toolchain.toml`), list system dependencies (Wayland dev packages, GPU drivers) in `README.md`, and document the quick start commands (`git clone`, `cargo build --release`, `cargo run -p wallshader -- --help`). Add a `justfile`/`Makefile` with `setup`, `check`, and demo targets so newcomers have reproducible entry points. Tag releases and maintain a `CHANGELOG.md` using Keep a Changelog plus semantic versioning for downstream consumers.
 
-## Publish `lambdash` via Cargo install
-Document the `cargo install --git https://github.com/NickCody/HyprlandShaderWallpaper --tag v0.9.1 --locked lambdash` path (or `--branch main` while iterating) and verify it builds from a clean checkout. When ready for crates.io, polish metadata and publish tagged versions so users can install without the `--git` flag.
+## Publish `wallshader` via Cargo install
+Document the `cargo install --git https://github.com/NickCody/WallShader --tag v0.9.1 --locked wallshader` path (or `--branch main` while iterating) and verify it builds from a clean checkout. When ready for crates.io, polish metadata and publish tagged versions so users can install without the `--git` flag.
 
 ## Automate tagged releases with binaries
 Set up GitHub Actions to run formatting, clippy, and tests, then use `cargo dist` (or similar) on version tags to produce tar/zip bundles that include the binary, default manifests, and sample shaders. Upload artifacts with checksums and document curl/tar install steps. Expand to Homebrew taps or `.deb`/`.rpm` outputs when `cargo-dist` support is ready.
 
 ## Package for popular Linux distributions
-Start with an Arch AUR `-git` recipe that builds via `cargo build --release`, then graduate to a tagged package once releases stabilize. Provide a `flake.nix` offering `nix run .#lambdash` and a reproducible dev shell. Explore Debian packaging (`cargo deb` or native `debian/` rules) and consider Flatpak when shader assets and GPU permissions are fully mapped out.
+Start with an Arch AUR `-git` recipe that builds via `cargo build --release`, then graduate to a tagged package once releases stabilize. Provide a `flake.nix` offering `nix run .#wallshader` and a reproducible dev shell. Explore Debian packaging (`cargo deb` or native `debian/` rules) and consider Flatpak when shader assets and GPU permissions are fully mapped out.
 
 ## Provide an optional installer helper
-Offer a POSIX `install.sh` (or `just install`) that copies the release binary into `~/.local/bin`, seeds configs under `~/.config/lambdash/`, respects `--prefix`, and runs idempotently. Document cache/config paths so packagers can relocate assets to standard XDG directories.
+Offer a POSIX `install.sh` (or `just install`) that copies the release binary into `~/.local/bin`, seeds configs under `~/.config/wallshader/`, respects `--prefix`, and runs idempotently. Document cache/config paths so packagers can relocate assets to standard XDG directories.
 
 ## Formalize open-source policies and docs
 Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `AGENTS.md`. Sign release tags (GPG) for integrity. Ensure telemetry defaults to XDG-friendly cache/log locations and keep runbook-style notes so future maintainers understand diagnostics and tracing expectations.
@@ -28,16 +28,16 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 Deliver a robust, user-first configuration model by executing the following phases:
 
 ### Phase 1 — Path Infrastructure *(complete)*
-1. Introduce a `paths` module (e.g. `crates/lambdash/src/paths.rs`) that wraps `directories_next::ProjectDirs` and exposes:
-   - `config_dir` (`$XDG_CONFIG_HOME/lambdash`, default `~/.config/lambdash`).
-   - `data_dir` (`$XDG_DATA_HOME/lambdash`, default `~/.local/share/lambdash`).
-   - `cache_dir` (`$XDG_CACHE_HOME/lambdash`, default `~/.cache/lambdash`).
-   - `system_share_dir` (`/usr/share/lambdash` on Unix, overridable via env/build settings).
+1. Introduce a `paths` module (e.g. `crates/wallshader/src/paths.rs`) that wraps `directories_next::ProjectDirs` and exposes:
+   - `config_dir` (`$XDG_CONFIG_HOME/wallshader`, default `~/.config/wallshader`).
+   - `data_dir` (`$XDG_DATA_HOME/wallshader`, default `~/.local/share/wallshader`).
+   - `cache_dir` (`$XDG_CACHE_HOME/wallshader`, default `~/.cache/wallshader`).
+   - `system_share_dir` (`/usr/share/wallshader` on Unix, overridable via env/build settings).
 2. Provide helpers returning ordered search roots for shaders, playlists, and caches, differentiating between writable and read-only roots.
-3. Support env-var overrides (`LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, `LAMBDASH_CACHE_DIR`, `LAMBDASH_SHARE_DIR`) with documented precedence (CLI flag > env > XDG default).
+3. Support env-var overrides (`WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, `WALLSHADER_CACHE_DIR`, `WALLSHADER_SHARE_DIR`) with documented precedence (CLI flag > env > XDG default).
 4. Update config and asset loaders to rely on the module instead of ad-hoc path handling.
 
-Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (config, data, cache) plus `/usr/share/lambdash`, supports `LAMBDASH_*` overrides, and the wallpaper/multi entry points use the computed shader/cache roots.
+Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (config, data, cache) plus `/usr/share/wallshader`, supports `WALLSHADER_*` overrides, and the wallpaper/multi entry points use the computed shader/cache roots.
 
 ### Phase 2 — Directory Bootstrapping *(complete)*
 1. Ensure required directories exist during startup and create them with clear error handling.
@@ -48,25 +48,25 @@ Implemented in commit-in-progress: `AppPaths` now resolves XDG directories (conf
 Implemented via `bootstrap::bootstrap_filesystem`: it creates the XDG directory tree, initialises shader/playlist subfolders plus the Shadertoy cache, and materialises `state.toml` with default metadata while logging each action.
 
 ### Phase 3 — Default Content Packaging & Sync *(complete)*
-1. Treat `/usr/share/lambdash` as the authoritative source for bundled shader packs, manifests, and docs.
+1. Treat `/usr/share/wallshader` as the authoritative source for bundled shader packs, manifests, and docs.
 2. Copy only missing defaults into user directories during first run or when explicitly requested.
-3. Track a monotonically increasing `defaults_version` (e.g. file in `/usr/share/lambdash/VERSION`). Compare against `state.toml` and prompt for sync when upstream content is newer.
+3. Track a monotonically increasing `defaults_version` (e.g. file in `/usr/share/wallshader/VERSION`). Compare against `state.toml` and prompt for sync when upstream content is newer.
 4. Provide a dry-run option that reports pending copies without making changes.
 
-Implemented via `defaults::sync_defaults`: it scans the configured share directory, copies any missing shader packs or playlists into `~/.local/share/lambdash`, respects a `VERSION` stamp for logging, records the last sync timestamp, and updates `state.toml` only when content is actually installed.
+Implemented via `defaults::sync_defaults`: it scans the configured share directory, copies any missing shader packs or playlists into `~/.local/share/wallshader`, respects a `VERSION` stamp for logging, records the last sync timestamp, and updates `state.toml` only when content is actually installed.
 
 ### Phase 4 — CLI Surface & Commands *(complete)*
-1. Add `lambdash defaults` subcommands:
+1. Add `wallshader defaults` subcommands:
    - `where` to print resolved paths for debugging.
 2. Respect env overrides and CLI flags when executing commands.
 3. Log which search root satisfies each shader to aid support.
 
-Implemented: the CLI exposes `lambdash defaults where` for a quick directory overview, sharing the same path discovery logic used by the daemon.
+Implemented: the CLI exposes `wallshader defaults where` for a quick directory overview, sharing the same path discovery logic used by the daemon.
 
 ### Phase 5 — Path Resolution Semantics *(complete)*
 1. Define resolution rules used across the app:
    - Absolute paths are honored verbatim.
-   - Relative paths search the process working directory, user roots, then `/usr/share/lambdash`.
+   - Relative paths search the process working directory, user roots, then `/usr/share/wallshader`.
 2. Implement interpolation for config values:
    - Expand `${VAR}` placeholders using `std::env::var`; emit a descriptive error if unset.
    - Expand `~` to the user home directory.
@@ -78,31 +78,31 @@ Implemented via `shadertoy::PathResolver` and `shadertoy::parse_shader_handle`: 
 
 ### Phase 6 — Documentation & Telemetry *(complete)*
 1. Update `README.md`, `AGENTS.md`, and `spec/SpecMulti.md` with the directory layout, override mechanics, and CLI usage.
-2. Document workflows for copying defaults (`scripts/install.sh --data-dir ~/.local/share/lambdash`).
+2. Document workflows for copying defaults (`scripts/install.sh --data-dir ~/.local/share/wallshader`).
 3. Clarify env-var interpolation semantics and failure modes in user docs.
 4. Instrument logs (`info`/`warn`/`debug`) to capture sync actions, missing assets, and resolution traces.
 
-Implemented: docs now spell out the XDG directories, the simplified installer workflow, and packaging responsibilities for `/usr/share/lambdash`. Telemetry emits `debug!` traces for path expansion and local pack resolution, plus warnings when packs are missing or malformed so support can diagnose failures quickly.
+Implemented: docs now spell out the XDG directories, the simplified installer workflow, and packaging responsibilities for `/usr/share/wallshader`. Telemetry emits `debug!` traces for path expansion and local pack resolution, plus warnings when packs are missing or malformed so support can diagnose failures quickly.
 
 ### Phase 7 — Testing & CI Integration *(complete)*
 1. Add integration tests using temporary directories to simulate fresh installs, upgrades, and env overrides.
 2. Include a CI smoke test that exercises the installer into a temp tree and verifies expected files.
 3. Validate cross-platform share-path handling (macOS/BSD) via conditional compilation and targeted tests.
 
-Implemented via new unit and integration coverage: installer tests build temp trees, verify copies, and ensure environment overrides behave as expected. Additional `paths` tests assert env overrides and `/usr/share/lambdash` defaults (unix) so cross-platform logic stays honest.
+Implemented via new unit and integration coverage: installer tests build temp trees, verify copies, and ensure environment overrides behave as expected. Additional `paths` tests assert env overrides and `/usr/share/wallshader` defaults (unix) so cross-platform logic stays honest.
 
 ### Phase 8 — Future Extensions (Optional)
 - Support profiles (`--profile NAME`) to namespace directories.
 - Add manifest schema migrations based on `defaults_version`.
 - Allow per-shader local override files layered above defaults.
-- Provide `lambdash doctor` for diagnosing missing directories or stale defaults.
+- Provide `wallshader doctor` for diagnosing missing directories or stale defaults.
 
 ### Phase 9 — Packaging & System Share Integration *(complete)*
 1. Ship installer/release scripts that populate the chosen data directory (user or system) with shader packs and playlists.
 2. Add CI checks (or packaging tests) that fail when the release bundle omits expected defaults.
 3. Document packager expectations so downstream distributions mirror the same layout.
 
-Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, and flattens `shaders/` into the configured data directory (packs become `$DATA_DIR/<pack>/`, playlists land at `$DATA_DIR/<name>.toml`). The script defaults to rootless installs under `~/.local/share/lambdash`, supports `--data-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p lambdash`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
+Implemented: `scripts/install.sh` clones the repository (or reuses a local checkout), optionally runs `cargo install`, and flattens `shaders/` into the configured data directory (packs become `$DATA_DIR/<pack>/`, playlists land at `$DATA_DIR/<name>.toml`). The script defaults to rootless installs under `~/.local/share/wallshader`, supports `--data-dir`/`--prefix`, and exposes `--system`, `--skip-build`, and `--offline` modes for packagers. An installer integration test (`install_script_copies_defaults`) now exercises the script during `cargo test -p wallshader`, providing the CI guardrail. Packaging guidance in `README.md`/`AGENTS.md` instructs downstreams to reuse the script and include the generated assets in release bundles.
 
 ### Implementation Notes
 - Use atomic file operations when copying defaults; write to temp files then rename.

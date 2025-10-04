@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/lambdash", "crates/multiconfig",
+    "crates/wallshader", "crates/multiconfig",
     "crates/renderer", "crates/scheduler",
     "crates/shadertoy",
 ]
@@ -9,8 +9,8 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/NickCody/HyprlandShaderWallpaper"
-homepage = "https://github.com/NickCody/HyprlandShaderWallpaper"
+repository = "https://github.com/NickCody/WallShader"
+homepage = "https://github.com/NickCody/WallShader"
 readme = "README.md"
 keywords = ["hyprland", "wallpaper", "shadertoy", "wayland"]
 categories = ["graphics", "command-line-utilities"]

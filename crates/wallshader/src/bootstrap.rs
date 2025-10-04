@@ -34,9 +34,9 @@ fn ensure_directory(path: &Path) -> Result<()> {
         }
     } else {
         fs::create_dir_all(path).with_context(|| {
-            format!("failed to create lambdash directory at {}", path.display())
+            format!("failed to create wallshader directory at {}", path.display())
         })?;
-        debug!(path = %path.display(), "created lambdash directory");
+        debug!(path = %path.display(), "created wallshader directory");
         Ok(())
     }
 }

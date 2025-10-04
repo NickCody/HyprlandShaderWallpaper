@@ -300,7 +300,7 @@ impl GpuState {
         }
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("lambdash device"),
+            label: Some("wallshader device"),
             required_features,
             required_limits: limits.clone(),
             memory_hints: wgpu::MemoryHints::Performance,
@@ -1847,7 +1847,7 @@ impl FrameCapture {
         let buffer_size = bytes_per_row as u64 * height as u64;
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("lambdash-frame-capture"),
+            label: Some("wallshader-frame-capture"),
             size: buffer_size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,

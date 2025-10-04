@@ -1,12 +1,12 @@
 [package]
-name = "lambdash"
+name = "wallshader"
 version = "0.9.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme = "../../README.md"
-description = "Lambda Shader wallpaper daemon that renders ShaderToy-compatible GPU shaders using wgpu"
+description = "WallShader wallpaper daemon that renders ShaderToy-compatible GPU shaders using wgpu"
 keywords.workspace = true
 categories.workspace = true
 

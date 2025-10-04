@@ -1,6 +1,6 @@
 # Broadening Linux Environment Support
 
-This document outlines a staged plan to broaden Lambda Shader beyond a Hyprland-first wallpaper workflow while keeping the renderer portable and fast. The focus is Linux; targets are Wayland (generic and vendor‑specific) and X11.
+This document outlines a staged plan to broaden WallShader beyond a Hyprland-first wallpaper workflow while keeping the renderer portable and fast. The focus is Linux; targets are Wayland (generic and vendor‑specific) and X11.
 
 ## Goals & Principles
 - Be compositor‑agnostic by default; keep vendor specifics optional.
@@ -126,7 +126,7 @@ Deliverables
 - Wayland output multiplexing
   - Create/resize one layer surface per output; handle hotplug/removal; map per‑output scale (HiDPI) and minimal damage.
 - Headless bake
-  - Batch render “best stills” of selected shaders into `~/.local/share/lambdash/stills/` with presets.
+  - Batch render “best stills” of selected shaders into `~/.local/share/wallshader/stills/` with presets.
 
 Deliverables
 - New adapter: X11 root pixmap animator.
@@ -164,7 +164,7 @@ Deliverables
   - Probe Wayland protocols; detect compositor vendor; log clear fallbacks.
   - On X11, detect compositing, DPIs, screens.
 - Diagnostics
-  - `lambdash doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode.
+  - `wallshader doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode.
 
 ## CLI Surface (additive)
 - Rendering: `--still`, `--still-time`, `--still-refresh`, `--still-on-idle`, `--render-scale`, `--fill-method`, `--fps-adaptive`, `--max-fps-occluded`.
@@ -314,7 +314,7 @@ Deliverables
 - Wayland output multiplexing
   - Create/resize one layer surface per output; handle hotplug/removal; map per‑output scale (HiDPI) and minimal damage.
 - Headless bake
-  - Batch render “best stills” of selected shaders into `~/.local/share/lambdash/stills/` with presets.
+  - Batch render “best stills” of selected shaders into `~/.local/share/wallshader/stills/` with presets.
 
 Deliverables
 - New adapter: X11 root pixmap animator.
@@ -352,7 +352,7 @@ Deliverables
   - Probe Wayland protocols; detect compositor vendor; log clear fallbacks.
   - On X11, detect compositing, DPIs, screens.
 - Diagnostics
-  - `lambdash doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode.
+  - `wallshader doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode.
 
 ## CLI Surface (additive)
 - Rendering: `--still`, `--still-time`, `--still-refresh`, `--still-on-idle`, `--render-scale`, `--fill-method`, `--fps-adaptive`, `--max-fps-occluded`.

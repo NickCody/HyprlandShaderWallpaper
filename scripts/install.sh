@@ -3,17 +3,17 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Lambda Shader installer
+WallShader installer
 
 Usage: install.sh [options]
 
 Options:
   --prefix <path>        Cargo install prefix (passed to `cargo install --root`). Optional.
-  --data-dir <path>      Destination for bundled shader packs (default: "${XDG_DATA_HOME:-$HOME/.local/share}/lambdash").
-  --system               Install for all users (prefix=/usr/local, data-dir=/usr/share/lambdash).
+  --data-dir <path>      Destination for bundled shader packs (default: "${XDG_DATA_HOME:-$HOME/.local/share}/wallshader").
+  --system               Install for all users (prefix=/usr/local, data-dir=/usr/share/wallshader).
                          Requires root privileges.
   --ref <git-ref>        Git branch, tag, or commit to install from (default: main).
-  --repo <git-url>       Source repository URL (default: https://github.com/NickCody/HyprlandShaderWallpaper.git).
+  --repo <git-url>       Source repository URL (default: https://github.com/NickCody/WallShader.git).
   --source <path>        Use an existing local checkout instead of cloning.
   --skip-build           Skip `cargo install` (useful if the binary is already present).
   --offline              Pass `--offline` to cargo when building.
@@ -27,13 +27,13 @@ Examples:
   sudo bash install.sh --system
 
   # One-liner from GitHub
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/HyprlandShaderWallpaper/main/scripts/install.sh)" -- --prefix "$HOME/.local"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)" -- --prefix "$HOME/.local"
 USAGE
 }
 
 ensure_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "[lambdash-installer] Required command not found: $1" >&2
+    echo "[wallshader-installer] Required command not found: $1" >&2
     exit 1
   fi
 }
@@ -49,7 +49,7 @@ trap clean_up EXIT
 prefix=""
 data_dir=""
 system_install=0
-repo_url="https://github.com/NickCody/HyprlandShaderWallpaper.git"
+repo_url="https://github.com/NickCody/WallShader.git"
 ref="main"
 source_dir=""
 skip_build=0
@@ -68,7 +68,7 @@ while [[ $# -gt 0 ]]; do
     --system)
       system_install=1
       prefix="/usr/local"
-      data_dir="/usr/share/lambdash"
+      data_dir="/usr/share/wallshader"
       shift
       ;;
     --ref)
@@ -100,7 +100,7 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     *)
-      echo "[lambdash-installer] Unknown option: $1" >&2
+      echo "[wallshader-installer] Unknown option: $1" >&2
       usage >&2
       exit 1
       ;;
@@ -108,12 +108,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $system_install -eq 1 && $(id -u) -ne 0 ]]; then
-  echo "[lambdash-installer] --system requires root privileges." >&2
+  echo "[wallshader-installer] --system requires root privileges." >&2
   exit 1
 fi
 
 if [[ -z "$data_dir" ]]; then
-  data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/lambdash"
+  data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wallshader"
 fi
 
 ensure_command cargo
@@ -121,24 +121,24 @@ ensure_command git
 ensure_command tar
 ensure_command install
 
-TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t lambdash-install)
-repo_path="${TMPDIR_ROOT}/LambdaShade"
+TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t wallshader-install)
+repo_path="${TMPDIR_ROOT}/WallShaderade"
 
 if [[ -n "$source_dir" ]]; then
-  echo "[lambdash-installer] Using local source: $source_dir"
+  echo "[wallshader-installer] Using local source: $source_dir"
   mkdir -p "$repo_path"
   (cd "$source_dir" && git rev-parse HEAD >/dev/null 2>&1) || {
-    echo "[lambdash-installer] Source directory must be a git checkout." >&2
+    echo "[wallshader-installer] Source directory must be a git checkout." >&2
     exit 1
   }
   tar -C "$source_dir" --exclude='.git' -cf - . | tar -C "$repo_path" -xf -
 else
-  echo "[lambdash-installer] Cloning $repo_url@$ref"
+  echo "[wallshader-installer] Cloning $repo_url@$ref"
   git clone --depth 1 --branch "$ref" "$repo_url" "$repo_path" >/dev/null
 fi
 
 if [[ $skip_build -eq 0 ]]; then
-  cargo_args=(install --path "$repo_path/crates/lambdash" --locked --force)
+  cargo_args=(install --path "$repo_path/crates/wallshader" --locked --force)
   if [[ -n "$prefix" ]]; then
     cargo_args+=(--root "$prefix")
   fi
@@ -146,13 +146,13 @@ if [[ $skip_build -eq 0 ]]; then
     cargo_args+=(--offline)
   fi
 
-  echo "[lambdash-installer] Building lambdash via cargo"
+  echo "[wallshader-installer] Building wallshader via cargo"
   cargo "${cargo_args[@]}"
 else
-  echo "[lambdash-installer] Skipping cargo build (--skip-build)"
+  echo "[wallshader-installer] Skipping cargo build (--skip-build)"
 fi
 
-echo "[lambdash-installer] Installing bundled shaders into $data_dir"
+echo "[wallshader-installer] Installing bundled shaders into $data_dir"
 mkdir -p "$data_dir"
 if [[ -d "$repo_path/shaders" ]]; then
   rm -rf "$data_dir/shaders"
@@ -169,12 +169,12 @@ if [[ -d "$repo_path/shaders" ]]; then
       rm -rf "$dest"
       mkdir -p "$dest"
       tar -C "$entry" -cf - . | tar -C "$dest" -xf -
-      echo "[lambdash-installer]   pack: $name"
+      echo "[wallshader-installer]   pack: $name"
     elif [[ "$entry" == *.toml ]]; then
       dest="$data_dir/$name"
       mkdir -p "$(dirname "$dest")"
       install -m 0644 "$entry" "$dest"
-      echo "[lambdash-installer]   playlist: $name"
+      echo "[wallshader-installer]   playlist: $name"
     else
       dest="$data_dir/$name"
       install -m 0644 "$entry" "$dest"
@@ -187,24 +187,24 @@ if [[ -d "$repo_path/shaders" ]]; then
       name=$(basename "$playlist")
       dest="$data_dir/$name"
       install -m 0644 "$playlist" "$dest"
-      echo "[lambdash-installer]   playlist: $name"
+      echo "[wallshader-installer]   playlist: $name"
     done
   fi
 else
-  echo "[lambdash-installer] Warning: no shaders directory found in source" >&2
+  echo "[wallshader-installer] Warning: no shaders directory found in source" >&2
 fi
 
-bin_path=$(command -v lambdash 2>/dev/null || true)
+bin_path=$(command -v wallshader 2>/dev/null || true)
 if [[ -z "$bin_path" && -n "$prefix" ]]; then
-  bin_path="$prefix/bin/lambdash (add to PATH)"
+  bin_path="$prefix/bin/wallshader (add to PATH)"
 fi
 
-echo "[lambdash-installer] lambdash installation complete"
+echo "[wallshader-installer] wallshader installation complete"
 if [[ -n "$bin_path" ]]; then
-  echo "[lambdash-installer] Binary location: $bin_path"
+  echo "[wallshader-installer] Binary location: $bin_path"
 else
-  echo "[lambdash-installer] Binary installed; ensure your cargo bin directory is on PATH."
+  echo "[wallshader-installer] Binary installed; ensure your cargo bin directory is on PATH."
 fi
-echo "[lambdash-installer] Shader assets installed to: $data_dir"
+echo "[wallshader-installer] Shader assets installed to: $data_dir"
 
-echo "[lambdash-installer] Run 'lambdash defaults where' to verify configuration."
+echo "[wallshader-installer] Run 'wallshader defaults where' to verify configuration."

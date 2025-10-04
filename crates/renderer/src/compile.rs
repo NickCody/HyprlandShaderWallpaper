@@ -24,7 +24,7 @@ pub(crate) fn compile_vertex_shader(
 
 /// Wraps the user shader with our ShaderToy prelude and compiles it as GLSL.
 ///
-/// The wrapped source is dumped to `/tmp/lambdash_wrapped.frag` to aid
+/// The wrapped source is dumped to `/tmp/wallshader_wrapped.frag` to aid
 /// debugging when compilation fails in `wgpu`.
 pub(crate) fn compile_fragment_shader(
     device: &wgpu::Device,
@@ -33,7 +33,7 @@ pub(crate) fn compile_fragment_shader(
 ) -> Result<wgpu::ShaderModule> {
     let wrapped = wrap_shadertoy_fragment(source);
 
-    if let Err(err) = std::fs::write("/tmp/lambdash_wrapped.frag", &wrapped) {
+    if let Err(err) = std::fs::write("/tmp/wallshader_wrapped.frag", &wrapped) {
         tracing::debug!(error = %err, "failed to dump wrapped shader");
     }
 
@@ -41,7 +41,7 @@ pub(crate) fn compile_fragment_shader(
         device,
         &wrapped,
         ShaderStage::Fragment,
-        "lambdash fragment",
+        "wallshader fragment",
         compiler,
     )
     .with_context(|| "failed to compile fragment shader")
@@ -133,29 +133,29 @@ layout(std140, set = 0, binding = 0) uniform ShaderParams {
 #define iMouse ubo._iMouse
 #define iDate ubo._iDate
 #define iSampleRate ubo._iSampleRate
-#define lambdash_mix ubo._iFade
+#define wallshader_mix ubo._iFade
 #define iChannelTime ubo._iChannelTime
 #define iChannelResolution ubo._iChannelResolution
 
-layout(set = 1, binding = 0) uniform texture2D lambdash_channel0_texture;
-layout(set = 1, binding = 1) uniform sampler lambdash_channel0_sampler;
-layout(set = 1, binding = 2) uniform texture2D lambdash_channel1_texture;
-layout(set = 1, binding = 3) uniform sampler lambdash_channel1_sampler;
-layout(set = 1, binding = 4) uniform texture2D lambdash_channel2_texture;
-layout(set = 1, binding = 5) uniform sampler lambdash_channel2_sampler;
-layout(set = 1, binding = 6) uniform texture2D lambdash_channel3_texture;
-layout(set = 1, binding = 7) uniform sampler lambdash_channel3_sampler;
+layout(set = 1, binding = 0) uniform texture2D wallshader_channel0_texture;
+layout(set = 1, binding = 1) uniform sampler wallshader_channel0_sampler;
+layout(set = 1, binding = 2) uniform texture2D wallshader_channel1_texture;
+layout(set = 1, binding = 3) uniform sampler wallshader_channel1_sampler;
+layout(set = 1, binding = 4) uniform texture2D wallshader_channel2_texture;
+layout(set = 1, binding = 5) uniform sampler wallshader_channel2_sampler;
+layout(set = 1, binding = 6) uniform texture2D wallshader_channel3_texture;
+layout(set = 1, binding = 7) uniform sampler wallshader_channel3_sampler;
 
-#define iChannel0 sampler2D(lambdash_channel0_texture, lambdash_channel0_sampler)
-#define iChannel1 sampler2D(lambdash_channel1_texture, lambdash_channel1_sampler)
-#define iChannel2 sampler2D(lambdash_channel2_texture, lambdash_channel2_sampler)
-#define iChannel3 sampler2D(lambdash_channel3_texture, lambdash_channel3_sampler)
-#define lambdash_Surface ubo._iSurface
-#define lambdash_Fill ubo._iFill
-#define lambdash_FillWrap ubo._iFillWrap
+#define iChannel0 sampler2D(wallshader_channel0_texture, wallshader_channel0_sampler)
+#define iChannel1 sampler2D(wallshader_channel1_texture, wallshader_channel1_sampler)
+#define iChannel2 sampler2D(wallshader_channel2_texture, wallshader_channel2_sampler)
+#define iChannel3 sampler2D(wallshader_channel3_texture, wallshader_channel3_sampler)
+#define wallshader_Surface ubo._iSurface
+#define wallshader_Fill ubo._iFill
+#define wallshader_FillWrap ubo._iFillWrap
 
-vec4 lambdash_gl_FragCoord;
-#define gl_FragCoord lambdash_gl_FragCoord
+vec4 wallshader_gl_FragCoord;
+#define gl_FragCoord wallshader_gl_FragCoord
 ";
 
 /// GLSL epilogue that remaps coordinates and delegates to `mainImage`.
@@ -164,27 +164,27 @@ const FOOTER: &str = r"void main() {
     // We temporarily undef the macro so we can read the hardware builtin.
     #undef gl_FragCoord
     vec2 builtinFC = vec2(gl_FragCoord.x, gl_FragCoord.y);
-    #define gl_FragCoord lambdash_gl_FragCoord
+    #define gl_FragCoord wallshader_gl_FragCoord
 
     vec2 mapped = vec2(
-        builtinFC.x * lambdash_Fill.x + lambdash_Fill.z,
-        (lambdash_Surface.y - builtinFC.y) * lambdash_Fill.y + lambdash_Fill.w
+        builtinFC.x * wallshader_Fill.x + wallshader_Fill.z,
+        (wallshader_Surface.y - builtinFC.y) * wallshader_Fill.y + wallshader_Fill.w
     );
 
     bool outside = mapped.x < 0.0 || mapped.y < 0.0 || mapped.x >= iResolution.x || mapped.y >= iResolution.y;
 
-    if (lambdash_FillWrap.x > 0.0) {
-        mapped.x = mod(mapped.x, lambdash_FillWrap.x);
+    if (wallshader_FillWrap.x > 0.0) {
+        mapped.x = mod(mapped.x, wallshader_FillWrap.x);
         if (mapped.x < 0.0) {
-            mapped.x += lambdash_FillWrap.x;
+            mapped.x += wallshader_FillWrap.x;
         }
         outside = false;
     }
 
-    if (lambdash_FillWrap.y > 0.0) {
-        mapped.y = mod(mapped.y, lambdash_FillWrap.y);
+    if (wallshader_FillWrap.y > 0.0) {
+        mapped.y = mod(mapped.y, wallshader_FillWrap.y);
         if (mapped.y < 0.0) {
-            mapped.y += lambdash_FillWrap.y;
+            mapped.y += wallshader_FillWrap.y;
         }
         outside = false;
     }
@@ -195,11 +195,11 @@ const FOOTER: &str = r"void main() {
     }
 
     vec2 fragCoord = mapped;
-    lambdash_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
+    wallshader_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
 
     vec4 color = vec4(0.0);
     mainImage(color, fragCoord);
-    outColor = vec4(color.rgb * lambdash_mix, lambdash_mix);
+    outColor = vec4(color.rgb * wallshader_mix, wallshader_mix);
 }
 ";
 
@@ -318,6 +318,6 @@ mod tests {
         assert!(!wrapped.contains("uniform float iTime"));
         assert!(!wrapped.contains("uniform vec3 iResolution"));
         assert!(wrapped.contains("mainImage"));
-        assert!(wrapped.contains("lambdash_mix"));
+        assert!(wrapped.contains("wallshader_mix"));
     }
 }

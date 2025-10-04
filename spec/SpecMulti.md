@@ -2,7 +2,7 @@
 
 Status: Draft for review
 
-This document specifies the multi-workspace playlist system for Lambda Shader (lambdash). It introduces a TOML configuration format, scheduling semantics, target (workspace/output) mapping, and runtime behavior in both wallpaper and window modes.
+This document specifies the multi-workspace playlist system for WallShader (wallshader). It introduces a TOML configuration format, scheduling semantics, target (workspace/output) mapping, and runtime behavior in both wallpaper and window modes.
 
 ## Goals
 
@@ -14,11 +14,11 @@ This document specifies the multi-workspace playlist system for Lambda Shader (l
 
 ## CLI Behavior
 
-- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`$DATA_DIR`, legacy `config/shaders`, legacy `data/shaders`, `/usr/share/lambdash/shaders`). Absolute paths are accepted; directories are rejected.
+- `--playlist <file>`: Enables playlist mode and loads the specified playlist TOML. Bare filenames are resolved against the shader search roots (`$DATA_DIR`, legacy `config/shaders`, legacy `data/shaders`, `/usr/share/wallshader/shaders`). Absolute paths are accepted; directories are rejected.
 - `--window`: In playlist mode, uses only the default playlist for preview (ignores all other targets). A default playlist must be configured; otherwise startup fails with a helpful error.
 - `--cache-only`: Global. Disables all network fetches. Per-item refresh requests are ignored in this mode.
 - `--refresh`: Global. In playlist mode, treated as “refresh once per item this session” (see Caching Semantics). Per-item refresh flags can still be set to opt-in/opt-out at item granularity.
-- `lambdash defaults where`: Diagnostics for resolving shader search paths.
+- `wallshader defaults where`: Diagnostics for resolving shader search paths.
 
 Other existing flags (e.g., `--fps`, `--antialias`) continue to work as global defaults when not overridden by playlist or per-item values.
 
@@ -128,7 +128,7 @@ handle = "local://rotating-voronoise"
   - `antialias` (string|number, optional): playlist-level default AA.
   - `[[playlists.<name>.items]]` (one or more):
     - `handle` (string, required): shader handle. Examples:
-      - `local://<pack>` (searches `$DATA_DIR`, legacy `shaders/` trees, `/usr/share/lambdash/shaders/`)
+      - `local://<pack>` (searches `$DATA_DIR`, legacy `shaders/` trees, `/usr/share/wallshader/shaders/`)
       - `shadertoy://<ID>`
       - absolute or relative filesystem path (anything containing a `/` after expansion)
       - `${MY_SHADER_PACK}` (environment variable expansion)
@@ -233,7 +233,7 @@ Multiple outputs can share the same playlist; multiple workspaces can also share
   - Session state and change emission (`tick(now) -> Vec<(TargetKey, SelectedItem)>`).
   - Refetch guard (session-local refreshed set) consulted for caching semantics.
 
-- `lambdash`:
+- `wallshader`:
   - CLI `--playlist` and integration.
   - Target resolver (Wayland-only + Hyprland-aware resolver).
   - Orchestrates one `LayerSurface` per output and swaps shaders on selection changes.
@@ -337,7 +337,7 @@ To make the rollout manageable, the work will proceed in the following stages. E
 2. Shader swaps reuse `GpuState::set_shader`, blending the outgoing and incoming pipelines via additive color targets; zero-duration requests collapse to hard cuts.
 3. Added `SurfaceId`/`OutputId` selectors, runtime surface snapshots, and unit tests validating fade weights and std140 layout so crossfades stay numerically stable.
 
-### Stage 3 – Lambda Shader Integration (Playlist Runtime) (complete)
+### Stage 3 – WallShader Integration (Playlist Runtime) (complete)
 1. Expand CLI/runtime:
    - Add `--playlist` flag handling and enforce default playlist requirements in window mode.
    - Build a target resolver (Wayland-only first) and a simple Hyprland-aware variant when available.

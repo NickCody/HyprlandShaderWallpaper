@@ -1,7 +1,7 @@
 #!/bin/bash
 
-pkill lambdash
+pkill wallshader
 trap '' HUP
-lambdash "$@" </dev/null >/dev/null 2>&1 &
+wallshader "$@" </dev/null >/dev/null 2>&1 &
 pid=$!
 disown "$pid"

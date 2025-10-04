@@ -1,4 +1,4 @@
-# Lambdash Path & Handle Specification
+# WallShader Path & Handle Specification
 
 ## Goals
 - Make asset resolution predictable by treating anything that looks like a filesystem path as literal (shell semantics apply).
@@ -7,9 +7,9 @@
 - Provide a consistent workflow for developers (working from the repo tree) and end users (working from their data directory).
 
 ## Terminology
-- **PWD** — process working directory when `lambdash` starts.
+- **PWD** — process working directory when `wallshader` starts.
 - **AppDirs** — resolved trio of XDG-style roots (`config_dir`, `data_dir`, `cache_dir`).
-- **Share Dir** — read-only installation root (e.g. `/usr/share/lambdash`) that ships bundled assets.
+- **Share Dir** — read-only installation root (e.g. `/usr/share/wallshader`) that ships bundled assets.
 - **Repo Assets** — checked-in sample shader packs used during development (`shaders/` in-tree).
 
 ## Handle Classes
@@ -18,7 +18,7 @@
 - Detection: any argument that contains a `/` character *after* environment/tilde expansion.
 - Expansion: perform `${VAR}`/`$VAR` substitution (error if undefined), then tilde expansion, then interpret per POSIX rules.
 - Resolution: no search paths, no inferred subdirectories. The resulting path may be absolute or relative to the PWD.
-- Examples: `./simplex-color`, `../share/smoke`, `/opt/lambdash/sunrise`, `~/Shaders/fire/image.glsl`.
+- Examples: `./simplex-color`, `../share/smoke`, `/opt/wallshader/sunrise`, `~/Shaders/fire/image.glsl`.
 
 ### 2. `shadertoy://<ID>`
 - Behaviour unchanged: resolve via `ShadertoyClient`, cache under `AppDirs.cache_dir/shadertoy/<ID>`.
@@ -29,7 +29,7 @@
 - Search order (first match wins):
   1. `AppDirs.data_dir/<name>`
   2. `Share Dir/<name>`
-  3. Repo assets when running from a checkout: `REPO_ROOT/shaders/<name>` (only if `REPO_ROOT` detected via `LAMBDASH_DEV_ROOT` or heuristics).
+  3. Repo assets when running from a checkout: `REPO_ROOT/shaders/<name>` (only if `REPO_ROOT` detected via `WALLSHADER_DEV_ROOT` or heuristics).
 - The resolved path must be a directory; fail if missing or not a dir.
 
 ### 4. `playlist://<name>`
@@ -62,14 +62,14 @@ $DATA_DIR/
 - Runtime should tolerate existing `shaders/` or `playlists/` directories for now but log deprecation.
 
 ## Developer Workflow
-- Run commands from repo root: `cargo run -p lambdash -- ./shaders/simplex-color` to use in-tree assets literally.
-- To test installed layouts, invoke `scripts/install.sh --data-dir ~/.local/share/lambdash` then run `lambdash local://simplex-color`.
+- Run commands from repo root: `cargo run -p wallshader -- ./shaders/simplex-color` to use in-tree assets literally.
+- To test installed layouts, invoke `scripts/install.sh --data-dir ~/.local/share/wallshader` then run `wallshader local://simplex-color`.
 - When editing default packs, modify files under `shaders/<pack>` and rerun the installer; the copy will mirror into the flattened data layout.
 
 ## User Workflow
 - End users rely on `local://` / `playlist://` handles; they edit files under `$DATA_DIR` directly.
 - To override a bundled shader, copy the share-dir version into the data dir and continue editing; the search order ensures the user copy wins.
-- Bare filesystem paths work for advanced users who keep assets elsewhere (e.g. `lambdash ~/Shaders/custom-pack`).
+- Bare filesystem paths work for advanced users who keep assets elsewhere (e.g. `wallshader ~/Shaders/custom-pack`).
 
 ## Implementation Notes
 - Centralize parsing in a `Handle` enum (`RawPath`, `Shadertoy(id)`, `LocalPack(name)`, `Playlist(name)`).

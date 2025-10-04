@@ -1,10 +1,10 @@
-# Lambda Shader Overview
+# WallShader Overview
 
-Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
+WallShader (wallshader) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
 
 ## Workspace Layout
 
-- `crates/lambdash`: Wayland-facing daemon. Handles configuration, CLI flags, ShaderToy client setup, and orchestrates rendering.
+- `crates/wallshader`: Wayland-facing daemon. Handles configuration, CLI flags, ShaderToy client setup, and orchestrates rendering.
 - `crates/renderer`: Rendering abstraction that will host `wgpu`/OpenGL logic and manage frame uniforms for ShaderToy-style shaders.
 - `crates/shadertoy`: Integration layer that fetches ShaderToy metadata, caches shaders/assets locally, validates manifest layouts, and unifies local/remote shader sources.
 - `shaders/`: User drop-in shader packs mirroring ShaderToy renderpass structure (GLSL sources, textures, cubemaps, audio, manifest).
@@ -14,9 +14,9 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - **ShaderToy API support**: `ShadertoyClient` downloads shader JSON, GLSL code, and assets, converting them into validated `shader.toml` manifests ready for the renderer.
 - **Local pack compatibility**: Users can place shader directories in `shaders/`; the loader validates channel bindings, textures, cubemaps, and audio resources.
 - **Unified repository**: `ShaderRepository` resolves local packs or cached ShaderToy shaders, refreshing remote caches when API credentials are supplied.
-- **Path handling**: `local://<pack>` and `playlist://<name>` handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the data dir, legacy `shaders/` trees, and `/usr/share/lambdash`. Anything containing a `/` is interpreted literally after expansion. Missing variables fail fast so misconfigurations surface immediately.
-- **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/lambdash/` (packs become subdirectories, playlists flatten to top-level `.toml`). Use `--system` for `/usr/local` + `/usr/share/lambdash`, or pass `--data-dir`/`--prefix` to target custom locations.
-- **CLI-driven daemon**: `lambdash` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
+- **Path handling**: `local://<pack>` and `playlist://<name>` handles honour `~` and shell-style `$VAR`/`${VAR}` expansions, then search the data dir, legacy `shaders/` trees, and `/usr/share/wallshader`. Anything containing a `/` is interpreted literally after expansion. Missing variables fail fast so misconfigurations surface immediately.
+- **Installer script**: `scripts/install.sh` (curlable via GitHub) performs a user-mode install by default, copying bundled shaders into `~/.local/share/wallshader/` (packs become subdirectories, playlists flatten to top-level `.toml`). Use `--system` for `/usr/local` + `/usr/share/wallshader`, or pass `--data-dir`/`--prefix` to target custom locations.
+- **CLI-driven daemon**: `wallshader` accepts handles like `shadertoy://ID` or local paths, supports cache-only/refresh switches, a `--shadertoy <url>` convenience flag, and `--window` testing mode.
 
 ## Next Steps
 
@@ -30,7 +30,7 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - Rendering loop now requests redraws on `AboutToWait` with `ControlFlow::Wait` to match vblank cadence.
 - Fragment wrapper uses hardware `gl_FragCoord`, flips Y once, and maps ShaderToy uniforms through a `ShaderParams` UBO with macros.
 - Strips legacy `uniform` declarations (including `iTime`, `iChannel*`) from fetched GLSL before injecting wrapper code.
-- Debug mode currently replaces shader output with a full-screen pulse driven by `iTime`; wrapped GLSL dumps to `/tmp/lambdash_wrapped.frag` for inspection each compile.
+- Debug mode currently replaces shader output with a full-screen pulse driven by `iTime`; wrapped GLSL dumps to `/tmp/wallshader_wrapped.frag` for inspection each compile.
 
 ## Multi-Playlist Runtime Notes (Sept 26, 2025)
 
@@ -39,22 +39,22 @@ Lambda Shader (lambdash) is a Rust-based wallpaper engine focused on Wayland com
 - The playlist engine emits info-level telemetry (`registered new playlist target`, `retargeted playlist`,
   and `swapping shader`) detailing selectors, crossfade durations, warmup, and FPS overrides. Additional
   diagnostics surface at `debug` when Hyprland snapshots fail or shader assets are reused.
-- Wall-clock diagnostics now use the `[lambdash]` prefix instead of `[lambdash]`; tracing output goes
+- Wall-clock diagnostics now use the `[wallshader]` prefix instead of `[wallshader]`; tracing output goes
   through `scripts/launch-local`.
-- Tests covering workspace crossfades and failure handling live in `crates/lambdash/src/multi.rs` (`workspace_switch_applies_crossfade_override`
+- Tests covering workspace crossfades and failure handling live in `crates/wallshader/src/multi.rs` (`workspace_switch_applies_crossfade_override`
   and `engine_skips_missing_items_and_advances`).
 - Sample playlists live in `shaders/playlists/` within the repo and install as `$DATA_DIR/*.toml`.
 
 ### To-Do for Next Agent
 
-- Run `cargo run -p lambdash -- --shadertoy https://www.shadertoy.com/view/3dXyWj --window`, then inspect `/tmp/lambdash_wrapped.frag` to ensure no leftover `uniform iTime`/`iChannel*` lines remain and macros look correct.
+- Run `cargo run -p wallshader -- --shadertoy https://www.shadertoy.com/view/3dXyWj --window`, then inspect `/tmp/wallshader_wrapped.frag` to ensure no leftover `uniform iTime`/`iChannel*` lines remain and macros look correct.
 - If the pulse still fails to animate, try feeding the wrapped GLSL through naga to WGSL (or compile via shaderc/SPIR-V) to rule out wgpu's GLSL frontend quirks.
 - Once animation is confirmed, revert the pulse override to blend with `mainImage`, then restore the original shader output.
 
 ### Directory Primer
 
-- User directories: config `~/.config/lambdash`, data `~/.local/share/lambdash`, cache `~/.cache/lambdash`. Override with `LAMBDASH_CONFIG_DIR`, `LAMBDASH_DATA_DIR`, `LAMBDASH_CACHE_DIR`, `LAMBDASH_SHARE_DIR`.
-- Inspect paths with `lambdash defaults where` to confirm the active layout.
+- User directories: config `~/.config/wallshader`, data `~/.local/share/wallshader`, cache `~/.cache/wallshader`. Override with `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, `WALLSHADER_CACHE_DIR`, `WALLSHADER_SHARE_DIR`.
+- Inspect paths with `wallshader defaults where` to confirm the active layout.
 - The installer script now populates the data directory directly (`$DATA_DIR/<pack>` directories and `$DATA_DIR/*.toml` playlists); encourage contributors to avoid root unless packaging for system-wide deployment.
 - For packaging, reuse `scripts/install.sh --skip-build --data-dir <dest>` to stage shader assets (shader packs + playlists).
 - Expect env interpolation failures (`$VAR`) to abort load; log output will pinpoint the missing variable.

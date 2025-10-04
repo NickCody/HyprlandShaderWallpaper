@@ -5,13 +5,13 @@ workspace_switch_crossfade = "1500ms"
 playlist = "simplex"
 fps = 0
 antialias = "auto"
-crossfade = "6s"
+crossfade = "1s"
 
 # Template
 #
 [playlists.simplex]
 mode = "continuous"
-item_duration = "10s"
+item_duration = "5s"
 
 [[playlists.simplex.items]]
 handle = "template"
