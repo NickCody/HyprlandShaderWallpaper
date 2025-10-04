@@ -1,4 +1,4 @@
-# WallShader (wallshader)
+# WallShader
 
 WallShader is a Rust-based wallpaper engine
 for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live
