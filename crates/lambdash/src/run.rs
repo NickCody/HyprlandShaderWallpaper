@@ -68,7 +68,7 @@ fn log_entry_handle(handle: &EntryHandle, paths: &AppPaths) {
     match handle {
         EntryHandle::RawPath(path) => {
             let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-            tracing::info!(resource = %resolved.display(), "selected shader path");
+            tracing::debug!(resource = %resolved.display(), "selected shader path");
         }
         EntryHandle::LocalPack { name } => {
             let mut searched = Vec::new();
@@ -79,11 +79,11 @@ fn log_entry_handle(handle: &EntryHandle, paths: &AppPaths) {
                     let resolved = candidate
                         .canonicalize()
                         .unwrap_or_else(|_| candidate.clone());
-                    tracing::info!(resource = %resolved.display(), "selected local shader pack");
+                    tracing::debug!(resource = %resolved.display(), "selected local shader pack");
                     return;
                 }
             }
-            tracing::info!(
+            tracing::warn!(
                 handle = %name,
                 searched = searched.join(", "),
                 "local shader pack not found in search roots"
@@ -96,7 +96,9 @@ fn log_entry_handle(handle: &EntryHandle, paths: &AppPaths) {
 }
 
 pub fn initialise_tracing() {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let default_filter = "warn,lambdash=info,renderer=info";
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
@@ -105,7 +107,7 @@ pub fn initialise_tracing() {
 
 fn build_client(args: &RunArgs) -> Result<Option<ShadertoyClient>> {
     if args.cache_only {
-        tracing::info!("remote fetch disabled (--cache-only)");
+        tracing::debug!("remote fetch disabled (--cache-only)");
         return Ok(None);
     }
 
@@ -166,7 +168,7 @@ fn prepare_single_run(
 
     match &source {
         ShaderSource::Local(pack) => {
-            tracing::info!(root = %pack.root().display(), "loaded local shader pack");
+            tracing::debug!(root = %pack.root().display(), "loaded local shader pack");
         }
         ShaderSource::CachedRemote(remote) => {
             tracing::info!(
@@ -270,7 +272,7 @@ fn parse_still_time_arg(value: Option<&str>) -> Result<Option<f32>> {
     }
 
     if trimmed.eq_ignore_ascii_case("auto") {
-        tracing::info!("--still-time auto requested; using shader default (0s) for now");
+        tracing::debug!("--still-time auto requested; using shader default (0s) for now");
         return Ok(None);
     }
 

@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use renderer::RendererConfig;
 use shadertoy::normalize_shadertoy_reference;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::cli::RunArgs;
 use crate::handles::{EntryHandle, LaunchHandle};
@@ -36,7 +36,7 @@ fn ensure_directory(path: &Path) -> Result<()> {
         fs::create_dir_all(path).with_context(|| {
             format!("failed to create lambdash directory at {}", path.display())
         })?;
-        info!(path = %path.display(), "created lambdash directory");
+        debug!(path = %path.display(), "created lambdash directory");
         Ok(())
     }
 }

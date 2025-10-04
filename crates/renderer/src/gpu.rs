@@ -161,7 +161,7 @@ impl GpuState {
         let limits = adapter.limits();
         let adapter_profile = AdapterProfile::from_wgpu(&adapter_info, &limits);
         let is_software = adapter_profile.is_software();
-        tracing::info!(
+        tracing::debug!(
             name = %adapter_profile.name,
             backend = ?adapter_profile.backend,
             device_type = ?adapter_profile.device_type,
@@ -292,7 +292,7 @@ impl GpuState {
             sample_count = fallback;
         }
 
-        tracing::info!(
+        tracing::debug!(
             ?antialiasing,
             sample_count,
             supported_samples = ?supported_samples,
@@ -332,7 +332,7 @@ impl GpuState {
             .copied()
             .find(|m| *m == wgpu::PresentMode::Fifo)
             .unwrap_or_else(|| surface_caps.present_modes[0]);
-        tracing::info!(?present_mode, "using present mode");
+        tracing::debug!(?present_mode, "using present mode");
 
         let config = wgpu::SurfaceConfiguration {
             usage: surface_usage,
@@ -558,7 +558,7 @@ impl GpuState {
             self.shader_compiler,
         )?;
 
-        tracing::info!(
+        tracing::debug!(
             shader = %shader_source.display(),
             crossfade_ms = crossfade.as_millis(),
             warmup_ms = warmup.as_millis(),
@@ -920,16 +920,13 @@ impl GpuState {
         ];
 
         if now.duration_since(self.last_log_time) >= Duration::from_secs(1) {
-            eprintln!(
-                "[lambdash] iTime={:.3}s, iFrame={}, iMouse=({}, {}, {}, {}), res=({}, {})",
-                self.uniforms.i_time,
-                self.uniforms.i_frame,
-                self.uniforms.i_mouse[0],
-                self.uniforms.i_mouse[1],
-                self.uniforms.i_mouse[2],
-                self.uniforms.i_mouse[3],
-                self.size.width,
-                self.size.height
+            tracing::debug!(
+                i_time = self.uniforms.i_time,
+                i_frame = self.uniforms.i_frame,
+                i_mouse = ?self.uniforms.i_mouse,
+                width = self.size.width,
+                height = self.size.height,
+                "updated shader uniforms"
             );
             self.last_log_time = now;
         }
@@ -1693,7 +1690,7 @@ fn load_cubemap_channel(
         ..Default::default()
     });
 
-    tracing::info!(
+    tracing::debug!(
         channel = index,
         dir = %directory.display(),
         width,
@@ -1775,7 +1772,7 @@ fn load_texture_channel(
         ..Default::default()
     });
 
-    tracing::info!(
+    tracing::debug!(
         channel = index,
         path = %path.display(),
         width,
@@ -1990,12 +1987,12 @@ impl FileExportTarget {
     }
 
     fn write_png(&self, frame: &ResolvedFrame) -> Result<()> {
-        eprintln!(
-            "[lambdash] writing PNG export to {} ({}x{}, {} bytes)",
-            self.path.display(),
-            frame.width,
-            frame.height,
-            frame.rgba.len()
+        tracing::info!(
+            path = %self.path.display(),
+            width = frame.width,
+            height = frame.height,
+            bytes = frame.rgba.len(),
+            "writing PNG export"
         );
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).with_context(|| {
@@ -2024,10 +2021,7 @@ impl FileExportTarget {
         let final_size = std::fs::metadata(&self.path)
             .map(|meta| meta.len())
             .unwrap_or(0);
-        eprintln!(
-            "[lambdash] finished writing export ({} bytes on disk)",
-            final_size
-        );
+        tracing::info!(size = final_size, path = %self.path.display(), "finished writing export");
         Ok(())
     }
 }

@@ -34,7 +34,7 @@ pub(crate) fn compile_fragment_shader(
     let wrapped = wrap_shadertoy_fragment(source);
 
     if let Err(err) = std::fs::write("/tmp/lambdash_wrapped.frag", &wrapped) {
-        eprintln!("[lambdash] failed to dump wrapped shader: {err}");
+        tracing::debug!(error = %err, "failed to dump wrapped shader");
     }
 
     compile_glsl(

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use directories_next::ProjectDirs;
-use tracing::{info, warn};
+use tracing::{debug, warn};
 
 pub const ENV_CONFIG_DIR: &str = "LAMBDASH_CONFIG_DIR";
 pub const ENV_DATA_DIR: &str = "LAMBDASH_DATA_DIR";
@@ -174,7 +174,7 @@ fn resolve_share_dir(
 
     if let Some(legacy) = legacy_share_dir(legacy_dirs) {
         if legacy.exists() {
-            info!(
+            debug!(
                 "using legacy share directory at {} until /usr/share/lambdash is populated",
                 legacy.display()
             );
@@ -236,7 +236,7 @@ fn migrate_legacy_directory(
 
             match fs::rename(legacy, &primary) {
                 Ok(_) => {
-                    info!(
+                    debug!(
                         "migrated legacy {label} directory from {} to {}",
                         legacy.display(),
                         primary.display()
@@ -262,7 +262,7 @@ fn migrate_legacy_directory(
                             legacy.display()
                         );
                     }
-                    info!(
+                    debug!(
                         "copied legacy {label} directory from {} to {}",
                         legacy.display(),
                         primary.display()

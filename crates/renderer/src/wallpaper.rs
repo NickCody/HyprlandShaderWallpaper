@@ -687,7 +687,7 @@ impl LayerShellHandler for WallpaperManager {
                 .layer_surface
                 .set_size(resolved_size.width, resolved_size.height);
             surface_state.last_output_size = Some(resolved_size);
-            tracing::info!(
+            tracing::debug!(
                 "layer configure new_size={}x{} -> using {}x{}",
                 configure.new_size.0,
                 configure.new_size.1,

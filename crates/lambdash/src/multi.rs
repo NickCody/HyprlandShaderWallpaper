@@ -257,7 +257,7 @@ fn run_window_multi(
     'main: loop {
         let pending_advances = runtime.take_advance_requests();
         if pending_advances > 0 {
-            info!(
+            debug!(
                 requests = pending_advances,
                 "window advance requested via spacebar"
             );

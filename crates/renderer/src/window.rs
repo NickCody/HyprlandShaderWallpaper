@@ -12,7 +12,7 @@ use winit::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowBuilder};
 
-use tracing::{error, info};
+use tracing::{debug, error};
 
 use crate::gpu::{FileExportTarget, GpuState, RenderExportError};
 use crate::runtime::{
@@ -180,7 +180,7 @@ impl WindowState {
             self.gpu.as_ref().expect("gpu initialized").channel_kinds() != &layout_signature;
         if self.antialiasing != antialiasing || layout_changed || preferences_changed {
             if layout_changed {
-                info!("channel binding layout changed; rebuilding GPU state without crossfade");
+                debug!("channel binding layout changed; rebuilding GPU state without crossfade");
             }
             self.antialiasing = antialiasing;
             let size = self.window.inner_size();
