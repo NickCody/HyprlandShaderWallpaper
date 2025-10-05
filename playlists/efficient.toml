@@ -3,25 +3,20 @@ version = 1
 [defaults]
 playlist = "shadertoy"
 fps = 0
-antialias = "auto"
+antialias = "off"
 
 [playlists.shadertoy]
 mode = "continuous"
-item_duration = "10s"
+item_duration = "300s"
 crossfade = "3s"
 
 [[playlists.shadertoy.items]]
 handle = "shader://simplex-color"
+antialias = "4"
 
 [[playlists.shadertoy.items]]
 handle = "shader://template"
 
 [[playlists.shadertoy.items]]
 handle = "shadertoy://XsX3zl"
-
-[[playlists.shadertoy.items]]
-handle = "shadertoy://dtfXDM"
-
-[[playlists.shadertoy.items]]
-handle = "shadertoy://3XdXRr"
 

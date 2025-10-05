@@ -1,0 +1,54 @@
+version = 1
+
+[defaults]
+playlist = "shadertoy"
+fps = 0
+antialias = "auto"
+
+[playlists.shadertoy]
+mode = "continuous"
+item_duration = "7s"
+crossfade = "1s"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://XsX3zl"
+
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://ftt3R7"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://33cGDj"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://33lcWN"
+
+#[[playlists.shadertoy.items]]
+#handle = "shadertoy://tlVGDt"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://NslGRN"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://dtfXDM"
+
+
+#[[playlists.shadertoy.items]]
+#handle = "shadertoy://NddSWs"
+
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://sdXyWf"
+
+
+#[[playlists.shadertoy.items]]
+#handle = "shadertoy://4dGyRh"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://4sdGzs"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://tflBDM"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://3XdXRr"

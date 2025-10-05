@@ -1,7 +1,7 @@
 
 // Change these parameters for different effects
 //
-float u_rotated_scale = 0.009;
+float u_rotated_scale = 0.007;
 float u_primary_scale = 0.003;
 float u_rot_left_divisor = 10.0;
 float u_rot_right_divisor = 50.0;
