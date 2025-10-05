@@ -16,6 +16,7 @@ Options:
   --repo <git-url>       Source repository URL (default: https://github.com/NickCody/WallShader.git).
   --source <path>        Use an existing local checkout instead of cloning.
   --skip-build           Skip `cargo install` (useful if the binary is already present).
+  --debug                Build in debug mode instead of release mode.
   --offline              Pass `--offline` to cargo when building.
   --help                 Show this help message and exit.
 
@@ -54,6 +55,7 @@ ref="main"
 source_dir=""
 skip_build=0
 cargo_offline=0
+debug_build=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -85,6 +87,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       skip_build=1
+      shift
+      ;;
+    --debug)
+      debug_build=1
       shift
       ;;
     --offline)
@@ -142,11 +148,18 @@ if [[ $skip_build -eq 0 ]]; then
   if [[ -n "$prefix" ]]; then
     cargo_args+=(--root "$prefix")
   fi
+  if [[ $debug_build -eq 1 ]]; then
+    cargo_args+=(--debug)
+  fi
   if [[ $cargo_offline -eq 1 ]]; then
     cargo_args+=(--offline)
   fi
 
-  echo "[wallshader-installer] Building wallshader via cargo"
+  build_mode="release"
+  if [[ $debug_build -eq 1 ]]; then
+    build_mode="debug"
+  fi
+  echo "[wallshader-installer] Building wallshader via cargo ($build_mode mode)"
   cargo "${cargo_args[@]}"
 else
   echo "[wallshader-installer] Skipping cargo build (--skip-build)"
