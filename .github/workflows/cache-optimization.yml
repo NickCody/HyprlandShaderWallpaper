@@ -1,4 +1,4 @@
-name: Cache Management
+name: Cache Cleanup
 
 on:
   # Run cache cleanup weekly to prevent unlimited growth
