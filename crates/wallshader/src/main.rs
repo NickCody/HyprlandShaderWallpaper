@@ -2,6 +2,7 @@ mod bindings;
 mod bootstrap;
 mod cli;
 mod defaults;
+mod diagnostics;
 mod handles;
 mod multi;
 mod paths;

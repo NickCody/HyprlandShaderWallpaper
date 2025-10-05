@@ -13,6 +13,7 @@ use crate::bootstrap::{
     bootstrap_filesystem, parse_surface_size, resolve_entry_handle, SingleRunConfig,
 };
 use crate::cli::{parse_export_format, RunArgs};
+use crate::diagnostics;
 use crate::handles::{EntryHandle, LaunchHandle};
 use crate::multi;
 use crate::paths::AppPaths;
@@ -33,6 +34,10 @@ pub fn run(args: RunArgs) -> Result<()> {
     );
 
     let client = build_client(&args)?;
+    
+    // Dump comprehensive startup diagnostics
+    diagnostics::dump_startup_diagnostics(&args, &paths, &repo, client.as_ref(), &resolver);
+    
     let playlist_handle = args
         .playlist
         .clone()
