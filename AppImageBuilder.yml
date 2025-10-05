@@ -1,0 +1,203 @@
+version: 1
+
+AppDir:
+  path: ./AppDir
+
+  app_info:
+    id: io.github.nickcody.wallshader
+    name: WallShader
+    icon: wallshader
+    version: "0.9.1"
+    exec: usr/bin/wallshader
+    exec_args: $@
+
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy main restricted'
+        key_url: 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy universe'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-updates universe'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy multiverse'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-updates multiverse'
+
+    include:
+      # Core C library
+      - libc6
+      - libgcc-s1
+      - libstdc++6
+      
+      # Wayland client libraries
+      - libwayland-client0
+      - libwayland-cursor0
+      - libwayland-egl1
+      - libxkbcommon0
+      
+      # OpenGL/Vulkan graphics libraries
+      - libegl1
+      - libgl1
+      - libgles2
+      - libvulkan1
+      - mesa-vulkan-drivers
+      - libdrm2
+      - libx11-6
+      - libxau6
+      - libxdmcp6
+      - libxcb1
+      - libxcb-dri2-0
+      - libxcb-dri3-0
+      - libxcb-present0
+      - libxcb-sync1
+      - libxcb-xfixes0
+      - libxshmfence1
+      - libxxf86vm1
+      
+      # System libraries for networking and SSL
+      - libssl3
+      - libcrypto3
+      - ca-certificates
+      
+      # Additional graphics and system libraries
+      - libexpat1
+      - libffi8
+      - libpciaccess0
+      - libsensors5
+      - libedit2
+      - libelf1
+      - libz3-4
+      - libzstd1
+      - libbsd0
+      - libmd0
+      
+      # Image processing libraries (for texture loading)
+      - libjpeg8
+      - libpng16-16
+      - libbrotli1
+      
+    exclude:
+      # Exclude unnecessary packages to reduce size
+      - humanity-icon-theme
+      - hicolor-icon-theme
+      - libgtk-3-common
+      - shared-mime-info
+      - gsettings-desktop-schemas
+
+  files:
+    include:
+      - usr/bin/wallshader
+      - usr/share/wallshader
+    exclude:
+      - usr/lib/x86_64-linux-gnu/gconv
+      - usr/share/man
+      - usr/share/doc
+      - usr/share/lintian
+
+  runtime:
+    env:
+      # Set up environment for Wayland
+      WAYLAND_DISPLAY: $WAYLAND_DISPLAY
+      XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR
+      # Vulkan driver discovery
+      VK_ICD_FILENAMES: $APPDIR/usr/share/vulkan/icd.d/intel_icd.x86_64.json:$APPDIR/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:$APPDIR/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+      VK_LAYER_PATH: $APPDIR/usr/share/vulkan/explicit_layer.d
+      # Mesa driver paths
+      LIBGL_DRIVERS_PATH: $APPDIR/usr/lib/x86_64-linux-gnu/dri
+      # XDG directories for wallshader
+      WALLSHADER_DATA_DIR: $HOME/.local/share/wallshader
+      WALLSHADER_CONFIG_DIR: $HOME/.config/wallshader
+      WALLSHADER_CACHE_DIR: $HOME/.cache/wallshader
+
+  test:
+    fedora-30:
+      image: fedora:30
+      command: ./AppRun --help
+      use_host_x: false
+    debian-stable:
+      image: debian:stable
+      command: ./AppRun --help
+      use_host_x: false
+    ubuntu-xenial:
+      image: ubuntu:xenial
+      command: ./AppRun --help
+      use_host_x: false
+
+AppImage:
+  arch: x86_64
+  file_name: WallShader-x86_64.AppImage
+  sign-key: None
+  update-information: gh-releases-zsync|NickCody|WallShader|latest|WallShader-*x86_64.AppImage.zsync
+
+script:
+  # Install Rust if not present
+  - |
+    if ! command -v rustc &> /dev/null; then
+      echo "Installing Rust..."
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+      source "$HOME/.cargo/env"
+      rustup component add rustfmt clippy
+    fi
+
+  # Build the project
+  - export PATH="$HOME/.cargo/bin:$PATH"
+  - cargo build --release --locked
+
+  # Create necessary directories
+  - mkdir -p AppDir/usr/bin
+  - mkdir -p AppDir/usr/share/wallshader
+  - mkdir -p AppDir/usr/share/applications
+  - mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+  # Copy the main binary
+  - cp target/release/wallshader AppDir/usr/bin/
+
+  # Copy shader assets using the install script
+  - bash scripts/install.sh --skip-build --data-dir AppDir/usr/share/wallshader --source .
+
+  # Create a desktop file
+  - |
+    cat > AppDir/usr/share/applications/wallshader.desktop << 'EOF'
+    [Desktop Entry]
+    Type=Application
+    Name=WallShader
+    Comment=GPU shader wallpaper engine for Wayland
+    Exec=wallshader
+    Icon=wallshader
+    Categories=Graphics;Utility;
+    Keywords=wallpaper;shader;wayland;gpu;
+    Terminal=false
+    StartupNotify=false
+    EOF
+
+  # Create a simple icon (you may want to replace this with an actual icon)
+  - |
+    cat > AppDir/usr/share/icons/hicolor/256x256/apps/wallshader.svg << 'EOF'
+    <?xml version="1.0" encoding="UTF-8"?>
+    <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+      <rect width="256" height="256" fill="#2E8B57"/>
+      <circle cx="128" cy="128" r="80" fill="#FFD700" opacity="0.8"/>
+      <text x="128" y="140" text-anchor="middle" fill="white" font-family="sans-serif" font-size="24" font-weight="bold">WS</text>
+    </svg>
+    EOF
+
+  # Make the desktop file executable
+  - chmod +x AppDir/usr/share/applications/wallshader.desktop
+
+  # Create AppRun script
+  - |
+    cat > AppDir/AppRun << 'EOF'
+    #!/bin/bash
+    HERE="$(dirname "$(readlink -f "${0}")")"
+    export APPDIR="${HERE}"
+    
+    # Set up library paths
+    export LD_LIBRARY_PATH="${HERE}/usr/lib/x86_64-linux-gnu:${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+    
+    # Execute the application
+    exec "${HERE}/usr/bin/wallshader" "$@"
+    EOF
+  - chmod +x AppDir/AppRun
+
+  # Create a symlink for the desktop file in the root
+  - ln -sf usr/share/applications/wallshader.desktop AppDir/
+  - ln -sf usr/share/icons/hicolor/256x256/apps/wallshader.svg AppDir/wallshader.svg
