@@ -54,15 +54,15 @@ fn ensure_directory(path: &Path) -> Result<()> {
 fn extract_bundled_assets(paths: &AppPaths) -> Result<()> {
     let share_dir = paths.share_dir();
     let data_dir = paths.data_dir();
-    
+
     // Skip if share_dir doesn't exist or is the same as data_dir
     if !share_dir.exists() || share_dir == data_dir {
         return Ok(());
     }
-    
+
     let marker_file = data_dir.join(".bundled-assets-version");
     let current_version = env!("CARGO_PKG_VERSION");
-    
+
     // Check if we've already extracted this version
     let needs_extraction = if marker_file.exists() {
         match fs::read_to_string(&marker_file) {
@@ -72,7 +72,7 @@ fn extract_bundled_assets(paths: &AppPaths) -> Result<()> {
     } else {
         true
     };
-    
+
     if !needs_extraction {
         debug!(
             share = %share_dir.display(),
@@ -82,27 +82,27 @@ fn extract_bundled_assets(paths: &AppPaths) -> Result<()> {
         );
         return Ok(());
     }
-    
+
     info!(
         share = %share_dir.display(),
         data = %data_dir.display(),
         version = current_version,
         "extracting bundled shader assets to data directory"
     );
-    
+
     // Extract shader packs
     let share_shaders = share_dir.join("shaders");
     if share_shaders.is_dir() {
         let data_shaders = data_dir.join("shaders");
         fs::create_dir_all(&data_shaders)?;
-        
+
         for entry in fs::read_dir(&share_shaders)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_dir() {
                 let name = entry.file_name();
                 let dest = data_shaders.join(&name);
-                
+
                 // Remove existing pack and copy fresh
                 if dest.exists() {
                     fs::remove_dir_all(&dest)?;
@@ -112,13 +112,13 @@ fn extract_bundled_assets(paths: &AppPaths) -> Result<()> {
             }
         }
     }
-    
+
     // Extract playlists
     let share_playlists = share_dir.join("playlists");
     if share_playlists.is_dir() {
         let data_playlists = data_dir.join("playlists");
         fs::create_dir_all(&data_playlists)?;
-        
+
         for entry in fs::read_dir(&share_playlists)? {
             let entry = entry?;
             let path = entry.path();
@@ -130,11 +130,11 @@ fn extract_bundled_assets(paths: &AppPaths) -> Result<()> {
             }
         }
     }
-    
+
     // Write marker file
     fs::write(&marker_file, current_version)?;
     info!("bundled asset extraction complete");
-    
+
     Ok(())
 }
 
@@ -168,7 +168,7 @@ fn copy_recursively(src: &Path, dst: &Path) -> Result<()> {
         }
         fs::copy(src, dst)?;
     }
-    
+
     Ok(())
 }
 

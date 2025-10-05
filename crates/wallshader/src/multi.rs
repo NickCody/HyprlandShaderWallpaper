@@ -26,7 +26,9 @@ use crate::bootstrap::parse_surface_size;
 use crate::cli::RunArgs;
 use crate::handles::{EntryHandle, PlaylistHandle};
 use crate::paths::AppPaths;
-use crate::run::{convert_gpu_memory, convert_gpu_power, resolve_render_scale, validate_occlusion_args};
+use crate::run::{
+    convert_gpu_memory, convert_gpu_power, resolve_render_scale, validate_occlusion_args,
+};
 
 const DEFAULT_PREWARM_MS: u64 = 250;
 
