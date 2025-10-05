@@ -6,7 +6,7 @@ AppDir:
   app_info:
     id: io.github.nickcody.wallshader
     name: WallShader
-    icon: wallshader
+    icon: wallshader  
     version: "0.9.1"
     exec: usr/bin/wallshader
     exec_args: $@
@@ -23,7 +23,7 @@ AppDir:
       - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-updates multiverse'
 
     include:
-      # Core C library
+      # Core C library and runtime
       - libc6
       - libgcc-s1
       - libstdc++6
@@ -146,6 +146,7 @@ script:
 
   # Create necessary directories
   - mkdir -p AppDir/usr/bin
+  - mkdir -p AppDir/usr/lib
   - mkdir -p AppDir/usr/share/wallshader
   - mkdir -p AppDir/usr/share/applications
   - mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
@@ -187,17 +188,11 @@ script:
   # Make the desktop file executable
   - chmod +x AppDir/usr/share/applications/wallshader.desktop
 
-  # Create AppRun script with first-run setup
+  # Create a wrapper script for first-run setup
   - |
-    cat > AppDir/AppRun << 'EOF'
+    cat > AppDir/usr/bin/wallshader-wrapper << 'EOF'
     #!/bin/bash
-    HERE="$(dirname "$(readlink -f "${0}")")"
-    export APPDIR="${HERE}"
-    
-    # Set up library paths
-    export LD_LIBRARY_PATH="${HERE}/usr/lib/x86_64-linux-gnu:${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-    
-    # Initialize user directories and copy bundled assets on first run
+    # First-run initialization for AppImage
     DATA_DIR="${WALLSHADER_DATA_DIR:-$HOME/.local/share/wallshader}"
     CONFIG_DIR="${WALLSHADER_CONFIG_DIR:-$HOME/.config/wallshader}"
     CACHE_DIR="${WALLSHADER_CACHE_DIR:-$HOME/.cache/wallshader}"
@@ -208,16 +203,19 @@ script:
     # Copy bundled assets to user data directory if not already present
     if [ ! -f "$DATA_DIR/.appimage-installed" ]; then
         echo "First run: Installing bundled shaders and playlists to $DATA_DIR"
-        cp -r "$HERE/opt/wallshader"/* "$DATA_DIR/"
+        cp -r "$APPDIR/opt/wallshader"/* "$DATA_DIR/"
         touch "$DATA_DIR/.appimage-installed"
         echo "Installation complete!"
     fi
     
-    # Execute the application
-    exec "${HERE}/usr/bin/wallshader" "$@"
+    # Execute the real wallshader binary
+    exec "$APPDIR/usr/bin/wallshader-real" "$@"
     EOF
-  - chmod +x AppDir/AppRun
+  - chmod +x AppDir/usr/bin/wallshader-wrapper
+  
+  # Rename the real binary and use wrapper as main executable
+  - mv AppDir/usr/bin/wallshader AppDir/usr/bin/wallshader-real
+  - mv AppDir/usr/bin/wallshader-wrapper AppDir/usr/bin/wallshader
 
   # Create a symlink for the desktop file in the root
   - ln -sf usr/share/applications/wallshader.desktop AppDir/
-  - ln -sf usr/share/icons/hicolor/256x256/apps/wallshader.svg AppDir/wallshader.svg
