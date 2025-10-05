@@ -87,6 +87,7 @@ AppDir:
     include:
       - usr/bin/wallshader
       - usr/share/wallshader
+      - opt/wallshader
     exclude:
       - usr/lib/x86_64-linux-gnu/gconv
       - usr/share/man
@@ -103,7 +104,8 @@ AppDir:
       VK_LAYER_PATH: $APPDIR/usr/share/vulkan/explicit_layer.d
       # Mesa driver paths
       LIBGL_DRIVERS_PATH: $APPDIR/usr/lib/x86_64-linux-gnu/dri
-      # XDG directories for wallshader
+      # WallShader directories - use AppImage bundled assets as fallback
+      WALLSHADER_SHARE_DIR: $APPDIR/opt/wallshader
       WALLSHADER_DATA_DIR: $HOME/.local/share/wallshader
       WALLSHADER_CONFIG_DIR: $HOME/.config/wallshader
       WALLSHADER_CACHE_DIR: $HOME/.cache/wallshader
@@ -151,8 +153,10 @@ script:
   # Copy the main binary
   - cp target/release/wallshader AppDir/usr/bin/
 
-  # Copy shader assets using the install script
-  - bash scripts/install.sh --skip-build --data-dir AppDir/usr/share/wallshader --source .
+  # Bundle shaders and playlists inside the AppImage
+  - mkdir -p AppDir/opt/wallshader
+  - cp -r shaders/* AppDir/opt/wallshader/
+  - cp -r playlists/* AppDir/opt/wallshader/
 
   # Create a desktop file
   - |
@@ -183,7 +187,7 @@ script:
   # Make the desktop file executable
   - chmod +x AppDir/usr/share/applications/wallshader.desktop
 
-  # Create AppRun script
+  # Create AppRun script with first-run setup
   - |
     cat > AppDir/AppRun << 'EOF'
     #!/bin/bash
@@ -192,6 +196,22 @@ script:
     
     # Set up library paths
     export LD_LIBRARY_PATH="${HERE}/usr/lib/x86_64-linux-gnu:${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+    
+    # Initialize user directories and copy bundled assets on first run
+    DATA_DIR="${WALLSHADER_DATA_DIR:-$HOME/.local/share/wallshader}"
+    CONFIG_DIR="${WALLSHADER_CONFIG_DIR:-$HOME/.config/wallshader}"
+    CACHE_DIR="${WALLSHADER_CACHE_DIR:-$HOME/.cache/wallshader}"
+    
+    # Create directories if they don't exist
+    mkdir -p "$DATA_DIR" "$CONFIG_DIR" "$CACHE_DIR"
+    
+    # Copy bundled assets to user data directory if not already present
+    if [ ! -f "$DATA_DIR/.appimage-installed" ]; then
+        echo "First run: Installing bundled shaders and playlists to $DATA_DIR"
+        cp -r "$HERE/opt/wallshader"/* "$DATA_DIR/"
+        touch "$DATA_DIR/.appimage-installed"
+        echo "Installation complete!"
+    fi
     
     # Execute the application
     exec "${HERE}/usr/bin/wallshader" "$@"

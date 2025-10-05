@@ -14,7 +14,4 @@ crossfade = "3s"
 handle = "kal-prismflux"
 
 [[playlists.kaleidoscope.items]]
-handle = "kal-petalspire"
-
-[[playlists.kaleidoscope.items]]
 handle = "kal-starweave"

@@ -17,10 +17,6 @@ item_duration = "5s"
 handle = "template"
 
 [[playlists.simplex.items]]
-handle = "shadertoy://WXXcRn"
-fps = 20
-
-[[playlists.simplex.items]]
 handle = "simplex"
 
 [[playlists.simplex.items]]
