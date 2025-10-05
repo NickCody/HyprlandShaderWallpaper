@@ -55,7 +55,6 @@ AppDir:
       
       # System libraries for networking and SSL
       - libssl3
-      - libcrypto3
       - ca-certificates
       
       # Additional graphics and system libraries
