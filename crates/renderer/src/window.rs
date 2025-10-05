@@ -19,8 +19,8 @@ use crate::runtime::{
     time_source_for_policy, BoxedTimeSource, FillMethod, FrameScheduler, RenderPolicy, TimeSample,
 };
 use crate::types::{
-    AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler,
-    SurfaceAlpha,
+    AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, GpuMemoryMode,
+    GpuPowerPreference, RendererConfig, ShaderCompiler, SurfaceAlpha,
 };
 use crate::wallpaper::SwapRequest;
 
@@ -39,6 +39,9 @@ pub(crate) struct WindowState {
     fill_method: FillMethod,
     frame_sink: FrameSinkDriver,
     surface_alpha: SurfaceAlpha,
+    gpu_power: GpuPowerPreference,
+    gpu_memory: GpuMemoryMode,
+    gpu_latency: u32,
 }
 
 #[derive(Debug)]
@@ -72,6 +75,9 @@ impl WindowState {
             config.shader_compiler,
             config.render_scale,
             config.fill_method,
+            config.gpu_power,
+            config.gpu_memory,
+            config.gpu_latency,
         )?;
 
         let frame_sink = match &config.policy {
@@ -97,6 +103,9 @@ impl WindowState {
             fill_method: config.fill_method,
             frame_sink,
             surface_alpha: config.surface_alpha,
+            gpu_power: config.gpu_power,
+            gpu_memory: config.gpu_memory,
+            gpu_latency: config.gpu_latency,
         };
         state.sync_keyboard(true);
         Ok(state)
@@ -200,6 +209,9 @@ impl WindowState {
                 self.shader_compiler,
                 self.render_scale,
                 self.fill_method,
+                self.gpu_power,
+                self.gpu_memory,
+                self.gpu_latency,
             )?;
             self.gpu = Some(new_gpu);
         } else {

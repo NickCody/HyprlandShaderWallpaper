@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
-use renderer::{RenderMode, RenderPolicy, Renderer, RendererConfig};
+use renderer::{
+    GpuMemoryMode, GpuPowerPreference, RenderMode, RenderPolicy, Renderer, RendererConfig,
+};
 use shadertoy::{
     load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient,
     ShadertoyConfig,
@@ -256,6 +258,9 @@ fn prepare_single_run(
         show_window,
         exit_on_export,
         policy: render_policy,
+        gpu_power: convert_gpu_power(args.gpu_power),
+        gpu_memory: convert_gpu_memory(args.gpu_memory),
+        gpu_latency: args.gpu_latency,
     };
 
     Ok(SingleRunConfig { renderer_config })
@@ -288,6 +293,20 @@ fn parse_still_time_arg(value: Option<&str>) -> Result<Option<f32>> {
         anyhow::bail!("--still-time must be non-negative");
     }
     Ok(Some(seconds))
+}
+
+pub(crate) fn convert_gpu_power(cli_value: crate::cli::GpuPowerPreference) -> GpuPowerPreference {
+    match cli_value {
+        crate::cli::GpuPowerPreference::Low => GpuPowerPreference::Low,
+        crate::cli::GpuPowerPreference::High => GpuPowerPreference::High,
+    }
+}
+
+pub(crate) fn convert_gpu_memory(cli_value: crate::cli::GpuMemoryMode) -> GpuMemoryMode {
+    match cli_value {
+        crate::cli::GpuMemoryMode::Balanced => GpuMemoryMode::Balanced,
+        crate::cli::GpuMemoryMode::Performance => GpuMemoryMode::Performance,
+    }
 }
 
 pub(crate) fn resolve_render_scale(value: Option<f32>) -> Result<f32> {

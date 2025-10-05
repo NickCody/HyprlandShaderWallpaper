@@ -120,6 +120,46 @@ pub struct RunArgs {
     /// Warm-up interval (ms) to pre-render the next shader before crossfade.
     #[arg(long, value_name = "MILLISECONDS")]
     pub prewarm_ms: Option<u64>,
+
+    /// GPU power preference: `low` (default, friendly to other apps) or `high` (maximum performance).
+    #[arg(
+        long,
+        value_name = "MODE",
+        value_parser = parse_gpu_power,
+        default_value = "low"
+    )]
+    pub gpu_power: GpuPowerPreference,
+
+    /// GPU memory allocation priority: `balanced` (default, friendly to other apps) or `performance` (maximum allocation).
+    #[arg(
+        long,
+        value_name = "MODE",
+        value_parser = parse_gpu_memory,
+        default_value = "balanced"
+    )]
+    pub gpu_memory: GpuMemoryMode,
+
+    /// GPU frame latency: number of frames (1-3, default 2 for balanced performance).
+    #[arg(long, value_name = "FRAMES", default_value = "2")]
+    pub gpu_latency: u32,
+}
+
+/// GPU power preference mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GpuPowerPreference {
+    /// Low power mode, friendly to other applications (default).
+    Low,
+    /// High performance mode, maximum GPU priority.
+    High,
+}
+
+/// GPU memory allocation mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GpuMemoryMode {
+    /// Balanced memory usage, friendly to other applications (default).
+    Balanced,
+    /// Performance mode, maximum memory allocation priority.
+    Performance,
 }
 
 #[derive(Subcommand, Debug)]
@@ -300,6 +340,38 @@ fn parse_repeat(value: &str) -> Result<(f32, f32), String> {
         return Err("tile repeats must be positive".into());
     }
     Ok((repeat_x, repeat_y))
+}
+
+pub fn parse_gpu_power(value: &str) -> Result<GpuPowerPreference, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("GPU power preference must not be empty".into());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "low" | "low-power" | "friendly" | "background" => Ok(GpuPowerPreference::Low),
+        "high" | "high-performance" | "performance" | "max" => Ok(GpuPowerPreference::High),
+        other => Err(format!(
+            "unknown GPU power preference '{other}'; expected low or high"
+        )),
+    }
+}
+
+pub fn parse_gpu_memory(value: &str) -> Result<GpuMemoryMode, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("GPU memory mode must not be empty".into());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "balanced" | "usage" | "normal" | "friendly" => Ok(GpuMemoryMode::Balanced),
+        "performance" | "perf" | "max" => Ok(GpuMemoryMode::Performance),
+        other => Err(format!(
+            "unknown GPU memory mode '{other}'; expected balanced or performance"
+        )),
+    }
 }
 
 #[cfg(test)]

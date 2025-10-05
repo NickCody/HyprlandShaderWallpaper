@@ -261,6 +261,119 @@ This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlis
 - `--fps-adaptive` enables cadence throttling when the compositor hides the surface; pair with `--max-fps-occluded <fps>` to cap the hidden refresh rate.
 - Existing `--fps <value>` remains the steady-state cap while the surface is visible.
 
+### Performance & GPU Options
+
+WallShader provides fine-grained control over GPU resource usage and rendering performance. By default, WallShader uses **friendly settings** that prioritize being a good "background citizen" and won't interfere with other GPU-intensive applications like web browsers.
+
+#### Frame Rate Control
+
+**`--fps <number>`**
+- **Default**: Unlimited (renders as fast as possible)
+- **Valid values**: Any positive number, or `0` for uncapped
+- **Example**: `--fps 60` caps rendering at 60 frames per second
+- **Use case**: Reduce CPU/GPU usage for static or slow-moving shaders
+
+**`--fps-adaptive`**
+- **Default**: Disabled
+- **Effect**: Enables dynamic FPS throttling when the wallpaper surface is occluded or minimized
+- **Must be combined with**: `--max-fps-occluded`
+- **Use case**: Save power when wallpaper isn't visible
+
+**`--max-fps-occluded <number>`**
+- **Default**: Not set (requires `--fps-adaptive` to take effect)
+- **Valid values**: Any positive number
+- **Example**: `--max-fps-occluded 5` limits rendering to 5 FPS when hidden
+- **Use case**: Minimal CPU/GPU usage when compositor hides the wallpaper
+- **Note**: Only works with `--fps-adaptive` flag
+
+```bash
+# Limit to 60 FPS normally, 5 FPS when hidden
+wallshader --fps 60 --fps-adaptive --max-fps-occluded 5
+```
+
+#### GPU Power Management
+
+**`--gpu-power <mode>`**
+- **Default**: `low` (friendly to other applications)
+- **Valid values**:
+  - `low`, `low-power`, `friendly`, `background` → Low power mode (default)
+  - `high`, `high-performance`, `performance`, `max` → Maximum performance mode
+- **Example**: `--gpu-power high`
+- **What it does**:
+  - `low`: Yields GPU priority to interactive applications like browsers, games, and video players. Prevents WallShader from freezing or stuttering other GPU apps.
+  - `high`: Requests maximum GPU performance. Use when running complex shaders on a dedicated system or when visual quality is critical.
+
+**`--gpu-memory <mode>`**
+- **Default**: `balanced` (friendly memory allocation)
+- **Valid values**:
+  - `balanced`, `usage`, `normal`, `friendly` → Balanced mode (default)
+  - `performance`, `perf`, `max` → Maximum memory allocation
+- **Example**: `--gpu-memory performance`
+- **What it does**:
+  - `balanced`: Reduces GPU memory pressure, allowing other applications to allocate resources more easily
+  - `performance`: Requests maximum memory allocation priority for WallShader. May impact other GPU applications.
+
+**`--gpu-latency <frames>`**
+- **Default**: `2` (balanced sharing)
+- **Valid values**: `1`, `2`, or `3` (automatically clamped to this range)
+- **Example**: `--gpu-latency 1`
+- **What it does**:
+  - `1`: Minimal frame latency for immediate response. Increases GPU contention with other applications.
+  - `2`: Balanced latency (default). Gives the GPU driver flexibility to schedule work alongside other apps.
+  - `3`: Maximum latency, best for sharing GPU with many applications. Slight input lag may be noticeable on interactive shaders.
+
+#### Performance Presets
+
+**Friendly mode (default)** - Won't interfere with browsers or other GPU apps:
+```bash
+wallshader shader://simplex
+# Equivalent to:
+wallshader shader://simplex --gpu-power low --gpu-memory balanced --gpu-latency 2
+```
+
+**Maximum performance** - For dedicated wallpaper systems or showcases:
+```bash
+wallshader shader://simplex --gpu-power high --gpu-memory performance --gpu-latency 1 --fps 120
+```
+
+**Battery saver** - Minimal resource usage:
+```bash
+wallshader shader://simplex --fps 30 --fps-adaptive --max-fps-occluded 1
+```
+
+**Balanced high quality** - Good visuals without hogging the GPU:
+```bash
+wallshader shader://simplex --fps 60 --gpu-power low --render-scale 1.0
+```
+
+#### Anti-Aliasing
+
+**`--antialias <mode>`**
+- **Default**: `auto` (uses maximum supported sample count)
+- **Valid values**:
+  - `auto`, `max`, `default` → Automatic maximum MSAA
+  - `off`, `none`, `disable`, `disabled`, `0`, `1` → No anti-aliasing
+  - `2`, `4`, `8`, `16` → Specific MSAA sample count
+- **Example**: `--antialias 4`
+- **What it does**: Controls multi-sample anti-aliasing (MSAA) for smoother edges. Higher sample counts look better but use more GPU memory and may reduce framerate on complex shaders.
+
+#### When to Adjust GPU Settings
+
+**Use default (friendly) settings when:**
+- Running WallShader alongside web browsers (especially with WebGL/Canvas content)
+- Using video conferencing or streaming software
+- Playing games while wallpaper is visible
+- Running on a laptop or power-constrained system
+
+**Use high-performance settings when:**
+- Showcasing complex shaders at events or demos
+- Running on a dedicated display/system
+- Recording wallpaper footage for videos
+- Visual quality is more important than resource sharing
+- System has multiple GPUs (dGPU + iGPU)
+
+**Tip**: If you experience stuttering in Firefox, Chrome, or games while WallShader is running, the default `low` power mode should prevent this. If issues persist, try adding `--fps 30` to further reduce GPU load.
+
 ## Packaging Guidance
 
 Downstream packages and automation should mirror the installer’s behaviour:

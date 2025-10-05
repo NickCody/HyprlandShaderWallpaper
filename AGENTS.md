@@ -81,3 +81,53 @@ WallShader (wallshader) is a Rust-based wallpaper engine focused on Wayland comp
   * `tile`: wrap coordinates with `mod` to repeat the shader across the surface.
 - Plumbing: add enum to `RendererConfig`, propagate from CLI, emit per-mode helper macros/uniforms when wrapping the shader.
 - Open questions: do we allow custom content resolution per shader (e.g. 1080p rendered on 4K), and should tile/center pick up `--size` overrides?
+
+## GPU Resource Friendliness (Oct 5, 2025)
+
+**Problem:** WallShader was causing Firefox to freeze when rendering ShaderToy WebGL content, due to aggressive GPU resource claims.
+
+**Changes made:**
+1. **Power Preference**: Switched from `HighPerformance` to `LowPower` in adapter request (gpu.rs:178)
+   - Wallpaper rendering doesn't need maximum GPU priority
+   - Yields GPU resources to interactive applications like browsers
+   
+2. **Memory Hints**: Changed from `Performance` to `MemoryUsage` in device creation (gpu.rs:317)
+   - Reduces GPU memory pressure
+   - Allows other applications to allocate resources more easily
+   
+3. **Frame Latency**: Increased from 1 to 2 frames (gpu.rs:351)
+   - Wallpaper doesn't require minimal latency
+   - Gives driver more flexibility to schedule work alongside interactive apps
+   - Reduces GPU contention
+
+**Impact:** These changes make WallShader a better "background citizen" that won't starve foreground GPU applications. The visual quality and animation smoothness should remain unchanged since wallpapers don't need aggressive performance optimization.
+
+### Command-Line Control (Oct 5, 2025)
+
+Added three new CLI flags to allow users to control GPU resource usage:
+
+- `--gpu-power <MODE>`: GPU power preference
+  - `low` (default): Friendly to other applications, yields GPU priority
+  - `high`: Maximum performance, aggressive GPU usage
+  
+- `--gpu-memory <MODE>`: GPU memory allocation priority
+  - `balanced` (default): Friendly memory usage, allows other apps to allocate
+  - `performance`: Maximum memory allocation priority
+  
+- `--gpu-latency <FRAMES>`: GPU frame latency (1-3, default 2)
+  - Lower values (1) = minimal latency but more GPU contention
+  - Higher values (2-3) = better sharing with other applications
+
+**Default behavior:** Friendly settings that won't interfere with other applications.
+
+**High-performance mode example:**
+```bash
+wallshader --gpu-power high --gpu-memory performance --gpu-latency 1
+```
+
+**Implementation:**
+- Added types to `renderer/src/types.rs`: `GpuPowerPreference`, `GpuMemoryMode`
+- Added CLI types and parsers to `wallshader/src/cli.rs`
+- Extended `RendererConfig` with GPU settings
+- Updated `GpuState::new()` to accept and use GPU configuration
+- Conversion functions in `run.rs` to bridge CLI and renderer types

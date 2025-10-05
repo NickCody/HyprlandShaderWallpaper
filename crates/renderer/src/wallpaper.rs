@@ -31,8 +31,8 @@ use winit::dpi::PhysicalSize;
 use crate::gpu::{FileExportTarget, GpuState, RenderExportError};
 use crate::runtime::{time_source_for_policy, BoxedTimeSource, FillMethod, RenderPolicy};
 use crate::types::{
-    AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, RendererConfig, ShaderCompiler,
-    SurfaceAlpha,
+    AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, GpuMemoryMode,
+    GpuPowerPreference, RendererConfig, ShaderCompiler, SurfaceAlpha,
 };
 
 const SOFTWARE_FPS_CAP: f32 = 15.0;
@@ -279,6 +279,9 @@ struct WallpaperManager {
     software_hint_emitted: bool,
     base_policy: RenderPolicy,
     exit_after_export: bool,
+    gpu_power: GpuPowerPreference,
+    gpu_memory: GpuMemoryMode,
+    gpu_latency: u32,
 }
 
 impl WallpaperManager {
@@ -310,6 +313,9 @@ impl WallpaperManager {
             software_hint_emitted: false,
             base_policy: config.policy.clone(),
             exit_after_export: config.exit_on_export,
+            gpu_power: config.gpu_power,
+            gpu_memory: config.gpu_memory,
+            gpu_latency: config.gpu_latency,
         })
     }
 
@@ -442,6 +448,9 @@ impl WallpaperManager {
             self.render_scale,
             self.fill_method,
             self.base_policy.clone(),
+            self.gpu_power,
+            self.gpu_memory,
+            self.gpu_latency,
         )?;
         if let Some(size) = initial_size {
             if surface_state
@@ -793,6 +802,9 @@ struct SurfaceState {
     software_cap_applied: bool,
     policy: RenderPolicy,
     time_source: BoxedTimeSource,
+    gpu_power: GpuPowerPreference,
+    gpu_memory: GpuMemoryMode,
+    gpu_latency: u32,
 }
 
 impl SurfaceState {
@@ -811,6 +823,9 @@ impl SurfaceState {
         render_scale: f32,
         fill_method: FillMethod,
         policy: RenderPolicy,
+        gpu_power: GpuPowerPreference,
+        gpu_memory: GpuMemoryMode,
+        gpu_latency: u32,
     ) -> Result<Self> {
         let time_source = time_source_for_policy(&policy)?;
         Ok(Self {
@@ -833,6 +848,9 @@ impl SurfaceState {
             software_cap_applied: false,
             policy,
             time_source,
+            gpu_power,
+            gpu_memory,
+            gpu_latency,
         })
     }
 
@@ -859,6 +877,9 @@ impl SurfaceState {
             self.shader_compiler,
             self.render_scale,
             self.fill_method,
+            self.gpu_power,
+            self.gpu_memory,
+            self.gpu_latency,
         )?;
         let is_software = gpu.adapter_profile().is_software();
         if is_software {

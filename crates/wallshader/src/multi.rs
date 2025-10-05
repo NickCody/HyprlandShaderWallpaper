@@ -26,7 +26,7 @@ use crate::bootstrap::parse_surface_size;
 use crate::cli::RunArgs;
 use crate::handles::{EntryHandle, PlaylistHandle};
 use crate::paths::AppPaths;
-use crate::run::{resolve_render_scale, validate_occlusion_args};
+use crate::run::{convert_gpu_memory, convert_gpu_power, resolve_render_scale, validate_occlusion_args};
 
 const DEFAULT_PREWARM_MS: u64 = 250;
 
@@ -101,6 +101,9 @@ fn run_wallpaper_multi(
             target_fps: normalize_fps(args.fps),
             adaptive: args.fps_adaptive,
         },
+        gpu_power: convert_gpu_power(args.gpu_power),
+        gpu_memory: convert_gpu_memory(args.gpu_memory),
+        gpu_latency: args.gpu_latency,
     };
 
     let runtime = WallpaperRuntime::spawn(renderer_config)?;
@@ -166,6 +169,9 @@ fn run_window_multi(
             target_fps: None,
             adaptive: args.fps_adaptive,
         },
+        gpu_power: convert_gpu_power(args.gpu_power),
+        gpu_memory: convert_gpu_memory(args.gpu_memory),
+        gpu_latency: args.gpu_latency,
     };
 
     let runtime = WindowRuntime::spawn(renderer_config)?;
@@ -1513,6 +1519,9 @@ handle = "demo"
             shader_compiler: Default::default(),
             color_space: ColorSpaceMode::Auto,
             prewarm_ms: None,
+            gpu_power: crate::cli::GpuPowerPreference::Low,
+            gpu_memory: crate::cli::GpuMemoryMode::Balanced,
+            gpu_latency: 2,
         };
 
         let resolver = PathResolver::with_cwd(temp.path());

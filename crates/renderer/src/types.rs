@@ -219,6 +219,36 @@ impl Default for Antialiasing {
     }
 }
 
+/// GPU power preference for adapter selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GpuPowerPreference {
+    /// Low power mode, friendly to other applications (default).
+    Low,
+    /// High performance mode, maximum GPU priority.
+    High,
+}
+
+impl Default for GpuPowerPreference {
+    fn default() -> Self {
+        Self::Low
+    }
+}
+
+/// GPU memory allocation mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GpuMemoryMode {
+    /// Balanced memory usage, friendly to other applications (default).
+    Balanced,
+    /// Performance mode, maximum memory allocation priority.
+    Performance,
+}
+
+impl Default for GpuMemoryMode {
+    fn default() -> Self {
+        Self::Balanced
+    }
+}
+
 /// Immutable configuration passed to the renderer at start-up.
 ///
 /// `RendererConfig` mirrors CLI flags and tells the renderer which shader file
@@ -258,6 +288,12 @@ pub struct RendererConfig {
     pub exit_on_export: bool,
     /// High-level render behaviour requested by the caller.
     pub policy: RenderPolicy,
+    /// GPU power preference for adapter selection.
+    pub gpu_power: GpuPowerPreference,
+    /// GPU memory allocation mode.
+    pub gpu_memory: GpuMemoryMode,
+    /// GPU frame latency (number of frames buffered).
+    pub gpu_latency: u32,
 }
 
 impl Default for RendererConfig {
@@ -280,6 +316,9 @@ impl Default for RendererConfig {
             show_window: true,
             exit_on_export: true,
             policy: RenderPolicy::default(),
+            gpu_power: GpuPowerPreference::default(),
+            gpu_memory: GpuMemoryMode::default(),
+            gpu_latency: 2,
         }
     }
 }

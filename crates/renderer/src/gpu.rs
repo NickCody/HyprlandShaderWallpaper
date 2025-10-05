@@ -19,7 +19,8 @@ use crate::compile::{compile_fragment_shader, compile_vertex_shader};
 use crate::runtime::{ExportFormat, FillMethod, TimeSample};
 use crate::types::{
     AdapterProfile, Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind,
-    ColorSpaceMode, ShaderCompiler, CHANNEL_COUNT, CUBEMAP_FACE_STEMS,
+    ColorSpaceMode, GpuMemoryMode, GpuPowerPreference, ShaderCompiler, CHANNEL_COUNT,
+    CUBEMAP_FACE_STEMS,
 };
 
 const KEYBOARD_TEXTURE_WIDTH: u32 = 256;
@@ -125,6 +126,9 @@ impl GpuState {
         shader_compiler: ShaderCompiler,
         render_scale: f32,
         fill_method: FillMethod,
+        gpu_power: GpuPowerPreference,
+        gpu_memory: GpuMemoryMode,
+        gpu_latency: u32,
     ) -> Result<Self>
     where
         T: HasDisplayHandle + HasWindowHandle,
@@ -156,8 +160,15 @@ impl GpuState {
         }
         .context("failed to create rendering surface")?;
 
+        // Use LowPower preference to be friendly to other GPU applications.
+        // Wallpaper rendering doesn't need maximum GPU priority and should yield
+        // to interactive applications like browsers.
+        let power_preference = match gpu_power {
+            GpuPowerPreference::Low => wgpu::PowerPreference::LowPower,
+            GpuPowerPreference::High => wgpu::PowerPreference::HighPerformance,
+        };
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            power_preference,
             compatible_surface: Some(&surface),
             force_fallback_adapter: false,
         }))
@@ -310,11 +321,17 @@ impl GpuState {
             required_features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
         }
 
+        // Use MemoryUsage instead of Performance to reduce GPU memory pressure.
+        // This allows other applications to allocate GPU resources more easily.
+        let memory_hints = match gpu_memory {
+            GpuMemoryMode::Balanced => wgpu::MemoryHints::MemoryUsage,
+            GpuMemoryMode::Performance => wgpu::MemoryHints::Performance,
+        };
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("wallshader device"),
             required_features,
             required_limits: limits.clone(),
-            memory_hints: wgpu::MemoryHints::Performance,
+            memory_hints,
             trace: wgpu::Trace::default(),
         }))
         .context("failed to create GPU device")?;
@@ -340,6 +357,17 @@ impl GpuState {
             .unwrap_or_else(|| surface_caps.present_modes[0]);
         tracing::debug!(?present_mode, "using present mode");
 
+        // Use frame latency of 2 instead of 1 to reduce GPU contention with other applications.
+        // Wallpaper rendering doesn't require minimal latency, and this allows the driver to
+        // better schedule work alongside interactive applications like browsers.
+        let frame_latency = gpu_latency.clamp(1, 3);
+        if frame_latency != gpu_latency {
+            tracing::warn!(
+                requested = gpu_latency,
+                clamped = frame_latency,
+                "GPU frame latency clamped to valid range (1-3)"
+            );
+        }
         let config = wgpu::SurfaceConfiguration {
             usage: surface_usage,
             format: surface_format,
@@ -348,7 +376,7 @@ impl GpuState {
             present_mode,
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
-            desired_maximum_frame_latency: 1,
+            desired_maximum_frame_latency: frame_latency,
         };
         surface.configure(&device, &config);
 
