@@ -128,7 +128,12 @@ impl GpuState {
     where
         T: HasDisplayHandle + HasWindowHandle,
     {
-        let instance = wgpu::Instance::default();
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            flags: wgpu::InstanceFlags::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+            backend_options: wgpu::BackendOptions::default(),
+        });
         let window_handle = target
             .window_handle()
             .map_err(|err| anyhow!("failed to acquire window handle: {err}"))?;

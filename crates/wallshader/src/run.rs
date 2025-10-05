@@ -101,7 +101,7 @@ fn log_entry_handle(handle: &EntryHandle, paths: &AppPaths) {
 }
 
 pub fn initialise_tracing() {
-    let default_filter = "warn,wallshader=info,renderer=info";
+    let default_filter = "warn,wallshader=info,renderer=info,naga=error,wgpu=error,wgpu_core=error,wgpu_hal=error,winit=error,smithay_client_toolkit=error";
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
     tracing_subscriber::fmt()

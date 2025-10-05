@@ -241,7 +241,7 @@ fn main_wallpaper_loop(runtime: WallpaperRuntime, engine: &mut PlaylistEngine<'_
 
 fn apply_actions(runtime: &WallpaperRuntime, actions: Vec<SwapAction>) -> Result<()> {
     for action in actions {
-        info!(
+        debug!(
             target = %action.target_display,
             handle = %action.handle,
             crossfade_ms = action.request.crossfade.as_millis(),
@@ -259,7 +259,7 @@ fn apply_actions(runtime: &WallpaperRuntime, actions: Vec<SwapAction>) -> Result
 
 fn apply_window_actions(runtime: &WindowRuntime, actions: Vec<SwapAction>) -> Result<bool> {
     for action in actions {
-        info!(
+        debug!(
             target = %action.target_display,
             handle = %action.handle,
             crossfade_ms = action.request.crossfade.as_millis(),
