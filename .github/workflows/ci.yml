@@ -160,11 +160,13 @@ jobs:
 
     - name: Release AppImage
       if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: WallShader-${{ steps.version.outputs.version }}-x86_64.AppImage
         draft: false
         prerelease: false
         generate_release_notes: true
+        fail_on_unmatched_files: true
+        make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

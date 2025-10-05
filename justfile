@@ -37,26 +37,32 @@ release VERSION:
 	
 	TAG="v{{VERSION}}"
 	
+	# Always delete release first if it exists (using gh CLI or warn user)
+	if command -v gh >/dev/null 2>&1; then
+		echo "Checking for existing GitHub release $TAG..."
+		if gh release view "$TAG" >/dev/null 2>&1; then
+			echo "Deleting existing GitHub release $TAG..."
+			gh release delete "$TAG" -y
+		fi
+	else
+		echo "⚠️  Warning: gh CLI not found."
+		echo "Please manually delete any existing release at:"
+		echo "https://github.com/NickCody/WallShader/releases/tag/$TAG"
+		read -p "Press Enter when ready to continue..."
+	fi
+	
 	# Check if tag already exists locally
 	if git rev-parse "$TAG" >/dev/null 2>&1; then
-		echo "Tag $TAG already exists locally. Deleting..."
+		echo "Deleting local tag $TAG..."
 		git tag -d "$TAG"
 	fi
 	
 	# Check if tag exists remotely
 	if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-		echo "Tag $TAG exists remotely. Deleting..."
+		echo "Deleting remote tag $TAG..."
 		git push origin ":refs/tags/$TAG"
-		
-		# Check if release exists and delete it
-		if command -v gh >/dev/null 2>&1; then
-			echo "Deleting GitHub release $TAG..."
-			gh release delete "$TAG" -y 2>/dev/null || echo "No release to delete"
-		else
-			echo "Warning: gh CLI not found. You may need to manually delete the release at:"
-			echo "https://github.com/NickCody/WallShader/releases/tag/$TAG"
-			read -p "Press Enter to continue..."
-		fi
+		# Wait a moment for GitHub to process the deletion
+		sleep 2
 	fi
 	
 	echo "Creating and pushing tag $TAG..."
