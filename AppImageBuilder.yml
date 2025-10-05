@@ -142,7 +142,7 @@ script:
 
   # Build the project
   - export PATH="$HOME/.cargo/bin:$PATH"
-  - cargo build --release --locked
+  - cargo build --release
 
   # Create necessary directories
   - mkdir -p AppDir/usr/bin
