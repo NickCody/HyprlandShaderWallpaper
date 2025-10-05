@@ -84,13 +84,6 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 - Allow per-shader local override files layered above defaults
 - Provide `wallshader doctor` for diagnosing missing directories or stale defaults
 
-### Go-Live Checklist
-- Confirm automation for tagged releases is green and artifacts include defaults
-- Validate distribution packages or recipes exist for at least Arch/Nix  
-- Ship the installer helper and document idempotent usage
-- Publish open-source policy docs and link them in surfaced materials
-- Run a final smoke test covering cargo install, the installer workflow, and user override workflows to ensure the public release path is smooth
-
 ## Multi-Workspace Playlists
 
 ### IPC and Live Reload Features
