@@ -16,7 +16,41 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache Cargo registry and target directory
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential pkg-config \
+          libwayland-dev wayland-protocols libxkbcommon-dev \
+          libegl1-mesa-dev libgles2-mesa-dev \
+          coreutils
+
+    - name: Check formatting
+      run: cargo fmt --all --check
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
     - name: Build
       run: cargo build --verbose
+      
     - name: Run tests
       run: cargo test --verbose

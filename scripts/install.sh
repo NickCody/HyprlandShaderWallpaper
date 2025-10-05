@@ -197,7 +197,8 @@ if [[ -d "$repo_path/playlists" ]]; then
     [[ -e "$playlist" ]] || continue
     name=$(basename "$playlist")
     dest="$data_dir/playlists/$name"
-    install -m 0644 "$playlist" "$dest"
+    cp "$playlist" "$dest"
+    chmod 644 "$dest" 2>/dev/null || true
     echo "[wallshader-installer]   playlist: $name"
   done
 else

@@ -44,9 +44,21 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-appimage-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
         restore-keys: |
+          ${{ runner.os }}-appimage-cargo-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-appimage-cargo-
           ${{ runner.os }}-cargo-
+
+    - name: Cache system dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          /var/cache/apt/archives
+          ~/.cache/pip
+        key: ${{ runner.os }}-deps-${{ hashFiles('.github/workflows/appimage.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
 
     - name: Install appimage-builder
       run: |
@@ -59,6 +71,13 @@ jobs:
 
     - name: Run tests
       run: cargo test --verbose --workspace
+
+    - name: Clean target directory to save cache space
+      run: |
+        # Keep only the most recent build artifacts to prevent cache bloat
+        cargo clean -p wallshader --release
+        find target -name "*.rlib" -mtime +7 -delete || true
+        find target -name "deps" -type d -exec find {} -name "*.rlib" -mtime +7 -delete \; || true
 
     - name: Build AppImage
       run: |
