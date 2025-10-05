@@ -103,6 +103,10 @@ jobs:
       run: |
         sudo pip3 install appimage-builder
 
+    - name: Build Rust binary (with caching)
+      run: |
+        cargo build --release
+
     - name: Build AppImage
       run: |
         appimage-builder --recipe AppImageBuilder.yml --skip-test

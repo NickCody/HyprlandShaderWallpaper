@@ -139,9 +139,15 @@ script:
       rustup component add rustfmt clippy
     fi
 
-  # Build the project
-  - export PATH="$HOME/.cargo/bin:$PATH"
-  - cargo build --release
+  # Build the project (skip if binary already exists - e.g., from CI cache)
+  - |
+    if [ ! -f "target/release/wallshader" ]; then
+      echo "Building wallshader..."
+      export PATH="$HOME/.cargo/bin:$PATH"
+      cargo build --release
+    else
+      echo "Using existing wallshader binary from target/release/"
+    fi
 
   # Create necessary directories
   - mkdir -p AppDir/usr/bin
