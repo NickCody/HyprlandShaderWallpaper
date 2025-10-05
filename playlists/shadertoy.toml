@@ -7,38 +7,21 @@ antialias = "auto"
 
 [playlists.shadertoy]
 mode = "continuous"
-item_duration = "7s"
+item_duration = "300s"
 crossfade = "1s"
 
 [[playlists.shadertoy.items]]
-handle = "shadertoy://33lcWN"
-
-#[[playlists.shadertoy.items]]
-#handle = "shadertoy://tlVGDt"
+handle = "shader://simplex-color"
 
 [[playlists.shadertoy.items]]
-handle = "shadertoy://NslGRN"
+handle = "shader://template"
+
+[[playlists.shadertoy.items]]
+handle = "shadertoy://XsX3zl"
 
 [[playlists.shadertoy.items]]
 handle = "shadertoy://dtfXDM"
 
-
-#[[playlists.shadertoy.items]]
-#handle = "shadertoy://NddSWs"
-
-
-[[playlists.shadertoy.items]]
-handle = "shadertoy://sdXyWf"
-
-
-#[[playlists.shadertoy.items]]
-#handle = "shadertoy://4dGyRh"
-
-[[playlists.shadertoy.items]]
-handle = "shadertoy://4sdGzs"
-
-[[playlists.shadertoy.items]]
-handle = "shadertoy://tflBDM"
-
 [[playlists.shadertoy.items]]
 handle = "shadertoy://3XdXRr"
+

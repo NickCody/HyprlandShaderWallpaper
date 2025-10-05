@@ -3,13 +3,13 @@
 //
 float u_rotated_scale = 0.009;
 float u_primary_scale = 0.003;
-float u_rot_left_divisor = 150.0;
+float u_rot_left_divisor = 10.0;
 float u_rot_right_divisor = 50.0;
-float u_gradient_speed = 0.00; // Set to 0.0 to disable color cycling.
+float u_gradient_speed = 0.0; // Set to 0.0 to disable color cycling.
 float g_dark_strength = 0.75;  // 1.0 drives the dark stop to pure black.
 float g_light_strength = 0.75; // 1.0 pushes the light stop to pure white.
 float g_tail_strength = 0.20;  // Multiplier for the trailing low-intensity stop (0.2 ≈ color/5).
-float u_vibrance = 0.0;        // Negative values desaturate, positive boosts muted colors.
+float u_vibrance = 0.25;        // Negative values desaturate, positive boosts muted colors.
 float u_contrast = 1.0;        // 1.0 leaves contrast unchanged.
 
 const int GRADIENT_SIZE = 4;
@@ -217,7 +217,8 @@ void mainImage(out vec4 out_color, vec2 fragCoord) {
     mat2 rotR = mat2(cR, -sR, sR, cR);
 
     float c = snoise(rotL * rotated_offset + rotated_center);
-    float n = snoise(primary_coord * c);
+    float r = snoise(rotated_offset);
+    float n = snoise(primary_coord * c * r);
 
     // Branchless gradient shift; keep wrap epsilon to preserve original look
     const float GRADIENT_WRAP_EPS = 1e-5;
