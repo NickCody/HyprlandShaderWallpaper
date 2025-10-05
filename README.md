@@ -109,7 +109,7 @@ By default this one-liner grabs `main` from GitHub, overwriting `~/.local/share/
 Working from a local checkout? Run the installer directly so it mirrors *your* branch instead of cloning GitHub:
 
 ```bash
-scripts/install.sh --source . --skip-build
+scripts/install.sh --source .
 ```
 
 Pass `--data-dir ~/.local/share/wallshader` (or `--system`) if you need to target a specific location. Re-run the same command whenever you want to refresh `shaders/` while iterating on shader packs or playlists.
