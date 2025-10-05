@@ -195,5 +195,6 @@ jobs:
         files: WallShader-${{ steps.version.outputs.version }}-x86_64.AppImage
         generate_release_notes: true
         fail_on_unmatched_files: true
+        draft: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
