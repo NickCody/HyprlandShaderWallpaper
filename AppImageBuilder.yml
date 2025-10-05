@@ -159,10 +159,26 @@ script:
   # Copy the main binary
   - cp target/release/wallshader AppDir/usr/bin/
 
-  # Bundle shaders and playlists inside the AppImage
-  - mkdir -p AppDir/opt/wallshader
-  - cp -r shaders/* AppDir/opt/wallshader/
-  - cp -r playlists/* AppDir/opt/wallshader/
+  # Bundle shaders and playlists inside the AppImage with proper structure
+  # Structure: opt/wallshader/shaders/<pack>/ and opt/wallshader/playlists/*.toml
+  # On first run, these are extracted to ~/.local/share/wallshader/ (always overwrites on version change)
+  # Users should customize in ~/.config/wallshader/ instead
+  - mkdir -p AppDir/opt/wallshader/shaders
+  - mkdir -p AppDir/opt/wallshader/playlists
+  - |
+    # Copy shader packs
+    for shader_dir in shaders/*/; do
+      if [ -d "$shader_dir" ]; then
+        cp -r "$shader_dir" AppDir/opt/wallshader/shaders/
+      fi
+    done
+  - |
+    # Copy playlists
+    for playlist in playlists/*.toml; do
+      if [ -f "$playlist" ]; then
+        cp "$playlist" AppDir/opt/wallshader/playlists/
+      fi
+    done
 
   # Create a desktop file
   - |
@@ -193,34 +209,8 @@ script:
   # Make the desktop file executable
   - chmod +x AppDir/usr/share/applications/wallshader.desktop
 
-  # Create a wrapper script for first-run setup
-  - |
-    cat > AppDir/usr/bin/wallshader-wrapper << 'EOF'
-    #!/bin/bash
-    # First-run initialization for AppImage
-    DATA_DIR="${WALLSHADER_DATA_DIR:-$HOME/.local/share/wallshader}"
-    CONFIG_DIR="${WALLSHADER_CONFIG_DIR:-$HOME/.config/wallshader}"
-    CACHE_DIR="${WALLSHADER_CACHE_DIR:-$HOME/.cache/wallshader}"
-    
-    # Create directories if they don't exist
-    mkdir -p "$DATA_DIR" "$CONFIG_DIR" "$CACHE_DIR"
-    
-    # Copy bundled assets to user data directory if not already present
-    if [ ! -f "$DATA_DIR/.appimage-installed" ]; then
-        echo "First run: Installing bundled shaders and playlists to $DATA_DIR"
-        cp -r "$APPDIR/opt/wallshader"/* "$DATA_DIR/"
-        touch "$DATA_DIR/.appimage-installed"
-        echo "Installation complete!"
-    fi
-    
-    # Execute the real wallshader binary
-    exec "$APPDIR/usr/bin/wallshader-real" "$@"
-    EOF
-  - chmod +x AppDir/usr/bin/wallshader-wrapper
-  
-  # Rename the real binary and use wrapper as main executable
-  - mv AppDir/usr/bin/wallshader AppDir/usr/bin/wallshader-real
-  - mv AppDir/usr/bin/wallshader-wrapper AppDir/usr/bin/wallshader
+  # Make the binary executable
+  - chmod +x AppDir/usr/bin/wallshader
 
   # Create a symlink for the desktop file in the root
   - ln -sf usr/share/applications/wallshader.desktop AppDir/

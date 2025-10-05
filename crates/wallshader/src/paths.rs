@@ -95,6 +95,9 @@ impl AppPaths {
     }
 
     pub fn shader_user_dirs(&self) -> Vec<PathBuf> {
+        // Resolution order: CONFIG_DIR > DATA_DIR > legacy paths
+        // Users should copy shaders to CONFIG_DIR for customization.
+        // DATA_DIR is populated by installers and AppImage extraction.
         let mut dirs = vec![
             self.config_dir.join("shaders"),
             self.data_dir.join("shaders"),
@@ -116,7 +119,11 @@ impl AppPaths {
     }
 
     pub fn shader_roots(&self) -> Vec<PathBuf> {
-        let mut roots = self.shader_user_dirs();
+        // Resolution order: CONFIG_DIR > DATA_DIR > SHARE_DIR > dev_root
+        // This ensures user customizations in CONFIG_DIR take priority over
+        // installed assets in DATA_DIR and bundled assets in SHARE_DIR.
+        let mut roots = vec![self.config_dir.join("shaders")];
+        roots.extend(self.shader_user_dirs().into_iter().skip(1)); // Skip config_dir/shaders (already added)
         roots.push(self.share_dir.join("shaders"));
         if let Some(dev_root) = &self.dev_root {
             let candidate = dev_root.join("shaders");
@@ -132,6 +139,8 @@ impl AppPaths {
     }
 
     pub fn playlist_user_dirs(&self) -> Vec<PathBuf> {
+        // Resolution order: CONFIG_DIR > DATA_DIR
+        // Users should copy playlists to CONFIG_DIR for customization.
         vec![
             self.config_dir.join("playlists"),
             self.data_dir.join("playlists"),
@@ -139,6 +148,8 @@ impl AppPaths {
     }
 
     pub fn playlist_roots(&self) -> Vec<PathBuf> {
+        // Resolution order: CONFIG_DIR > DATA_DIR > SHARE_DIR > dev_root
+        // This ensures user customizations in CONFIG_DIR take priority.
         let mut roots = self.playlist_user_dirs();
         roots.push(self.share_dir.join("playlists"));
         if let Some(dev_root) = &self.dev_root {

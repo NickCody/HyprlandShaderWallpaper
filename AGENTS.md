@@ -54,8 +54,11 @@ WallShader (wallshader) is a Rust-based wallpaper engine focused on Wayland comp
 ### Directory Primer
 
 - User directories: config `~/.config/wallshader`, data `~/.local/share/wallshader`, cache `~/.cache/wallshader`. Override with `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, `WALLSHADER_CACHE_DIR`, `WALLSHADER_SHARE_DIR`.
+- **Resolution order:** CONFIG_DIR > DATA_DIR > SHARE_DIR > dev-root. This ensures user customizations in CONFIG_DIR always take precedence.
+- **To customize shaders:** Copy from DATA_DIR or SHARE_DIR to CONFIG_DIR, then edit. WallShader will prefer the CONFIG_DIR version.
+- **AppImage first-run:** On startup, bundled assets from SHARE_DIR (`$APPDIR/opt/wallshader`) are automatically extracted to DATA_DIR once per version, always overwriting. CONFIG_DIR is never touched by the extractor.
 - Inspect paths with `wallshader defaults where` to confirm the active layout.
-- The installer script now populates the data directory directly (`$DATA_DIR/<pack>` directories and `$DATA_DIR/*.toml` playlists); encourage contributors to avoid root unless packaging for system-wide deployment.
+- The installer script now populates the data directory directly (`$DATA_DIR/shaders/<pack>` directories and `$DATA_DIR/playlists/*.toml` files); encourage contributors to avoid root unless packaging for system-wide deployment.
 - For packaging, reuse `scripts/install.sh --skip-build --data-dir <dest>` to stage shader assets (shader packs + playlists).
 - Expect env interpolation failures (`$VAR`) to abort load; log output will pinpoint the missing variable.
 

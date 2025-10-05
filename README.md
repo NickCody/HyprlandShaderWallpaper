@@ -221,17 +221,29 @@ Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall
 
 WallShader follows the XDG base directory spec. The core locations are:
 
-- Config: `~/.config/wallshader/`
-- Data: `~/.local/share/wallshader/`
-- Cache: `~/.cache/wallshader/`
-- System defaults: `/usr/share/wallshader/` (overridable via `WALLSHADER_SHARE_DIR`)
+- Config: `~/.config/wallshader/` — **User customizations and overrides**
+- Data: `~/.local/share/wallshader/` — **Installed shader packs and playlists**
+- Cache: `~/.cache/wallshader/` — **ShaderToy cache and temporary files**
+- System defaults: `/usr/share/wallshader/` — **Bundled assets (AppImage, system packages)**
 
-Set `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, and `WALLSHADER_CACHE_DIR` to relocate any directory. CLI flags always win over environment variables.
+Set `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, `WALLSHADER_CACHE_DIR`, and `WALLSHADER_SHARE_DIR` to relocate any directory. CLI flags always win over environment variables.
 
-Bundled shader packs and sample playlists live under `shaders/` in the repository. The installer mirrors that directory to your data location, and you can rerun it any time you want to refresh the packs while developing. Keep your own user overrides under `~/.config/wallshader/shaders`—the installer never touches that tree.
+#### Directory Resolution Order
 
-Run `wallshader defaults where` to print the resolved config/data/cache/share
-paths if you need to double-check the environment.
+Shaders and playlists are resolved in priority order: **CONFIG > DATA > SHARE > dev-root**
+
+1. **CONFIG_DIR** (`~/.config/wallshader/`) — Your personal modifications take precedence
+2. **DATA_DIR** (`~/.local/share/wallshader/`) — Installer-managed shader packs
+3. **SHARE_DIR** (`/usr/share/wallshader/`) — System-wide or AppImage-bundled defaults
+4. **dev-root** — Detected workspace root during development
+
+**To customize a shader:** Copy it from DATA_DIR or SHARE_DIR to CONFIG_DIR, then edit your copy. WallShader will always prefer your CONFIG_DIR version.
+
+**AppImage behavior:** On first run, bundled shaders and playlists are automatically extracted from the AppImage's SHARE_DIR to your DATA_DIR. This happens once per version and always overwrites DATA_DIR to provide updates. Your CONFIG_DIR customizations are never touched.
+
+Bundled shader packs and sample playlists live under `shaders/` and `playlists/` in the repository. The installer mirrors those directories to your data location, and you can rerun it any time you want to refresh the packs while developing.
+
+Run `wallshader defaults where` to print the resolved config/data/cache/share paths if you need to double-check the environment.
 
 ### Path Resolution & Environment Variables
 
@@ -241,7 +253,7 @@ Local shader handles accept shell-style expansions so configs stay portable:
 - `$VAR` / `${VAR}` expand using `std::env::var`; missing variables abort with a descriptive
   error so typos show up immediately.
 - Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
-- `shader://<pack>` searches `$DATA_DIR` (or `WALLSHADER_DATA_DIR`), then legacy `shaders/` trees under the config/data dirs, and finally `/usr/share/wallshader/shaders/`.
+- `shader://<pack>` searches CONFIG_DIR, then DATA_DIR, then legacy `shaders/` trees, and finally SHARE_DIR.
 
 This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlist manifests, and the defaults bootstrap. Run `wallshader defaults where` to inspect which directories are currently active.
 
