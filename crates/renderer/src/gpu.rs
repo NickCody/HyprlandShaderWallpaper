@@ -706,6 +706,7 @@ impl GpuState {
                 }
             }
 
+            // Advance the crossfade and check if it's finished
             let finished = if let Some(fade) = self.crossfade.as_mut() {
                 fade.advance();
                 fade.is_finished()
@@ -713,11 +714,15 @@ impl GpuState {
                 false
             };
 
-            if finished || curr_mix >= 1.0 {
+            // Clean up when crossfade completes
+            if finished {
                 previous_pipeline = None;
                 self.crossfade = None;
+                tracing::debug!("crossfade completed, cleaned up previous pipeline");
             }
         } else {
+            // No active crossfade, ensure previous is cleared
+            previous_pipeline = None;
             unsafe {
                 self.render_with_pipeline(&mut encoder, &view, &*current_pipeline_ptr, 1.0, load);
             }
@@ -966,6 +971,7 @@ impl GpuState {
         };
 
         if crossfade.is_zero() {
+            tracing::debug!("hard-cut shader swap (zero crossfade)");
             self.current = pipeline;
             self.previous = None;
             self.crossfade = None;
@@ -976,6 +982,12 @@ impl GpuState {
             let fps = self.last_measured_fps.max(1.0);
             let steps = (duration_secs * fps).ceil().max(1.0) as u32;
             self.crossfade = Some(CrossfadeState::new(steps));
+            tracing::debug!(
+                crossfade_ms = crossfade.as_millis(),
+                fps = %fps,
+                steps = steps,
+                "starting crossfade transition"
+            );
         }
     }
 }
