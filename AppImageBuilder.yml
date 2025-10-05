@@ -130,23 +130,19 @@ AppImage:
   update-information: gh-releases-zsync|NickCody|WallShader|latest|WallShader-*x86_64.AppImage.zsync
 
 script:
-  # Install Rust if not present
-  - |
-    if ! command -v rustc &> /dev/null; then
-      echo "Installing Rust..."
-      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-      source "$HOME/.cargo/env"
-      rustup component add rustfmt clippy
-    fi
+  # Note: The binary is built by CI before appimage-builder runs.
+  # This ensures proper Cargo caching. For local builds, run:
+  #   cargo build --release
+  # before running appimage-builder.
 
-  # Build the project (skip if binary already exists - e.g., from CI cache)
+  # Verify the binary exists
   - |
     if [ ! -f "target/release/wallshader" ]; then
-      echo "Building wallshader..."
-      export PATH="$HOME/.cargo/bin:$PATH"
-      cargo build --release
+      echo "ERROR: target/release/wallshader not found!"
+      echo "Please run 'cargo build --release' before building the AppImage."
+      exit 1
     else
-      echo "Using existing wallshader binary from target/release/"
+      echo "Using wallshader binary from target/release/"
     fi
 
   # Create necessary directories

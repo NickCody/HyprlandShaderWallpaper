@@ -98,17 +98,18 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
+          ${{ runner.os }}-cargo-release-
           ${{ runner.os }}-cargo-
 
     - name: Install appimage-builder
       run: |
         sudo pip3 install appimage-builder
 
-    - name: Build Rust binary (with caching)
+    - name: Build Rust binary
       run: |
-        cargo build --release
+        cargo build --release --locked
 
     - name: Build AppImage
       run: |
