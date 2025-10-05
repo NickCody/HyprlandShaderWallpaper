@@ -45,34 +45,42 @@ fn installer_script_copies_defaults() {
     );
 
     let data_dir = data_dir.path();
-    
+
     // Debug: List the contents of the data directory
     eprintln!("Data directory contents:");
     if let Ok(entries) = std::fs::read_dir(data_dir) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                eprintln!("  {:?}", entry.path());
-            }
+        for entry in entries.flatten() {
+            eprintln!("  {:?}", entry.path());
         }
     }
-    
+
     // Check that the new directory structure is created
-    assert!(data_dir.join("shaders").exists(), "shaders directory should exist");
-    assert!(data_dir.join("playlists").exists(), "playlists directory should exist");
-    
+    assert!(
+        data_dir.join("shaders").exists(),
+        "shaders directory should exist"
+    );
+    assert!(
+        data_dir.join("playlists").exists(),
+        "playlists directory should exist"
+    );
+
     // Debug: List the contents of the playlists directory
     eprintln!("Playlists directory contents:");
     if let Ok(entries) = std::fs::read_dir(data_dir.join("playlists")) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                eprintln!("  {:?}", entry.path());
-            }
+        for entry in entries.flatten() {
+            eprintln!("  {:?}", entry.path());
         }
     }
-    
+
     // Check that shader packs are in the shaders subdirectory
-    assert!(data_dir.join("shaders/simplex").is_dir(), "simplex shader pack should exist");
-    
+    assert!(
+        data_dir.join("shaders/simplex").is_dir(),
+        "simplex shader pack should exist"
+    );
+
     // Check that playlists are in the playlists subdirectory
-    assert!(data_dir.join("playlists/simplex.toml").is_file(), "simplex.toml playlist should exist");
+    assert!(
+        data_dir.join("playlists/simplex.toml").is_file(),
+        "simplex.toml playlist should exist"
+    );
 }

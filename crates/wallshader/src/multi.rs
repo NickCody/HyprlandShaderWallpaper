@@ -10,7 +10,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use multiconfig::{AntialiasSetting, MultiConfig};
 use renderer::{
-    Antialiasing, ChannelBindings, ColorSpaceMode, FillMethod, OutputId, RenderMode, RenderPolicy,
+    Antialiasing, ChannelBindings, ColorSpaceMode, OutputId, RenderMode, RenderPolicy,
     RendererConfig, SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest,
     WallpaperRuntime, WindowRuntime,
 };
@@ -58,8 +58,6 @@ fn load_config(path: &Path) -> Result<MultiConfig> {
     Ok(config)
 }
 
-
-
 fn run_wallpaper_multi(
     args: &RunArgs,
     repo: &ShaderRepository,
@@ -81,7 +79,7 @@ fn run_wallpaper_multi(
 
     let render_scale = resolve_render_scale(args.render_scale)?;
     validate_occlusion_args(args.fps_adaptive, args.max_fps_occluded)?;
-    let fill_method = args.fill_method.unwrap_or_else(FillMethod::default);
+    let fill_method = args.fill_method.unwrap_or_default();
 
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,
@@ -146,7 +144,7 @@ fn run_window_multi(
 
     let render_scale = resolve_render_scale(args.render_scale)?;
     validate_occlusion_args(args.fps_adaptive, args.max_fps_occluded)?;
-    let fill_method = args.fill_method.unwrap_or_else(FillMethod::default);
+    let fill_method = args.fill_method.unwrap_or_default();
 
     let renderer_config = RendererConfig {
         surface_size: fallback_surface,

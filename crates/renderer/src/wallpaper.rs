@@ -137,7 +137,10 @@ impl WallpaperRuntime {
 
     pub fn swap_shader(&self, selector: SurfaceSelector, request: SwapRequest) -> Result<()> {
         self.sender
-            .send(WallpaperCommand::SwapShader { selector, request })
+            .send(WallpaperCommand::SwapShader {
+                selector,
+                request: Box::new(request),
+            })
             .map_err(|err| anyhow!("failed to send swap command: {err}"))
     }
 
@@ -170,7 +173,7 @@ impl Drop for WallpaperRuntime {
 enum WallpaperCommand {
     SwapShader {
         selector: SurfaceSelector,
-        request: SwapRequest,
+        request: Box<SwapRequest>,
     },
     QuerySurfaces {
         responder: Sender<Vec<SurfaceInfo>>,
@@ -387,11 +390,11 @@ impl WallpaperManager {
                         .and_then(|o| self.output_state.info(o))
                         .and_then(output_info_physical_size);
                     if let Some(size) = existing.last_output_size {
-                        if existing.ensure_gpu(conn, &self.compositor, size).is_ok() {
-                            if existing.software_cap_applied() {
-                                if let Some(profile) = existing.adapter_profile() {
-                                    profile_to_log = Some(profile.clone());
-                                }
+                        if existing.ensure_gpu(conn, &self.compositor, size).is_ok()
+                            && existing.software_cap_applied()
+                        {
+                            if let Some(profile) = existing.adapter_profile() {
+                                profile_to_log = Some(profile.clone());
                             }
                         }
                     }
@@ -444,11 +447,10 @@ impl WallpaperManager {
             if surface_state
                 .ensure_gpu(conn, &self.compositor, size)
                 .is_ok()
+                && surface_state.software_cap_applied()
             {
-                if surface_state.software_cap_applied() {
-                    if let Some(profile) = surface_state.adapter_profile() {
-                        self.log_software_cap_if_needed(profile);
-                    }
+                if let Some(profile) = surface_state.adapter_profile() {
+                    self.log_software_cap_if_needed(profile);
                 }
             }
             if matches!(surface_state.policy, RenderPolicy::Export { .. }) {
@@ -502,7 +504,7 @@ impl WallpaperManager {
                     color_space,
                     warmup,
                     policy,
-                } = request;
+                } = *request;
                 let now = Instant::now();
                 for surface_id in self.target_surface_ids(&selector) {
                     if let Some(mut surface) = self.surfaces.remove(&surface_id) {

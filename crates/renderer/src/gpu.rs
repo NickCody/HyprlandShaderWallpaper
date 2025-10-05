@@ -114,6 +114,7 @@ impl std::error::Error for RenderExportError {
 }
 
 impl GpuState {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new<T>(
         target: &T,
         initial_size: PhysicalSize<u32>,
@@ -129,7 +130,7 @@ impl GpuState {
         T: HasDisplayHandle + HasWindowHandle,
     {
         // Note: Some systems may emit EGL fence sync errors like:
-        // "EGL 'eglCreateSyncKHR' code 0x3004: EGL_BAD_ATTRIBUTE error: In eglCreateSyncKHR: 
+        // "EGL 'eglCreateSyncKHR' code 0x3004: EGL_BAD_ATTRIBUTE error: In eglCreateSyncKHR:
         //  EGL_SYNC_NATIVE_FENCE_FD_ANDROID specified valid fd butEGL_SYNC_STATUS is also being set"
         // This appears to be a driver/EGL implementation issue with fence synchronization
         // and does not affect rendering functionality.

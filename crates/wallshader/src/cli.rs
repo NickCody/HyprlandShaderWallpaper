@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use renderer::{Antialiasing, ColorSpaceMode, ExportFormat, FillMethod, ShaderCompiler};
@@ -211,7 +211,7 @@ pub fn parse_color_space(value: &str) -> Result<ColorSpaceMode, String> {
     }
 }
 
-pub fn parse_export_format(path: &PathBuf) -> Result<ExportFormat, String> {
+pub fn parse_export_format(path: &Path) -> Result<ExportFormat, String> {
     match path
         .extension()
         .and_then(|ext| ext.to_str())

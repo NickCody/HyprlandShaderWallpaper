@@ -149,19 +149,21 @@ impl PlaylistHandle {
     }
 
     pub fn resolve_path(&self, search_roots: &[PathBuf]) -> Result<PathBuf> {
-        
         match self {
             PlaylistHandle::RawPath(path) => {
                 if path.is_absolute() {
                     if path.is_dir() {
-                        bail!("playlist expects a file, not a directory: {}", path.display());
+                        bail!(
+                            "playlist expects a file, not a directory: {}",
+                            path.display()
+                        );
                     }
                     if path.exists() {
                         return Ok(path.clone());
                     }
                     bail!("playlist file not found: {}", path.display());
                 }
-                
+
                 // For relative raw paths, search in playlist directories
                 self.search_in_roots(path, search_roots)
             }
@@ -180,14 +182,17 @@ impl PlaylistHandle {
 
     fn search_in_roots(&self, path: &Path, search_roots: &[PathBuf]) -> Result<PathBuf> {
         use std::path::Component;
-        
+
         if path.components().any(|component| {
             matches!(
                 component,
                 Component::ParentDir | Component::RootDir | Component::Prefix(_)
             )
         }) {
-            bail!("playlist path does not allow parent or absolute segments: {}", path.display());
+            bail!(
+                "playlist path does not allow parent or absolute segments: {}",
+                path.display()
+            );
         }
 
         for root in search_roots {
@@ -227,12 +232,12 @@ impl FromStr for LaunchHandleArg {
         let trimmed = s.trim();
         if trimmed.starts_with("playlist://") {
             PlaylistHandle::parse(trimmed)
-                .map(|handle| LaunchHandle::Playlist(handle))
+                .map(LaunchHandle::Playlist)
                 .map(LaunchHandleArg)
                 .map_err(|err| err.to_string())
         } else {
             EntryHandle::parse(trimmed)
-                .map(|handle| LaunchHandle::Entry(handle))
+                .map(LaunchHandle::Entry)
                 .map(LaunchHandleArg)
                 .map_err(|err| err.to_string())
         }

@@ -18,7 +18,8 @@ run-demo:
 run-playlist:
 	cargo run -p wallshader -- --playlist workspaces.toml
 
-# Mirror the GitHub Actions workflow (build + tests)
+# Mirror the GitHub Actions workflow (build + tests + clippy)
 validate:
 	cargo build --verbose
 	cargo test --verbose
+	cargo clippy --all-targets --all-features -- -D warnings

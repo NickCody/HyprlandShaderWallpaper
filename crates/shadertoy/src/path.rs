@@ -109,7 +109,7 @@ fn expand_env_vars(input: &str) -> Result<String> {
                 chars.next();
                 let mut name = String::new();
                 let mut closed = false;
-                while let Some(c) = chars.next() {
+                for c in chars.by_ref() {
                     if c == '}' {
                         closed = true;
                         break;

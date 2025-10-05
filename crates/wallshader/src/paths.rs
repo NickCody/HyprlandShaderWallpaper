@@ -309,22 +309,20 @@ fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
             let target = dst.join(entry.file_name());
             if file_type.is_dir() {
                 copy_recursively(&entry.path(), &target)?;
-            } else {
-                if file_type.is_symlink() {
-                    #[cfg(unix)]
-                    {
-                        use std::os::unix::fs::symlink;
-                        let link = fs::read_link(entry.path())?;
-                        symlink(link, &target)?;
-                    }
-                    #[cfg(not(unix))]
-                    {
-                        // Best-effort copy of the linked file contents on non-Unix platforms.
-                        fs::copy(entry.path(), &target)?;
-                    }
-                } else {
+            } else if file_type.is_symlink() {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::symlink;
+                    let link = fs::read_link(entry.path())?;
+                    symlink(link, &target)?;
+                }
+                #[cfg(not(unix))]
+                {
+                    // Best-effort copy of the linked file contents on non-Unix platforms.
                     fs::copy(entry.path(), &target)?;
                 }
+            } else {
+                fs::copy(entry.path(), &target)?;
             }
         }
     } else {
@@ -474,8 +472,12 @@ mod tests {
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join("settings.toml"), "foo = 1\n").unwrap();
 
-        let result = super::migrate_legacy_directory(primary.clone(), &[legacy.clone()], "config")
-            .expect("migration succeeded");
+        let result = super::migrate_legacy_directory(
+            primary.clone(),
+            std::slice::from_ref(&legacy),
+            "config",
+        )
+        .expect("migration succeeded");
 
         assert_eq!(result, primary);
         assert!(result.join("settings.toml").exists());

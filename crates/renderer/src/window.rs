@@ -159,6 +159,7 @@ impl WindowState {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn set_shader(
         &mut self,
         shader_source: &Path,
@@ -363,7 +364,7 @@ mod policy_driver_tests {
 
 #[derive(Debug, Clone)]
 enum WindowCommand {
-    Swap { request: SwapRequest },
+    Swap { request: Box<SwapRequest> },
     Shutdown,
 }
 
@@ -400,7 +401,9 @@ impl WindowRuntime {
 
     pub fn swap_shader(&self, request: SwapRequest) -> Result<()> {
         self.proxy
-            .send_event(WindowCommand::Swap { request })
+            .send_event(WindowCommand::Swap {
+                request: Box::new(request),
+            })
             .map_err(|err| anyhow!(err))
     }
 
@@ -533,7 +536,7 @@ fn run_window_thread(
                         warmup,
                         policy,
                         ..
-                    } = request;
+                    } = *request;
 
                     if let Err(err) = state.set_shader(
                         shader_source.as_path(),

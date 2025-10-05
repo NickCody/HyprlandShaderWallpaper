@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use renderer::{FillMethod, RenderMode, RenderPolicy, Renderer, RendererConfig};
+use renderer::{RenderMode, RenderPolicy, Renderer, RendererConfig};
 use shadertoy::{
     load_entry_shader, ShaderHandle, ShaderRepository, ShaderSource, ShadertoyClient,
     ShadertoyConfig,
@@ -34,10 +34,10 @@ pub fn run(args: RunArgs) -> Result<()> {
     );
 
     let client = build_client(&args)?;
-    
+
     // Dump comprehensive startup diagnostics
     diagnostics::dump_startup_diagnostics(&args, &paths, &repo, client.as_ref(), &resolver);
-    
+
     let playlist_handle = args
         .playlist
         .clone()
@@ -251,7 +251,7 @@ fn prepare_single_run(
         shader_compiler: args.shader_compiler,
         color_space,
         render_scale,
-        fill_method: args.fill_method.unwrap_or_else(FillMethod::default),
+        fill_method: args.fill_method.unwrap_or_default(),
         max_fps_occluded: args.max_fps_occluded,
         show_window,
         exit_on_export,
