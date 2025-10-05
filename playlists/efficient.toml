@@ -19,4 +19,4 @@ handle = "shader://template"
 
 [[playlists.shadertoy.items]]
 handle = "shadertoy://XsX3zl"
-
+duration = 60s
