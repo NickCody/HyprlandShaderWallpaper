@@ -403,3 +403,7 @@ Downstream packages and automation should mirror the installer’s behaviour:
 ## Release Notes
 
 See `CHANGELOG.md` for released versions and upgrade highlights.
+
+## Open Issues
+
+- Crossfade doesn't work when you change antialiasing per shader in a playlist.
