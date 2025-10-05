@@ -209,11 +209,35 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const tag = process.env.TAG;
-          const release = await github.rest.repos.getReleaseByTag({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            tag
-          });
+          const maxAttempts = Number(process.env.MAX_ATTEMPTS || 5);
+          const delayMs = Number(process.env.DELAY_MS || 5000);
+
+          const sleep = async (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          let release;
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag
+              });
+              core.info(`Found release for tag ${tag} on attempt ${attempt}`);
+              break;
+            } catch (error) {
+              if (error.status === 404 && attempt < maxAttempts) {
+                core.warning(`Release for tag ${tag} not found (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms...`);
+                await sleep(delayMs);
+              } else {
+                throw error;
+              }
+            }
+          }
+
+          if (!release) {
+            core.setFailed(`Release for tag ${tag} was not found after ${maxAttempts} attempts.`);
+            return;
+          }
 
           if (release.data.draft) {
             await github.rest.repos.updateRelease({
@@ -230,3 +254,5 @@ jobs:
           }
       env:
         TAG: ${{ steps.version.outputs.version }}
+        MAX_ATTEMPTS: 5
+        DELAY_MS: 5000
