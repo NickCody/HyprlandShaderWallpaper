@@ -2,7 +2,36 @@
 
 WallShader is a Rust-based wallpaper engine for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
 
-## Prerequisites
+## AppImage Installation (Recommended)
+
+### Prerequisites for AppImage
+
+* A Wayland compositor (Hyprland, Sway, KDE Wayland, GNOME Wayland, etc.)
+* GPU drivers with Vulkan or OpenGL support (Mesa works great)
+
+All other dependencies are bundled in the AppImage.
+
+### Download and Run
+
+1. Download the latest AppImage from the [Releases page](https://github.com/NickCody/WallShader/releases)
+2. Make it executable and run:
+
+```bash
+chmod +x WallShader-x86_64.AppImage
+./WallShader-x86_64.AppImage --window --shadertoy https://www.shadertoy.com/view/3dXyWj
+```
+
+Optional: move it to your PATH for convenience:
+
+```bash
+mkdir -p ~/.local/bin
+mv WallShader-x86_64.AppImage ~/.local/bin/wallshader
+wallshader --help
+```
+
+## Building from Source
+
+### Build Prerequisites
 
 All platforms need:
 
@@ -12,7 +41,7 @@ All platforms need:
 * Wayland dev headers (`wayland-protocols`, `wayland`/`wayland-client`, `libxkbcommon`, `pkg-config`)
 * GPU drivers with Vulkan or OpenGL (Mesa works great)
 
-### Install Rust (all distros)
+#### Install Rust (all distros)
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -20,7 +49,7 @@ source "$HOME/.cargo/env"
 rustup component add rustfmt clippy
 ```
 
-### Ubuntu / Debian
+#### Ubuntu / Debian
 
 ```bash
 sudo apt update
@@ -31,7 +60,7 @@ sudo apt install -y \
   mesa-vulkan-drivers vulkan-tools libvulkan-dev
 ```
 
-### Fedora
+#### Fedora
 
 ```bash
 sudo dnf install -y \
@@ -41,7 +70,7 @@ sudo dnf install -y \
   mesa-vulkan-drivers vulkan-headers vulkan-loader-devel vulkan-tools
 ```
 
-### Arch / Manjaro
+#### Arch / Manjaro
 
 ```bash
 sudo pacman -Syu --needed \
@@ -51,7 +80,7 @@ sudo pacman -Syu --needed \
   vulkan-icd-loader vulkan-tools
 ```
 
-### openSUSE (Tumbleweed / Leap)
+#### openSUSE (Tumbleweed / Leap)
 
 ```bash
 sudo zypper install -t pattern devel_C_C++
@@ -62,7 +91,7 @@ sudo zypper install -y \
   vulkan-tools vulkan-headers libvulkan1
 ```
 
-### Alpine
+#### Alpine
 
 ```bash
 sudo apk add --update \
@@ -72,7 +101,7 @@ sudo apk add --update \
   vulkan-loader vulkan-headers vulkan-tools
 ```
 
-### NixOS (ad-hoc dev shell)
+#### NixOS (ad-hoc dev shell)
 
 ```bash
 nix-shell -p \
@@ -83,38 +112,31 @@ nix-shell -p \
 # Then install Rust via rustup inside the shell.
 ```
 
-After installing prerequisites:
+**Tip:** If your Vulkan driver is distro-specific, ensure the correct ICD is present (e.g., `mesa-vulkan-drivers` on Debian/Ubuntu/Fedora, `vulkan-icd-loader` on Arch).
+
+### Installation Methods
+
+#### One-liner Installer Script
+
+Prefer a scripted setup? Use the curl-friendly installer that clones the repository, runs `cargo install`, and copies bundled shader packs into your wallpaper data directory without requiring root:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
 ```
 
-Tip: if your Vulkan driver is distro-specific, ensure the correct ICD is present (e.g., `mesa-vulkan-drivers` on Debian/Ubuntu, `mesa-vulkan-drivers` on Fedora, `vulkan-icd-loader` on Arch).
+By default this grabs `main` from GitHub, overwriting `~/.local/share/wallshader/shaders` with the bundled shader packs and reinstalling the binary. Use `--data-dir` to pick a different destination or `--system` (with sudo) to install under `/usr/share/wallshader`. Additional flags help with constrained environments—`--skip-build` reuses an existing binary, and `--offline` forwards Cargo's offline mode. All installer options (including `--prefix` and `--ref`) are documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and `tar` are available before running.
 
-Install `just` via your package manager or with `cargo install just`.
-
-## Installation
-
-### One-liner Installer
-
-Prefer a scripted setup? Use the curl-friendly installer. It clones the upstream repository, runs `cargo install`, and copies the repo's `shaders/` tree into your wallpaper data directory without requiring
-root:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
-```
-
-By default this one-liner grabs `main` from GitHub, overwriting `~/.local/share/wallshader/shaders` with the bundled shader packs and reinstalling the binary. Use `--data-dir` to pick a different destination or `--system` (with sudo) to install the packs under `/usr/share/wallshader`. Additional flags help with constrained environments—`--skip-build` reuses an existing binary, and `--offline` forwards Cargo's offline mode when crates are already cached. All installer options (including `--prefix` and `--ref`) are documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and `tar` are available before running the script.
-
-Working from a local checkout? Run the installer directly so it mirrors *your* branch instead of cloning GitHub:
+Working from a local checkout? Run the installer directly:
 
 ```bash
 scripts/install.sh --source .
 ```
 
-Pass `--data-dir ~/.local/share/wallshader` (or `--system`) if you need to target a specific location. Re-run the same command whenever you want to refresh `shaders/` while iterating on shader packs or playlists.
+Pass `--data-dir ~/.local/share/wallshader` (or `--system`) to target a specific location. Re-run whenever you want to refresh shader packs while iterating.
 
-### Installing from Source
+#### Clone and Build with Just
+
+Install `just` via your package manager or with `cargo install just`, then:
 
 ```bash
 git clone https://github.com/NickCody/WallShader.git
@@ -133,11 +155,11 @@ just run-demo   # windowed ShaderToy demo
 just run-playlist  # playlist sampler using workspaces.toml
 ```
 
-Run `just --list` to discover additional recipes as they land.
+Run `just --list` to discover additional recipes.
 
-### Cargo Install from repo
+#### Cargo Install from Repository
 
-Or, install the binary straight from this repository without cloning it:
+Install the binary straight from the repository without cloning it:
 
 ```bash
 cargo install \
