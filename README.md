@@ -4,11 +4,13 @@ WallShader is a Rust-based wallpaper engine for Wayland compositors. It renders 
 
 ## Prerequisites
 
+Here’s a paste-ready README block that guarantees a C compiler (`cc`/`gcc`) on each distro.
+
 All platforms need:
 
-* Rust toolchain (via `rustup`) + `rustfmt` and `clippy`
-* C/C++ build tools (`cc`/`gcc`, `g++`, `make`, binutils)
-* Wayland dev headers: `wayland-protocols`, `wayland`/`wayland-client`, `libxkbcommon`, `pkg-config`
+* Rust toolchain (`rustup`) + `rustfmt` and `clippy`
+* C/C++ build tools (`gcc`/`cc`, `g++`, `make`, binutils)
+* Wayland dev headers (`wayland-protocols`, `wayland`/`wayland-client`, `libxkbcommon`, `pkg-config`)
 * GPU drivers with Vulkan or OpenGL (Mesa works great)
 
 ### Install Rust (all distros)
@@ -29,13 +31,14 @@ sudo apt install -y \
   libwayland-dev wayland-protocols libxkbcommon-dev \
   libegl1-mesa-dev libgles2-mesa-dev \
   mesa-vulkan-drivers vulkan-tools libvulkan-dev
+# build-essential provides gcc/g++/make
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf groupinstall -y "Development Tools"
 sudo dnf install -y \
+  gcc gcc-c++ make glibc-devel binutils \
   pkgconf-pkg-config wayland-devel wayland-protocols-devel libxkbcommon-devel \
   mesa-libEGL-devel mesa-libGLES-devel \
   mesa-vulkan-drivers vulkan-headers vulkan-loader-devel vulkan-tools
@@ -49,6 +52,7 @@ sudo pacman -Syu --needed \
   wayland wayland-protocols libxkbcommon \
   mesa \
   vulkan-icd-loader vulkan-tools
+# base-devel provides gcc/g++/make
 ```
 
 ### openSUSE (Tumbleweed / Leap)
@@ -56,6 +60,7 @@ sudo pacman -Syu --needed \
 ```bash
 sudo zypper install -t pattern devel_C_C++
 sudo zypper install -y \
+  gcc gcc-c++ make binutils \
   pkg-config wayland-devel wayland-protocols-devel libxkbcommon-devel \
   Mesa-libEGL-devel Mesa-libGLESv2-devel \
   vulkan-tools vulkan-headers libvulkan1
@@ -65,25 +70,26 @@ sudo zypper install -y \
 
 ```bash
 sudo apk add --update \
-  build-base pkgconf \
+  build-base binutils pkgconf \
   wayland-dev wayland-protocols \
   libxkbcommon-dev \
   mesa-egl-dev mesa-gles-dev \
   vulkan-loader vulkan-headers vulkan-tools
+# build-base provides gcc/g++/make
 ```
 
 ### NixOS (ad-hoc dev shell)
 
 ```bash
 nix-shell -p \
-  pkg-config wayland wayland-protocols libxkbcommon \
+  gcc pkg-config \
+  wayland wayland-protocols libxkbcommon \
   mesa mesa_drivers \
-  vulkan-loader vulkan-tools \
-  gcc
+  vulkan-loader vulkan-tools
 # Then install Rust via rustup inside the shell (see above).
 ```
 
-After installing the prerequisites, run:
+After installing prerequisites, run:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
