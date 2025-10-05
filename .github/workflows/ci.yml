@@ -1,18 +1,68 @@
-name: Build AppImage
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-appimage:
+  test:
+    name: Test and Quality Checks
     runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache Cargo registry and target directory
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential pkg-config \
+          libwayland-dev wayland-protocols libxkbcommon-dev \
+          libegl1-mesa-dev libgles2-mesa-dev \
+          coreutils
+
+    - name: Check formatting
+      run: cargo fmt --all --check
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Build
+      run: cargo build --verbose
+      
+    - name: Run tests
+      run: cargo test --verbose
+
+  build-appimage:
+    name: Build AppImage
+    runs-on: ubuntu-22.04
+    needs: test  # Only run if tests pass
     
     steps:
     - name: Checkout repository
@@ -44,40 +94,13 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-appimage-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-appimage-cargo-${{ hashFiles('**/Cargo.lock') }}-
-          ${{ runner.os }}-appimage-cargo-
           ${{ runner.os }}-cargo-
-
-    - name: Cache system dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          /var/cache/apt/archives
-          ~/.cache/pip
-        key: ${{ runner.os }}-deps-${{ hashFiles('.github/workflows/appimage.yml') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
 
     - name: Install appimage-builder
       run: |
         sudo pip3 install appimage-builder
-
-    - name: Validate Rust formatting and linting
-      run: |
-        cargo fmt --all --check
-        cargo clippy --all-targets --all-features -- -D warnings
-
-    - name: Run tests
-      run: cargo test --verbose --workspace
-
-    - name: Clean target directory to save cache space
-      run: |
-        # Keep only the most recent build artifacts to prevent cache bloat
-        cargo clean -p wallshader --release
-        find target -name "*.rlib" -mtime +7 -delete || true
-        find target -name "deps" -type d -exec find {} -name "*.rlib" -mtime +7 -delete \; || true
 
     - name: Build AppImage
       run: |
