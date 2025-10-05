@@ -158,6 +158,14 @@ jobs:
         retention-days: 30
         if-no-files-found: error
 
+    - name: Delete existing release if it exists
+      if: startsWith(github.ref, 'refs/tags/')
+      continue-on-error: true
+      run: |
+        gh release delete ${{ steps.version.outputs.version }} -y || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Release AppImage
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
