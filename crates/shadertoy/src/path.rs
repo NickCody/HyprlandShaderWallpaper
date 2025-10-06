@@ -1,3 +1,21 @@
+//! Centralizes filesystem and environment expansion rules so CLI handles and
+//! repository lookups agree on how to locate shader packs. `handle` calls into
+//! this helper before handing control to `repository`, and other crates reuse it
+//! to mirror WallShader's `$VAR`/`~` semantics when surfacing paths to users.
+//!
+//! Types:
+//!
+//! - `PathResolver` remembers the caller's working directory and performs
+//!   expansion/normalization used by pack discovery and diagnostics.
+//!
+//! Functions:
+//!
+//! - `PathResolver::expand_path` performs `$VAR` and `~` expansion while logging
+//!   the transformation for troubleshooting.
+//! - `PathResolver::normalize_local_path` prefers working-directory candidates
+//!   when they exist, matching WallShader's path resolution order.
+//! - Internal helpers `expand_home`, `expand_env_vars`, and `is_env_name_char`
+//!   implement the actual parsing, keeping error reporting precise.
 use std::env;
 use std::path::{Path, PathBuf};
 

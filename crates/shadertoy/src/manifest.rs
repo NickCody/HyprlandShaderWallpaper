@@ -1,3 +1,25 @@
+//! Defines the manifest schema shared by on-disk shader packs and the
+//! Shadertoy cache, giving `repository` predictable metadata to search while
+//! letting `remote` materializers emit validated layouts. Local pack loading and
+//! renderer bindings rely on these structures to walk passes, channel bindings,
+//! and presentation hints.
+//!
+//! Types:
+//!
+//! - `ShaderPackManifest` captures top-level metadata, entry pass selection, and
+//!   the ordered list of passes consumed by `LocalPack` and `ShaderRepository`.
+//! - `ShaderPass` stores per-pass source paths, kind, and declared inputs.
+//! - `PassKind`, `SurfaceAlpha`, and `ColorSpace` encode renderer-relevant
+//!   options with serde defaults that tolerate sparse manifests.
+//! - `PassInput` pairs a channel index with an `InputSource` describing textures,
+//!   buffers, cubemaps, audio, or keyboard expectations.
+//! - `InputSource` enumerates manifest-supported resources exactly as `remote`
+//!   emits them and `pack` resolves them on disk.
+//!
+//! Functions:
+//!
+//! - `ShaderPackManifest::validate` returns human-readable issues so pack and
+//!   cache loaders can surface misconfigurations without panicking.
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};

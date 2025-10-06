@@ -1,3 +1,26 @@
+//! Resolves shader handles into ready-to-render packs, hiding the difference
+//! between local directories and cached Shadertoy downloads from the rest of
+//! WallShader. CLI and playlist code hand it `ShaderHandle`s, while it consults
+//! `PathResolver`, `LocalPack`, and `ShadertoyClient` to load manifests, fetch
+//! missing assets, and return entry GLSL paths.
+//!
+//! Types:
+//!
+//! - `ShaderSource` distinguishes between local packs and cached remote shaders
+//!   for callers that need to inspect cache paths.
+//! - `RemoteShader` bundles the remote ID, cache directory, and hydrated
+//!   `LocalPack` used by renderer bindings.
+//! - `ShaderRepository` stores search roots and cache directories and performs
+//!   resolution for every handle the daemon encounters.
+//!
+//! Functions:
+//!
+//! - `ShaderRepository::resolve` orchestrates local lookup or remote caching
+//!   refreshes before returning a `ShaderSource`.
+//! - `ShaderRepository::load_local_pack`, `ensure_remote_cached`, and
+//!   `load_cached_remote` implement the individual paths with validation.
+//! - Free helper `load_entry_shader` lifts the entry GLSL path out of any
+//!   resolved source for the renderer bootstrap.
 use std::fs;
 use std::path::{Path, PathBuf};
 

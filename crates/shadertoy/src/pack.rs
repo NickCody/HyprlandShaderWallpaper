@@ -1,3 +1,25 @@
+//! Wraps a shader pack directory so `repository` and `remote` callers can load
+//! manifests, locate GLSL sources, and resolve asset paths consistently. It
+//! keeps filesystem validation centralized while leaving higher layers to decide
+//! whether the pack came from disk or a Shadertoy download.
+//!
+//! Types:
+//!
+//! - `PackError` classifies manifest parsing, validation, and I/O failures for
+//!   error reporting in `wallshader` telemetry.
+//! - `LocalPack` stores the resolved root directory and parsed `ShaderPackManifest`
+//!   for later traversal by repository and renderer glue.
+//!
+//! Functions:
+//!
+//! - `LocalPack::load` reads `shader.toml`, validates it, and returns a
+//!   filesystem-backed handle.
+//! - `LocalPack::asset_path` and `passes` expose helper views used during
+//!   renderer binding construction.
+//! - `resolve_entry_source` locates the entry pass GLSL the renderer should
+//!   compile first.
+//! - `ensure_glsl_sources` confirms every declared pass has a file on disk so
+//!   later compilation errors point at shader code, not missing assets.
 use std::fs;
 use std::path::{Path, PathBuf};
 

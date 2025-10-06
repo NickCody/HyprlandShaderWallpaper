@@ -1,3 +1,14 @@
+//! Normalizes Shadertoy references and translates CLI-supplied handles into the
+//! strongly-typed identifiers that `wallshader` passes around when talking to the
+//! pack repository. It leans on `PathResolver` for filesystem semantics while
+//! shielding the rest of the crate from the many input shapes users feed the CLI.
+//!
+//! Functions:
+//!
+//! - `normalize_shadertoy_reference` trims/rewrites URLs and loose IDs into a
+//!   canonical `shadertoy://` form so cache directories and logs stay predictable.
+//! - `parse_shader_handle` resolves local paths through `PathResolver` and builds
+//!   a `ShaderHandle` that the repository layer can load or refresh.
 use anyhow::{bail, Context, Result};
 
 use crate::path::PathResolver;

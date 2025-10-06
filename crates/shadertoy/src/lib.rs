@@ -1,3 +1,27 @@
+//! Crate entry point wiring together Shadertoy manifest parsing, path
+//! resolution, remote fetching, and repository lookup so `wallshader` and
+//! `renderer` consumers can pull everything they need from a single module. The
+//! higher-level daemon imports these re-exports to parse CLI handles, locate
+//! shaders, and translate ShaderToy payloads into renderer-ready packs without
+//! touching submodules directly.
+//!
+//! Re-exports:
+//!
+//! - Handle utilities (`normalize_shadertoy_reference`, `parse_shader_handle`)
+//!   feed `ShaderRepository`.
+//! - Manifest types (`ShaderPackManifest`, `ShaderPass`, `PassInput`, etc.) are
+//!   surfaced so renderer bindings can inspect channel declarations.
+//! - Local pack helpers (`LocalPack`, `ensure_glsl_sources`, `resolve_entry_source`)
+//!   let callers validate disk layouts.
+//! - Remote APIs (`ShadertoyClient`, `materialize_shader`, and supporting
+//!   structs) expose download + caching control to the CLI layer.
+//! - Repository plumbing (`ShaderRepository`, `ShaderSource`, `RemoteShader`)
+//!   loads whichever shader the user requested.
+//!
+//! Types:
+//!
+//! - `ShaderHandle` distinguishes between `shadertoy://` IDs and local pack
+//!   paths so the rest of the crate can dispatch correctly.
 mod handle;
 mod manifest;
 mod pack;

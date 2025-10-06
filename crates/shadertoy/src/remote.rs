@@ -1,3 +1,27 @@
+//! Talks to the Shadertoy HTTP API, downloads referenced assets, and converts
+//! remote shader payloads into the same manifest layout `pack` understands so
+//! the `repository` can treat cached downloads like local packs. Higher layers
+//! supply storage directories and decide when to refresh; this module focuses on
+//! HTTP, manifest synthesis, and asset bookkeeping.
+//!
+//! Types:
+//!
+//! - `ShadertoyConfig` records API endpoints and credentials shared by the
+//!   blocking client.
+//! - `ShadertoyClient` wraps `reqwest` to fetch shader JSON and supporting media
+//!   before handing results to caching logic.
+//! - `ShaderPayload`, `ShaderInfo`, `RenderPass`, `RenderInput`, and
+//!   `RenderOutput` mirror the API schema that `materialize_shader` ingests.
+//!
+//! Functions:
+//!
+//! - `ShadertoyClient::fetch_shader` and `fetch_and_cache` pull remote shaders
+//!   and populate a cache directory, reusing `download_asset` for each resource.
+//! - `materialize_shader` converts payloads into manifest + GLSL files, calling
+//!   back into the provided asset fetcher so tests can stub downloads.
+//! - Internal helpers (`build_cache_plan`, `maybe_unpack_cubemap_archive`,
+//!   `map_pass_kind`, `sanitize_label`, `derive_filename`, etc.) keep asset names
+//!   stable and the generated manifest valid for `LocalPack::load`.
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
