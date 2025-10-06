@@ -1,3 +1,41 @@
+//! Render policy, time sources, fill methods, and frame scheduling.
+//!
+//! The renderer separates “what to render” from “when to render”. This module
+//! defines the high-level behaviour (animate vs still vs export), the translation
+//! into frame timing via `FrameScheduler`, and the origin of time values via
+//! `TimeSource` implementations. It also hosts spatial mapping (`FillMethod`) and
+//! a small `RuntimeOptions` bundle used to plumb preferences into the GPU path.
+//!
+//! Cadence and time flow
+//!
+//! ```text
+//!           RenderPolicy
+//!               │
+//!               ▼
+//!       FrameScheduler ──▶ next_deadline / ready_for_frame(now)
+//!               │
+//!               ▼
+//!      TimeSource (System | Fixed)
+//!               │
+//!               ▼
+//!          TimeSample { seconds, frame_index }
+//!               │
+//!               ▼
+//!     gpu::GpuState::render(..., Some(TimeSample))
+//! ```
+//!
+//! Spatial mapping
+//!
+//! - `FillMethod::{Stretch,Center,Tile}` governs how fragment coordinates map to the
+//!   physical surface. The GPU wrapper uses `wallshader_Fill`/`wallshader_FillWrap`
+//!   uniforms to remap `gl_FragCoord` into ShaderToy’s space with optional letterboxing
+//!   or tiling.
+//!
+//! What uses this
+//!
+//! - `window::RenderPolicyDriver` wraps `FrameScheduler` + `TimeSource` for previews.
+//! - `wallpaper::SurfaceState` maintains its own `TimeSource` and uses simple pacing.
+//!
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 

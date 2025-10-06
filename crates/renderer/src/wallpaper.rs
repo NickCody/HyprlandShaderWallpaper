@@ -1,3 +1,39 @@
+//! Wayland wallpaper runtime (layer-shell surfaces, multi-output management, pacing).
+//!
+//! This module integrates with Wayland via smithay-client-toolkit to create background
+//! layer surfaces per output and render ShaderToy shaders as wallpapers. It handles
+//! output discovery/updates, layer configure events, frame callbacks, and orchestrates
+//! GPU state and shader swaps with smooth crossfades and warmup frames.
+//!
+//! Architecture
+//!
+//! ```text
+//! WallpaperRuntime
+//!   ├─ channel (Sender<WallpaperCommand>)  ◀────────── wallshader daemon/CLI
+//!   └─ thread: run_internal
+//!        ├─ Wayland registry + event queue
+//!        ├─ WallpaperManager
+//!        │    ├─ surfaces: { SurfaceId → SurfaceState }
+//!        │    ├─ handle_command(Swap/Query/Shutdown)
+//!        │    └─ delegate_* handlers (layer/output/registry)
+//!        └─ loop: drain commands → dispatch → frame callbacks
+//!
+//! SurfaceState lifecycle
+//!
+//! - Creates a `GpuState` bound to a wl_surface via a temporary `WaylandSurfaceHandle`.
+//! - Applies `SurfaceAlpha` by setting wl_region opaque rectangles when appropriate.
+//! - Uses `FramePacer` to honour FPS caps (including software rasterizer hints).
+//! - Renders on `configure`/frame callbacks and schedules the next frame.
+//! - Supports shader swaps with optional warmup and crossfade; rebuilds GPU state when
+//!   channel layout or core format preferences change.
+//!
+//! Coordination with other modules
+//!
+//! - `types::RendererConfig` seeds initial preferences; future swaps arrive via commands.
+//! - `gpu::GpuState` performs rendering; `runtime::time_source_for_policy` provides time.
+//! - Export/still policies render once and optionally trigger process exit when all
+//!   surfaces complete (mirrors preview’s one-shot export behaviour).
+//!
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};

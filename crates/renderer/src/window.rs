@@ -1,3 +1,37 @@
+//! Windowed preview runtime (winit event loop + input to uniforms).
+//!
+//! This module implements the interactive preview path used by `wallshader --window`.
+//! It owns the winit event loop thread, maps mouse/keyboard input to ShaderToy
+//! uniforms, and drives `gpu::GpuState` per-frame according to a `RenderPolicy`.
+//! It can also run a one-shot still/export capture without showing the window.
+//!
+//! Structure
+//!
+//! ```text
+//! WindowRuntime (thread)
+//!   ├─ EventLoop<WindowCommand>
+//!   │    ├─ redraw → WindowState::render_frame(TimeSample)
+//!   │    ├─ resize → GpuState::resize
+//!   │    └─ input  → Mouse/Keyboard → keyboard texture
+//!   ├─ RenderPolicyDriver (cadence + TimeSource)
+//!   └─ FrameSinkDriver
+//!        ├─ Surface: present to swapchain
+//!        └─ Export:  capture PNG/EXR once, then report completion
+//! ```
+//!
+//! How other modules connect
+//!
+//! - `renderer::Renderer` chooses this path for `RenderMode::Windowed`.
+//! - `gpu::GpuState` performs all rendering/capture; `window` forwards uniforms/time.
+//! - `runtime::{FrameScheduler, time_source_for_policy}` provide cadence and timestamps.
+//!
+//! Key types and responsibilities
+//!
+//! - `WindowState` — owns a `GpuState`, current preferences, and input state.
+//! - `WindowRuntime` — spawns the event loop thread and exposes a proxy for shader swaps.
+//! - `RenderPolicyDriver` — wraps scheduler + time source, ensures correct frame cadence.
+//! - `FrameSinkDriver` — presents to the surface or captures to disk once.
+//!
 use std::sync::Arc;
 
 use std::path::{Path, PathBuf};

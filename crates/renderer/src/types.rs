@@ -1,3 +1,46 @@
+//! Renderer data model and configuration surface for WallShader.
+//!
+//! This module defines the types that describe what and how we render:
+//! configuration passed in from the `wallshader` daemon/CLI, ShaderToy-style
+//! channel bindings, color/alpha preferences, GPU usage hints, and feature
+//! toggles like anti-aliasing or fill method. Other renderer modules consume
+//! these types to initialise GPU state and drive presentation.
+//!
+//! At a glance
+//!
+//! ```text
+//! wallshader (CLI/daemon)
+//!        │ builds
+//!        ▼
+//!  RendererConfig ──────────────┐
+//!        │                      │
+//!        │                      ├──▶ gpu::GpuState    (creates device/surface, pipelines)
+//!        │                      │
+//!        │                      └──▶ window::WindowState / wallpaper::SurfaceState
+//!                                   (event loop, scheduling, input → uniforms)
+//!
+//! ChannelBindings ──▶ gpu::ShaderPipeline (bind group layout, textures/cubemaps/keyboard)
+//! ```
+//!
+//! Details
+//!
+//! - `RendererConfig` mirrors CLI flags and playlist/manifest choices; it is the only
+//!   input needed to construct the renderer.
+//! - `ChannelBindings` describes ShaderToy `iChannel0..3` resources and yields a
+//!   `layout_signature()` that gpu uses to build the correct bind group layout.
+//! - GPU friendliness knobs (`GpuPowerPreference`, `GpuMemoryMode`, `gpu_latency`) reduce
+//!   contention with foreground apps (browsers, games) by preferring low power, balanced
+//!   memory usage, and modest frame buffering.
+//!
+//! Types summary
+//!
+//! - `RendererConfig` — immutable run configuration; consumed by `window`/`wallpaper`.
+//! - `ChannelBindings` + `ChannelSource` + `CHANNEL_COUNT` — ShaderToy inputs.
+//! - `ChannelTextureKind` + `CUBEMAP_FACE_STEMS` — texture dimensionality and discovery.
+//! - `RenderMode`, `SurfaceAlpha`, `Antialiasing`, `ShaderCompiler`, `ColorSpaceMode` —
+//!   rendering and colour handling policies.
+//! - `GpuPowerPreference`, `GpuMemoryMode` — adapter/device usage hints.
+//!
 use std::path::PathBuf;
 
 use anyhow::Result;

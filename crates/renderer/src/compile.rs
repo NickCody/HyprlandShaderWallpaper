@@ -1,3 +1,41 @@
+//! Shader wrapping and compilation pipeline for ShaderToy-style fragment shaders.
+//!
+//! This module takes raw ShaderToy GLSL (usually a `mainImage(out vec4, in vec2)`
+//! function) and turns it into a self-contained Vulkan-compatible GLSL module.
+//! We inject a uniform block and channel bindings, remap coordinates, and compile
+//! either via `shaderc` → SPIR-V or through wgpu/naga’s GLSL frontend.
+//!
+//! Flow
+//!
+//! ```text
+//!   input: raw ShaderToy GLSL
+//!        │  (may contain iTime/iChannel* uniforms)
+//!        ▼
+//!   sanitize (strip #version + legacy uniforms)
+//!        ▼
+//!   HEADER   +  sanitized body  +  FOOTER
+//!        │           │                  │
+//!        └───────────┴──────────────────┘
+//!                    ▼
+//!          compile_glsl (Shaderc | Naga)
+//!                    ▼
+//!          wgpu::ShaderModule
+//! ```
+//!
+//! Integration
+//!
+//! - `gpu::GpuState` calls `compile_vertex_shader` (static) and
+//!   `compile_fragment_shader` (wrapped user shader) while building pipelines.
+//! - Wrapped source is dumped to `/tmp/wallshader_wrapped.frag` when compiling the
+//!   fragment shader to aid diagnostics and naga/shaderc comparisons.
+//!
+//! Key functions
+//!
+//! - `compile_vertex_shader` — minimal full-screen triangle vertex module.
+//! - `compile_fragment_shader` — wraps + compiles the runtime shader.
+//! - `wrap_shadertoy_fragment` — removes ShaderToy uniforms and injects prelude/epilogue.
+//! - `compile_glsl` — backend switch between Shaderc and Naga GLSL.
+//!
 use std::borrow::Cow;
 
 use anyhow::{anyhow, Context, Result};

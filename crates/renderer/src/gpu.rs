@@ -1,3 +1,76 @@
+//! GPU orchestration: device/surface setup, pipelines, uniforms, channels, and rendering.
+//!
+//! `GpuState` encapsulates everything `wgpu`-related: it owns the instance, device,
+//! queue, surface configuration, shader modules, bind group layouts, the uniform
+//! buffer, and the active shader pipelines. Higher layers (`window` and `wallpaper`)
+//! feed it input state (mouse/keyboard), time samples, and swap requests; `GpuState`
+//! turns those into draws and optional file exports.
+//!
+//! High-level shape
+//!
+//! ```text
+//!                  types::RendererConfig
+//!                 /        |        \               runtime::TimeSample
+//!           channels    color/alpha   AA                    │
+//!                │         │          │                    ▼
+//!  bindings → layout → surface format → MSAA → GpuState ← uniforms (UBO)
+//!                              │                 │
+//!         compile::{vertex, fragment}            │ mouse/keyboard
+//!                              │                 │
+//!                              ▼                 ▼
+//!                     ShaderPipeline(s) ──▶ render pass ──▶ surface frame
+//!                           ▲       ▲
+//!                           │       └── crossfade(previous ⇄ current)
+//!                           └── pending (warmup) → promote → previous
+//! ```
+//!
+//! Pipelines and transitions
+//!
+//! - `current` is the live pipeline; `previous` is kept during a crossfade.
+//! - `pending` is built in the background (warmup frames rendered at 0% mix) and
+//!   promoted to `current` with an optional crossfade. This ensures a smooth swap
+//!   without a hitch when changing shaders.
+//!
+//! Uniforms and ShaderToy mapping
+//!
+//! - The std140 `ShadertoyUniforms` block mirrors macros injected by `compile::HEADER`.
+//!   We update it per-frame and copy via a staging buffer inside the encoder to
+//!   ensure each render pass is coherent.
+//! - Channel resolutions are written from materialised resources before drawing.
+//!
+//! Channels
+//!
+//! - For each bound channel (`iChannel0..3`) we create textures/samplers based on the
+//!   `ChannelTextureKind` signature (`Texture2d` or `Cubemap`).
+//! - A special keyboard channel is a 256×3 RGBA texture: rows encode state/pulse/toggle.
+//!   `window` keeps that texture up to date via `update_keyboard_channels`.
+//!
+//! Color, MSAA, and formats
+//!
+//! - `ColorSpaceMode::{Gamma,Linear}` chooses non-sRGB vs sRGB surface formats.
+//! - MSAA sample count is resolved against adapter/format capabilities and clamped for
+//!   stability (notably on software rasterizers or without adapter-specific features).
+//!
+//! GPU resource friendliness
+//!
+//! - Adapter request honours `GpuPowerPreference` (default LowPower) to yield priority.
+//! - Device creation uses `GpuMemoryMode` hints (default Balanced) to reduce pressure.
+//! - Swapchain uses a configurable `gpu_latency` (default 2) for better scheduling
+//!   alongside foreground apps.
+//!
+//! Rendering paths
+//!
+//! - `render` presents into the surface; `render_export` reads back to PNG/EXR if the
+//!   surface supports COPY_SRC, otherwise it presents-only and reports success.
+//!
+//! Primary entry points
+//!
+//! - `GpuState::new` — build surface/device, layouts, and the initial pipeline.
+//! - `render` / `render_export` — draw a frame, optionally capture.
+//! - `set_shader` — compile a new fragment shader and schedule warmup/crossfade.
+//! - `resize` — reconfigure the surface and MSAA target.
+//! - `update_keyboard_channels` — refresh the keyboard texture when present.
+//!
 use std::fmt;
 use std::fs::File;
 use std::io::{BufWriter, Write};

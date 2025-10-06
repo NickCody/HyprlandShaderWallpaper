@@ -1,22 +1,40 @@
-//! Renderer crate for WallShader (Lambda Shade).
+//! Renderer crate for WallShader (Wayland wallpaper engine + preview window).
 //!
-//! The module glues the Wayland preview window, `wgpu` rendering pipeline, and
-//! ShaderToy-compatible shader wrapping together. The overall flow is:
+//! This crate ties together the wgpu rendering backend, a ShaderToy-compatible
+//! shader wrapper, and two front-ends: a Wayland wallpaper path and a winit-based
+//! preview window. It exposes a small `Renderer` entry point and re-exports types
+//! commonly needed by the daemon.
+//!
+//! Big picture
 //!
 //! ```text
-//!   CLI / wallshader
-//!          │ RendererConfig
-//!          ▼
-//!   Renderer::run ──▶ WindowState ──▶ winit event loop ──▶ render_frame()
-//!          ▲                                      │
-//!          │                                      └─▶ update_uniforms() ─▶ GPU UBO
+//! wallshader (daemon/CLI)
+//!        │  builds
+//!        ▼
+//!  renderer::Renderer ────────────────┐
+//!        │                             │
+//!   RenderMode::Windowed               │ RenderMode::Wallpaper
+//!        │                             │
+//!        ▼                             ▼
+//!  window::WindowRuntime         wallpaper::WallpaperRuntime
+//!        │                             │
+//!        └──▶ gpu::GpuState ◀──────────┘   (device/surface, uniforms, pipelines)
+//!                         ▲
+//!                         └── compile::{vertex,fragment} (wrap + compile GLSL)
 //! ```
 //!
-//! `WindowState` owns all GPU resources (surface, device, pipeline, uniforms),
-//! while `Renderer` is the thin entry point that chooses between wallpaper mode
-//! or the interactive preview window. The fragment shaders downloaded from
-//! ShaderToy are wrapped at runtime so they can be compiled as Vulkan GLSL and
-//! fed the expected uniforms and texture bindings.
+//! Roles
+//!
+//! - `Renderer` — thin coordinator that selects preview vs wallpaper and delegates run.
+//! - `window`   — preview event loop, input handling, still/export capture.
+//! - `wallpaper`— Wayland layer surfaces per output, frame pacing, multi-surface swaps.
+//! - `gpu`      — wgpu orchestration: device/surface, pipelines, uniforms, channels.
+//! - `compile`  — wraps ShaderToy fragment code and compiles GLSL.
+//! - `runtime`  — render policy, time sources, fill method, frame scheduling helpers.
+//!
+//! The fragment shaders are wrapped at runtime (uniform block + macros) to align with
+//! ShaderToy semantics (`iTime`, `iMouse`, `iChannel*`), then compiled to a
+//! `wgpu::ShaderModule` (via naga or shaderc) before drawing.
 
 mod compile;
 mod gpu;
