@@ -1,3 +1,16 @@
+//! Entry point wiring that stitches together the CLI surface, filesystem bootstrap, and
+//! single- or multi-playlist runtime paths before delegating to `run.rs`, while exposing
+//! utility commands like `wallshader defaults where`.
+//!
+//! Types:
+//!
+//! - None; this module focuses on orchestrating submodules.
+//!
+//! Functions:
+//!
+//! - `main` parses CLI input, initialises tracing, and dispatches to modes.
+//! - `handle_defaults_command` and `run_defaults_where` back the defaults subcommand.
+
 mod bindings;
 mod bootstrap;
 mod cli;

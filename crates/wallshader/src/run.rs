@@ -1,3 +1,18 @@
+//! Orchestrates single-shader launches by wiring CLI input, filesystem discovery, shader
+//! repository resolution, and renderer setup, while delegating playlist runs to `multi.rs`
+//! and surfacing diagnostics/logging policies for the daemon.
+//!
+//! Types:
+//!
+//! - None; this module ties together other crates at runtime.
+//!
+//! Functions:
+//!
+//! - `run` drives the main execution path.
+//! - `initialise_tracing` configures logging.
+//! - `build_client` and `prepare_single_run` resolve Shadertoy data and renderer config.
+//! - Utility routines log handle decisions and translate CLI overrides into `RendererConfig`.
+
 use anyhow::{Context, Result};
 use renderer::{
     GpuMemoryMode, GpuPowerPreference, RenderMode, RenderPolicy, Renderer, RendererConfig,

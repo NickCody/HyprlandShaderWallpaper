@@ -1,3 +1,17 @@
+//! Discovers and normalises WallShader's config/data/cache roots, handling legacy
+//! environment variables, developer overrides, and installer layouts so CLI tooling and
+//! runtime modules resolve packs consistently.
+//!
+//! Types:
+//!
+//! - `AppPaths` captures resolved directories and exposes shader/playlist search orders.
+//!
+//! Functions:
+//!
+//! - `AppPaths::discover` probes environment variables, legacy locations, and defaults.
+//! - Accessors like `shader_roots` and `playlist_roots` encode resolution precedence.
+//! - Internal helpers manage environment expansion, dev roots, and compatibility fallbacks.
+
 use std::env;
 use std::fs;
 use std::io;

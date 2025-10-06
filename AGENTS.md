@@ -5,6 +5,7 @@ WallShader (wallshader) is a Rust-based wallpaper engine focused on Wayland comp
 ## Agent Instructions
 
 - Run `just validate` to check formatting, linting, and run tests before finishing work.
+- When making changes to a module, always keep t he top-of-file comments and `mod` declarations in sync.
 
 ## Workspace Layout
 

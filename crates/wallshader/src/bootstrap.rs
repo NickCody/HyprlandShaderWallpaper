@@ -1,3 +1,17 @@
+//! Prepares the daemon for launch by creating directories, unpacking bundled assets, and
+//! translating CLI entry points into renderer-friendly shapes that `run.rs` and `multi.rs`
+//! expect, bridging user input with low-level rendering configuration.
+//!
+//! Types:
+//!
+//! - `SingleRunConfig` wraps the renderer bootstrap payload for single-shader mode.
+//!
+//! Functions:
+//!
+//! - `bootstrap_filesystem` and `extract_bundled_assets` ready the on-disk layout.
+//! - `resolve_entry_handle` and `parse_surface_size` interpret CLI arguments.
+//! - `ensure_directory` and `copy_recursively` implement AppImage-flavoured asset updates.
+
 use std::fs;
 use std::path::Path;
 

@@ -1,3 +1,15 @@
+//! Provides a narrow view of the resolved directory layout so `main.rs` and diagnostics
+//! commands can surface where WallShader reads and writes state, pulling from `paths.rs`
+//! discovery logic.
+//!
+//! Types:
+//!
+//! - `PathOverview` snapshots resolved directories and search roots.
+//!
+//! Functions:
+//!
+//! - `describe_paths` populates the overview from an `AppPaths` instance.
+
 use std::path::PathBuf;
 
 use crate::paths::AppPaths;

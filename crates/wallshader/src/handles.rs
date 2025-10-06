@@ -1,3 +1,18 @@
+//! Parses and resolves user-facing shader and playlist handles so the CLI and runtime treat
+//! filesystem paths, named packs, and Shadertoy IDs uniformly, handing off to `shadertoy`
+//! for manifest normalization and `paths.rs` for search roots.
+//!
+//! Types:
+//!
+//! - `EntryHandle`, `PlaylistHandle`, and `LaunchHandle` model accepted schemes.
+//! - `PlaylistHandleArg` and `LaunchHandleArg` wrap handles for Clap integration.
+//!
+//! Functions:
+//!
+//! - `EntryHandle::parse*` and `PlaylistHandle::parse` expand environment-aware paths.
+//! - `PlaylistHandle::resolve_path` searches playlist roots.
+//! - Converters like `EntryHandle::into_shader_handle` produce `shadertoy::ShaderHandle`.
+
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

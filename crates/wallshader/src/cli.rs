@@ -1,3 +1,19 @@
+//! Defines the `clap` surface that turns user flags into strongly typed inputs for
+//! `run.rs`, playlist orchestration, and diagnostics reporting, leaning on `handles.rs`
+//! to interpret resource handles while mirroring renderer options so GPU and shader
+//! choices flow cleanly across crates.
+//!
+//! Types:
+//!
+//! - `Cli`, `RunArgs`, and subcommand structs underpin the main entry point.
+//! - GPU tuning enums (`GpuPowerPreference`, `GpuMemoryMode`) expose resource policies.
+//!
+//! Functions:
+//!
+//! - `parse()` wraps Clap's auto-derivation.
+//! - `parse_*` helpers normalise strings into renderer-friendly enums and validation
+//!   results.
+
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};

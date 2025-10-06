@@ -1,3 +1,21 @@
+//! Runs playlist-driven sessions, coordinating scheduling, shader caching, and renderer
+//! configuration so workspace-aware transitions stay in sync with `renderer` wallpapers or
+//! windows. It pulls manifests via `shadertoy`, resolves assets through `bindings.rs`, and
+//! reacts to CLI/runtime policies surfaced by `run.rs`.
+//!
+//! Types:
+//!
+//! - `EngineOptions`, `ShaderCache`, and `PlaylistEngine` encapsulate scheduling state.
+//! - Helper structs like `EngineTarget`, `TargetResolver`, and Hyprland payloads track
+//!   compositor integration.
+//!
+//! Functions:
+//!
+//! - `run_multi` selects window versus wallpaper flows.
+//! - `run_wallpaper_multi` and `run_window_multi` build renderer configurations.
+//! - Loaders and helpers manage prewarm, cache refresh, workspace orchestration, and Unix
+//!   socket diagnostics.
+
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;

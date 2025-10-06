@@ -1,3 +1,23 @@
+//! Translates validated ShaderToy-style manifests into runtime bindings so the Wayland
+//! daemon (`run.rs`, `multi.rs`) can hand the renderer crate a complete picture of what to
+//! load, while leaning on `renderer` for channel setup and `shadertoy` for manifest
+//! semantics. It keeps CLI-initiated or playlist-driven shader loads in sync with GPU-side
+//! expectations.
+//!
+//! Types:
+//!
+//! - `ChannelBindingReport` bundles the `renderer::ChannelBindings` alongside
+//!   diagnosable issues for later logging.
+//! - `ChannelBindingIssue` and `ChannelBindingIssueKind` label per-channel failures so
+//!   warnings stay actionable.
+//!
+//! Functions:
+//!
+//! - `channel_bindings_from_pack` walks manifest inputs into concrete resources.
+//! - `find_cubemap_face` probes pack directories for cubemap face files.
+//! - `map_manifest_*` helpers resolve color/alpha preferences with CLI overrides through
+//!   `resolve_color_space`.
+
 use std::path::{Path, PathBuf};
 
 use renderer::{

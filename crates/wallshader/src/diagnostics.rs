@@ -1,3 +1,18 @@
+//! Emits structured startup diagnostics so operators can see how CLI flags, resolved
+//! filesystem paths, and shader/playlist lookups come together before the rendering loop,
+//! drawing detail from `cli.rs`, `paths.rs`, and shader repositories.
+//!
+//! Types:
+//!
+//! - None; this module exports helper functions only.
+//!
+//! Functions:
+//!
+//! - `dump_startup_diagnostics` orchestrates reporting across global and mode-specific
+//!   detail.
+//! - Helper routines expand global flags, shader resolution, playlist contents, GPU
+//!   formats, and manifest overlays.
+
 use anyhow::Context;
 use multiconfig::MultiConfig;
 use renderer::{Antialiasing, ColorSpaceMode, FillMethod, ShaderCompiler};
