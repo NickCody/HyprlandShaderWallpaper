@@ -506,7 +506,7 @@ impl WallpaperManager {
                 let SwapRequest {
                     shader_source,
                     channel_bindings,
-                    crossfade,
+                    mut crossfade,
                     target_fps,
                     antialiasing,
                     surface_alpha,
@@ -517,6 +517,27 @@ impl WallpaperManager {
                 let now = Instant::now();
                 for surface_id in self.target_surface_ids(&selector) {
                     if let Some(mut surface) = self.surfaces.remove(&surface_id) {
+                        let layout_signature = channel_bindings.layout_signature();
+                        let requires_gpu_rebuild = surface.antialiasing != antialiasing
+                            || surface.color_space != color_space
+                            || surface
+                                .gpu
+                                .as_ref()
+                                .map(|gpu| gpu.channel_kinds() != &layout_signature)
+                                .unwrap_or(false);
+
+                        if requires_gpu_rebuild && crossfade > Duration::ZERO {
+                            tracing::info!(
+                                target = %surface_id.0,
+                                crossfade_ms = crossfade.as_millis(),
+                                old_antialias = ?surface.antialiasing,
+                                new_antialias = ?antialiasing,
+                                old_color = ?surface.color_space,
+                                new_color = ?color_space,
+                                "crossfade disabled: shader swap requires fresh GPU state"
+                            );
+                            crossfade = Duration::ZERO;
+                        }
                         surface.apply_render_preferences(
                             target_fps,
                             antialiasing,

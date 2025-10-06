@@ -2,6 +2,10 @@
 
 WallShader (wallshader) is a Rust-based wallpaper engine focused on Wayland compositors. It renders GPU shaders as live backgrounds while offering deep compatibility with ShaderToy content and user-supplied shader packs.
 
+## Agent Instructions
+
+- Run `just validate` to check formatting, linting, and run tests before finishing work.
+
 ## Workspace Layout
 
 - `crates/wallshader`: Wayland-facing daemon. Handles configuration, CLI flags, ShaderToy client setup, and orchestrates rendering.

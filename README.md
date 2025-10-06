@@ -1,6 +1,8 @@
 # WallShader
 
-WallShader is a Rust-based wallpaper engine for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
+WallShader is a Rust-based live wallpaper engine for Wayland compositors written mostly by AI. 
+
+WallShader renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
 
 ## AppImage Installation (Recommended)
 
@@ -212,6 +214,10 @@ Key behaviours:
 - Each output resolves to a playlist via workspace or output selectors.
 - Workspace changes interrupt any active transition and start a new crossfade using
   `workspace_switch_crossfade` (set to `0` for hard cuts).
+- Crossfades are disabled automatically when a playlist item changes anti-aliasing or
+  color-space settings, since the renderer must rebuild the GPU pipeline for the new
+  sample count. Those swaps fall back to a hard cut and emit an info-level log so you
+  can spot the transition.
 - Playlist items can override FPS caps, antialiasing, and opt-in to one-time refreshes.
 - Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
 
