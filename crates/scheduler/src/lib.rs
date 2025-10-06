@@ -1,3 +1,26 @@
+//! Drives playlist selection and timing based on `multiconfig` playlists so the
+//! `wallshader` daemon can keep Wayland outputs in sync with user-defined
+//! sequences. The daemon hands over parsed config plus target identifiers,
+//! while this crate tracks randomization, durations, and crossfade metadata
+//! before telling renderer orchestration which shader to show next.
+//!
+//! Types:
+//!
+//! - `Scheduler` owns playlist runtimes, per-target state, and RNG used for
+//!   shuffle order; `TargetId`, `SelectionChange`, and `ScheduledItem` are the
+//!   value objects it exchanges with the daemon.
+//! - `SchedulerError` reports missing playlists back to CLI/runtime callers.
+//! - Internal `PlaylistRuntime`, `RuntimeItem`, and `TargetState` encode the
+//!   derived scheduling metadata used between ticks.
+//!
+//! Functions:
+//!
+//! - `Scheduler::new`, `set_target`, `skip_target`, `tick`, and helpers manage
+//!   target lifecycles; they surface the next `SelectionChange` that
+//!   `wallshader`'s multi-playlist engine consumes.
+//! - `PlaylistRuntime::from_config`, `normalize_fps`, and `build_order` import
+//!   `multiconfig` defaults, apply overrides, and generate deterministic yet
+//!   shuffleable item sequences for each playlist mode.
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
