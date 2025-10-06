@@ -1,3 +1,56 @@
+//! Multi-playlist configuration model and parser for WallShader.
+//!
+//! This crate defines the TOML schema used to drive multi-playlist wallpaper
+//! behaviour and provides parsing, validation, and small helpers to resolve
+//! effective per-item settings. It does not touch rendering directly; instead,
+//! `wallshader` consumes these types to select shaders and timing, then issues
+//! swap requests to the renderer.
+//!
+//! Flow
+//!
+//! ```text
+//!     playlists/*.toml (user)
+//!               │
+//!               ▼
+//!     multiconfig::MultiConfig  ◀─ from_toml_str + validate()
+//!               │
+//!               ▼
+//!     wallshader::multi (engine)
+//!         ├─ pick Playlist by target selector
+//!         ├─ resolve item (defaults + overrides)
+//!         └─ emit SwapRequest (shader, fps, AA, crossfade)
+//! ```
+//!
+//! Model highlights
+//!
+//! - Defaults cascade: global `[defaults]` → playlist → item. FPS and antialiasing
+//!   resolve through this chain and are represented in `ResolvedItem`.
+//! - Targets map names like `workspace:<id-or-name>`, `output:<name>`, numeric
+//!   workspace ids, or `_default` to a playlist.
+//! - Durations support numbers (seconds) and human strings (e.g., `"1.5s"`, `"2m"`).
+//! - Antialiasing accepts names (`auto`, `off`) or sample counts (`2`, `4`, `8`, `16`).
+//!
+//! Quick reference
+//!
+//! - Types
+//!   - `MultiConfig` — root object with `defaults`, `playlists`, and `targets`.
+//!   - `Defaults` — global fallbacks for playlist selection, fps, antialias.
+//!   - `PlaylistMode` — `continuous` or `shuffle` iteration.
+//!   - `Playlist` — `item_duration`, `crossfade`, optional `fps`/`antialias`, `items`.
+//!   - `PlaylistItem` — `handle`, optional `duration`/`fps`/`antialias`, `refresh_once`, `mode`.
+//!   - `PlaylistItemMode` — per-item `animate` or `still` with optional `still_time`.
+//!   - `AntialiasSetting` — AA policy mapped to `renderer` MSAA.
+//!   - `ResolvedItem` — merged view used by the runtime to schedule playback.
+//!   - `ConfigError` — parse/validation errors with actionable text.
+//! - Key methods
+//!   - `MultiConfig::from_toml_str` — parse + validate a config document.
+//!   - `MultiConfig::validate` — schema and referential integrity checks.
+//!   - `MultiConfig::playlist`, `default_playlist`, `workspace_switch_crossfade`.
+//!   - `Playlist::resolved_item` — merge defaults/playlist/item into a single item plan.
+//! - Deserialization helpers
+//!   - `deserialize_duration[_opt]` — numerics or humantime strings.
+//!   - `deserialize_antialias_opt` — named levels or counts; see `parse_antialias`.
+//!
 use std::collections::BTreeMap;
 use std::fmt;
 use std::time::Duration;
