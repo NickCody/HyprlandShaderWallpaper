@@ -23,8 +23,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::Context;
-use thiserror::Error;
 use shadertoy::{PathResolver, ShaderHandle};
+use thiserror::Error;
 use tracing::debug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

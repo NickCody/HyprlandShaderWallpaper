@@ -309,8 +309,8 @@ pub fn resolve_color_space(cli: ColorSpaceMode, manifest: ColorSpaceMode) -> Col
 mod tests {
     use super::*;
     use shadertoy::{
-        ColorSpace as ManifestColor, InputSource, LocalPack, PassInput, PassKind, ShaderPackManifest,
-        ShaderPass, SurfaceAlpha as ManifestAlpha,
+        ColorSpace as ManifestColor, InputSource, LocalPack, PassInput, PassKind,
+        ShaderPackManifest, ShaderPass, SurfaceAlpha as ManifestAlpha,
     };
     use std::fs;
 
@@ -345,19 +345,43 @@ mod tests {
 
     #[test]
     fn maps_alpha_and_color() {
-        assert_eq!(map_manifest_alpha(ManifestAlpha::Opaque), RendererSurfaceAlpha::Opaque);
-        assert_eq!(map_manifest_alpha(ManifestAlpha::Transparent), RendererSurfaceAlpha::Transparent);
+        assert_eq!(
+            map_manifest_alpha(ManifestAlpha::Opaque),
+            RendererSurfaceAlpha::Opaque
+        );
+        assert_eq!(
+            map_manifest_alpha(ManifestAlpha::Transparent),
+            RendererSurfaceAlpha::Transparent
+        );
 
-        assert_eq!(map_manifest_color(ManifestColor::Auto), ColorSpaceMode::Auto);
-        assert_eq!(map_manifest_color(ManifestColor::Gamma), ColorSpaceMode::Gamma);
-        assert_eq!(map_manifest_color(ManifestColor::Linear), ColorSpaceMode::Linear);
+        assert_eq!(
+            map_manifest_color(ManifestColor::Auto),
+            ColorSpaceMode::Auto
+        );
+        assert_eq!(
+            map_manifest_color(ManifestColor::Gamma),
+            ColorSpaceMode::Gamma
+        );
+        assert_eq!(
+            map_manifest_color(ManifestColor::Linear),
+            ColorSpaceMode::Linear
+        );
     }
 
     #[test]
     fn resolves_color_space_defaults_and_overrides() {
-        assert_eq!(resolve_color_space(ColorSpaceMode::Auto, ColorSpaceMode::Auto), ColorSpaceMode::Gamma);
-        assert_eq!(resolve_color_space(ColorSpaceMode::Linear, ColorSpaceMode::Auto), ColorSpaceMode::Linear);
-        assert_eq!(resolve_color_space(ColorSpaceMode::Gamma, ColorSpaceMode::Linear), ColorSpaceMode::Gamma);
+        assert_eq!(
+            resolve_color_space(ColorSpaceMode::Auto, ColorSpaceMode::Auto),
+            ColorSpaceMode::Gamma
+        );
+        assert_eq!(
+            resolve_color_space(ColorSpaceMode::Linear, ColorSpaceMode::Auto),
+            ColorSpaceMode::Linear
+        );
+        assert_eq!(
+            resolve_color_space(ColorSpaceMode::Gamma, ColorSpaceMode::Linear),
+            ColorSpaceMode::Gamma
+        );
     }
 
     #[test]
@@ -387,7 +411,14 @@ mod tests {
         fs::create_dir_all(&cube).unwrap();
         fs::write(cube.join("POSX.JPG"), "").unwrap();
         let found = find_cubemap_face(&cube, "posx").expect("posx present");
-        assert_eq!(found.file_stem().unwrap().to_string_lossy().to_ascii_lowercase(), "posx");
+        assert_eq!(
+            found
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .to_ascii_lowercase(),
+            "posx"
+        );
     }
 
     #[test]
