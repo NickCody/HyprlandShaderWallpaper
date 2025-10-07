@@ -413,6 +413,24 @@ Downstream packages and automation should mirror the installer’s behaviour:
 
 See `CHANGELOG.md` for released versions and upgrade highlights.
 
+## Contributing
+
+Interested in contributing to WallShader? We welcome contributions!
+
+- Read the [Contributing Guide](CONTRIBUTING.md) for detailed guidelines
+- Check out the [Issue Tracker](https://github.com/NickCody/WallShader/issues) for tasks
+- All PRs must pass CI checks before merging (see [Branch Protection Guide](.github/BRANCH_PROTECTION.md))
+- Follow the Rust code style (`cargo fmt`) and fix all Clippy warnings
+
+Quick validation before submitting a PR:
+```bash
+just validate  # Runs build, tests, and clippy
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ## Open Issues
 
 - Crossfade doesn't work when you change antialiasing per shader in a playlist.
