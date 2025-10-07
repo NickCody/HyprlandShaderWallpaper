@@ -1,5 +1,8 @@
 # WallShader
 
+[![CI Status](https://github.com/NickCody/WallShader/actions/workflows/ci.yml/badge.svg)](https://github.com/NickCody/WallShader/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 WallShader is a Rust-based live wallpaper engine for Wayland compositors written mostly by AI. 
 
 WallShader renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
