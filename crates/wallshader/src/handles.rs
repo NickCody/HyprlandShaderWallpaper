@@ -1,23 +1,29 @@
 //! Parses and resolves user-facing shader and playlist handles so the CLI and runtime treat
-//! filesystem paths, named packs, and Shadertoy IDs uniformly, handing off to `shadertoy`
-//! for manifest normalization and `paths.rs` for search roots.
+//! filesystem paths, named packs, and ShaderToy IDs uniformly. Expansion and normalization
+//! are delegated to `shadertoy::PathResolver`, and playlist path search uses roots supplied
+//! by `paths.rs`.
 //!
-//! Types:
+//! Public surface:
+//! - `EntryHandle`, `PlaylistHandle`, `LaunchHandle` — accepted handle kinds.
+//! - `EntryHandle::parse[_with_resolver]`, `EntryHandle::parse_with_resolver_or_local` — shader handles.
+//! - `PlaylistHandle::parse`, `PlaylistHandle::resolve_path` — playlist handles and resolution.
+//! - `PlaylistHandleArg`, `LaunchHandleArg` — wrappers for Clap.
+//! - `EntryHandle::into_shader_handle` — convert to `shadertoy::ShaderHandle`.
 //!
-//! - `EntryHandle`, `PlaylistHandle`, and `LaunchHandle` model accepted schemes.
-//! - `PlaylistHandleArg` and `LaunchHandleArg` wrap handles for Clap integration.
-//!
-//! Functions:
-//!
-//! - `EntryHandle::parse*` and `PlaylistHandle::parse` expand environment-aware paths.
-//! - `PlaylistHandle::resolve_path` searches playlist roots.
-//! - Converters like `EntryHandle::into_shader_handle` produce `shadertoy::ShaderHandle`.
+//! Invariants:
+//! - Empty inputs are rejected.
+//! - `shader://<name>` and `playlist://<name>` names must be non-empty and contain no '/'.
+//! - Bare inputs with '/' or absolute paths are treated literally after `$VAR`/`~` expansion.
+//! - Missing environment variables during expansion fail fast with a typed error.
+//! - `PlaylistHandle::resolve_path` forbids parent/absolute components in relative inputs and
+//!   searches roots in order.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{bail, Context, Result};
+use anyhow::Context;
+use thiserror::Error;
 use shadertoy::{PathResolver, ShaderHandle};
 use tracing::debug;
 
@@ -64,20 +70,24 @@ impl LaunchHandleArg {
 
 impl EntryHandle {
     pub fn parse(input: &str) -> Result<Self> {
-        let resolver = PathResolver::new()?;
+        let resolver = PathResolver::new().map_err(|e| HandleError::PathExpansionFailed {
+            what: "shader",
+            input: input.to_string(),
+            source: e,
+        })?;
         Self::parse_with_resolver(&resolver, input)
     }
 
     pub fn parse_with_resolver(resolver: &PathResolver, input: &str) -> Result<Self> {
         let trimmed = input.trim();
         if trimmed.is_empty() {
-            bail!("shader handle must not be empty");
+            return Err(HandleError::EmptyShaderHandle);
         }
 
         if let Some(rest) = trimmed.strip_prefix("shadertoy://") {
             let id = rest.trim();
             if id.is_empty() {
-                bail!("shadertoy identifier missing after scheme");
+                return Err(HandleError::MissingShadertoyId);
             }
             return Ok(Self::Shadertoy { id: id.to_string() });
         }
@@ -90,22 +100,28 @@ impl EntryHandle {
         // Treat anything that expands to an absolute path or contains a slash as a raw path.
         let expanded = resolver
             .expand_path(trimmed)
-            .with_context(|| format!("failed to expand shader path '{trimmed}'"))?;
+            .with_context(|| format!("failed to expand shader path '{trimmed}'"))
+            .map_err(|e| HandleError::PathExpansionFailed {
+                what: "shader",
+                input: trimmed.to_string(),
+                source: e,
+            })?;
         let slash_present = trimmed.contains('/');
         if slash_present || expanded.is_absolute() {
             let path = absolutise(&expanded, resolver.cwd());
             return Ok(Self::RawPath(path));
         }
 
-        bail!(
-            "unable to infer handle type from '{trimmed}'. Use shader://{trimmed} or provide a filesystem path"
-        );
+        Err(HandleError::UnknownShaderHandle {
+            input: trimmed.to_string(),
+            hint: format!("shader://{}", trimmed),
+        })
     }
 
     pub fn parse_with_resolver_or_local(resolver: &PathResolver, input: &str) -> Result<Self> {
         match Self::parse_with_resolver(resolver, input) {
             Ok(handle) => Ok(handle),
-            Err(original_err) => {
+            Err(_original_err) => {
                 let trimmed = input.trim();
                 if trimmed.is_empty()
                     || trimmed.contains('/')
@@ -113,7 +129,8 @@ impl EntryHandle {
                     || trimmed.starts_with('~')
                     || trimmed.starts_with('.')
                 {
-                    Err(original_err)
+                    // Try again to return an informative typed error
+                    Self::parse_with_resolver(resolver, input)
                 } else {
                     debug!(
                         handle = %trimmed,
@@ -141,7 +158,7 @@ impl PlaylistHandle {
     pub fn parse(input: &str) -> Result<Self> {
         let trimmed = input.trim();
         if trimmed.is_empty() {
-            bail!("playlist handle must not be empty");
+            return Err(HandleError::EmptyPlaylistHandle);
         }
 
         if let Some(rest) = trimmed.strip_prefix("playlist://") {
@@ -149,18 +166,28 @@ impl PlaylistHandle {
             return Ok(Self::Named { name });
         }
 
-        let resolver = PathResolver::new()?;
+        let resolver = PathResolver::new().map_err(|e| HandleError::PathExpansionFailed {
+            what: "playlist",
+            input: input.to_string(),
+            source: e,
+        })?;
         let expanded = resolver
             .expand_path(trimmed)
-            .with_context(|| format!("failed to expand playlist path '{trimmed}'"))?;
+            .with_context(|| format!("failed to expand playlist path '{trimmed}'"))
+            .map_err(|e| HandleError::PathExpansionFailed {
+                what: "playlist",
+                input: trimmed.to_string(),
+                source: e,
+            })?;
         if trimmed.contains('/') || expanded.is_absolute() {
             let path = absolutise(&expanded, resolver.cwd());
             return Ok(Self::RawPath(path));
         }
 
-        bail!(
-            "unable to infer playlist handle from '{trimmed}'. Use playlist://{trimmed} or provide a filesystem path"
-        );
+        Err(HandleError::UnknownShaderHandle {
+            input: trimmed.to_string(),
+            hint: format!("playlist://{}", trimmed),
+        })
     }
 
     pub fn resolve_path(&self, search_roots: &[PathBuf]) -> Result<PathBuf> {
@@ -168,15 +195,16 @@ impl PlaylistHandle {
             PlaylistHandle::RawPath(path) => {
                 if path.is_absolute() {
                     if path.is_dir() {
-                        bail!(
-                            "playlist expects a file, not a directory: {}",
-                            path.display()
-                        );
+                        return Err(HandleError::PlaylistWasDirectory {
+                            path: path.display().to_string(),
+                        });
                     }
                     if path.exists() {
                         return Ok(path.clone());
                     }
-                    bail!("playlist file not found: {}", path.display());
+                    return Err(HandleError::PlaylistNotFound {
+                        path: path.display().to_string(),
+                    });
                 }
 
                 // For relative raw paths, search in playlist directories
@@ -204,10 +232,9 @@ impl PlaylistHandle {
                 Component::ParentDir | Component::RootDir | Component::Prefix(_)
             )
         }) {
-            bail!(
-                "playlist path does not allow parent or absolute segments: {}",
-                path.display()
-            );
+            return Err(HandleError::ForbiddenPlaylistComponent {
+                path: path.display().to_string(),
+            });
         }
 
         for root in search_roots {
@@ -222,18 +249,17 @@ impl PlaylistHandle {
             .map(|root| root.display().to_string())
             .collect();
 
-        bail!(
-            "playlist '{}' not found; searched: {}",
-            path.display(),
-            searched.join(", ")
-        );
+        Err(HandleError::PlaylistSearchFailed {
+            path: path.display().to_string(),
+            searched: searched.join(", "),
+        })
     }
 }
 
 impl FromStr for PlaylistHandleArg {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         PlaylistHandle::parse(s)
             .map(Self)
             .map_err(|err| err.to_string())
@@ -243,7 +269,7 @@ impl FromStr for PlaylistHandleArg {
 impl FromStr for LaunchHandleArg {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let trimmed = s.trim();
         if trimmed.starts_with("playlist://") {
             PlaylistHandle::parse(trimmed)
@@ -288,13 +314,16 @@ fn absolutise(path: &PathBuf, cwd: &Path) -> PathBuf {
     cwd.join(path)
 }
 
-fn parse_named_handle(input: &str, kind: &str) -> Result<String> {
+fn parse_named_handle(input: &str, kind: &'static str) -> Result<String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
-        bail!("{kind} handle must include a name, e.g. {kind}://demo");
+        return Err(HandleError::MissingNamedHandle { kind });
     }
     if trimmed.contains('/') {
-        bail!("{kind} handle names must not contain '/': {trimmed}");
+        return Err(HandleError::NamedHandleContainsSlash {
+            kind,
+            name: trimmed.to_string(),
+        });
     }
     Ok(trimmed.to_string())
 }
@@ -332,7 +361,13 @@ mod tests {
     #[test]
     fn bare_names_error() {
         let err = EntryHandle::parse("demo").unwrap_err();
-        assert!(err.to_string().contains("shader://demo"));
+        match err {
+            HandleError::UnknownShaderHandle { input, hint } => {
+                assert_eq!(input, "demo");
+                assert_eq!(hint, "shader://demo");
+            }
+            other => panic!("unexpected error: {other}"),
+        }
     }
 
     #[test]
@@ -352,6 +387,18 @@ mod tests {
         match handle {
             PlaylistHandle::RawPath(path) => assert!(path.ends_with("playlists/demo.toml")),
             _ => panic!("expected raw path"),
+        }
+    }
+
+    #[test]
+    fn named_handle_rejects_slash() {
+        let err = EntryHandle::parse("shader://foo/bar").unwrap_err();
+        match err {
+            HandleError::NamedHandleContainsSlash { kind, name } => {
+                assert_eq!(kind, "shader pack");
+                assert_eq!(name, "foo/bar");
+            }
+            other => panic!("unexpected error: {other}"),
         }
     }
 
@@ -379,4 +426,37 @@ mod tests {
         let handle = EntryHandle::parse_with_resolver_or_local(&resolver, "demo").unwrap();
         assert!(matches!(handle, EntryHandle::LocalPack { name } if name == "demo"));
     }
+}
+/// Module-local result type for handle parsing/resolution.
+pub type Result<T> = std::result::Result<T, HandleError>;
+
+#[derive(Debug, Error)]
+pub enum HandleError {
+    #[error("shader handle must not be empty")]
+    EmptyShaderHandle,
+    #[error("playlist handle must not be empty")]
+    EmptyPlaylistHandle,
+    #[error("shadertoy identifier missing after scheme")]
+    MissingShadertoyId,
+    #[error("{kind} handle must include a name, e.g. {kind}://demo")]
+    MissingNamedHandle { kind: &'static str },
+    #[error("{kind} handle names must not contain '/': {name}")]
+    NamedHandleContainsSlash { kind: &'static str, name: String },
+    #[error("failed to expand {what} path '{input}': {source}")]
+    PathExpansionFailed {
+        what: &'static str,
+        input: String,
+        #[source]
+        source: anyhow::Error,
+    },
+    #[error("unable to infer handle type from '{input}'. Use {hint} or provide a filesystem path")]
+    UnknownShaderHandle { input: String, hint: String },
+    #[error("playlist expects a file, not a directory: {path}")]
+    PlaylistWasDirectory { path: String },
+    #[error("playlist file not found: {path}")]
+    PlaylistNotFound { path: String },
+    #[error("playlist path does not allow parent or absolute segments: {path}")]
+    ForbiddenPlaylistComponent { path: String },
+    #[error("playlist '{path}' not found; searched: {searched}")]
+    PlaylistSearchFailed { path: String, searched: String },
 }

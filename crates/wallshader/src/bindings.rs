@@ -17,6 +17,11 @@
 //! - `find_cubemap_face` probes pack directories for cubemap face files.
 //! - `map_manifest_*` helpers resolve color/alpha preferences with CLI overrides through
 //!   `resolve_color_space`.
+//!
+//! Invariants:
+//! - Does not fail bindings on missing assets; issues are logged and returned.
+//! - Relative asset paths are resolved under the pack root; absolute paths are used as-is.
+//! - Cubemap discovery matches face stems case-insensitively by filename stem.
 
 use std::path::{Path, PathBuf};
 
@@ -26,7 +31,7 @@ use renderer::{
 use shadertoy::{
     ColorSpace as ManifestColorSpace, InputSource, LocalPack, SurfaceAlpha as ManifestSurfaceAlpha,
 };
-use tracing::warn;
+use tracing::{instrument, warn};
 
 #[derive(Debug, Clone)]
 pub struct ChannelBindingReport {
@@ -42,7 +47,7 @@ impl ChannelBindingReport {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChannelBindingIssue {
     pub pass: String,
     pub channel: u8,
@@ -113,7 +118,7 @@ impl ChannelBindingIssue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChannelBindingIssueKind {
     TextureMissing { path: PathBuf },
     TextureAssignFailed { path: PathBuf, error: String },
@@ -126,6 +131,7 @@ pub enum ChannelBindingIssueKind {
     UnsupportedAudio { path: PathBuf },
 }
 
+#[instrument(level = "debug", skip(pack))]
 pub fn channel_bindings_from_pack(pack: &LocalPack) -> ChannelBindingReport {
     let mut bindings = ChannelBindings::default();
     let mut issues = Vec::new();
@@ -296,5 +302,115 @@ pub fn resolve_color_space(cli: ColorSpaceMode, manifest: ColorSpaceMode) -> Col
             tracing::debug!(color_space = ?other, "using CLI color space override");
             other
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shadertoy::{
+        ColorSpace as ManifestColor, InputSource, LocalPack, PassInput, PassKind, ShaderPackManifest,
+        ShaderPass, SurfaceAlpha as ManifestAlpha,
+    };
+    use std::fs;
+
+    fn write_pack(dir: &Path, manifest: &ShaderPackManifest, extra_files: &[(&str, &str)]) {
+        let manifest_str = toml::to_string(manifest).expect("serialize manifest");
+        fs::write(dir.join("shader.toml"), manifest_str).expect("write manifest");
+        for (path, contents) in extra_files {
+            let full_path = dir.join(path);
+            if let Some(parent) = full_path.parent() {
+                fs::create_dir_all(parent).expect("create dirs");
+            }
+            fs::write(full_path, contents).expect("write file");
+        }
+    }
+
+    fn demo_manifest_with_inputs(inputs: Vec<PassInput>) -> ShaderPackManifest {
+        ShaderPackManifest {
+            name: Some("Demo".into()),
+            entry: "image".into(),
+            surface_alpha: ManifestAlpha::Opaque,
+            color_space: ManifestColor::Auto,
+            description: None,
+            tags: vec![],
+            passes: vec![ShaderPass {
+                name: "image".into(),
+                kind: PassKind::Image,
+                source: PathBuf::from("image.glsl"),
+                inputs,
+            }],
+        }
+    }
+
+    #[test]
+    fn maps_alpha_and_color() {
+        assert_eq!(map_manifest_alpha(ManifestAlpha::Opaque), RendererSurfaceAlpha::Opaque);
+        assert_eq!(map_manifest_alpha(ManifestAlpha::Transparent), RendererSurfaceAlpha::Transparent);
+
+        assert_eq!(map_manifest_color(ManifestColor::Auto), ColorSpaceMode::Auto);
+        assert_eq!(map_manifest_color(ManifestColor::Gamma), ColorSpaceMode::Gamma);
+        assert_eq!(map_manifest_color(ManifestColor::Linear), ColorSpaceMode::Linear);
+    }
+
+    #[test]
+    fn resolves_color_space_defaults_and_overrides() {
+        assert_eq!(resolve_color_space(ColorSpaceMode::Auto, ColorSpaceMode::Auto), ColorSpaceMode::Gamma);
+        assert_eq!(resolve_color_space(ColorSpaceMode::Linear, ColorSpaceMode::Auto), ColorSpaceMode::Linear);
+        assert_eq!(resolve_color_space(ColorSpaceMode::Gamma, ColorSpaceMode::Linear), ColorSpaceMode::Gamma);
+    }
+
+    #[test]
+    fn reports_missing_texture_issue() {
+        let temp = tempfile::tempdir().unwrap();
+        let inputs = vec![PassInput {
+            channel: 0,
+            source: InputSource::Texture {
+                path: PathBuf::from("textures/tex0.png"),
+            },
+        }];
+        let manifest = demo_manifest_with_inputs(inputs);
+        write_pack(temp.path(), &manifest, &[("image.glsl", "// shader")]);
+        let pack = LocalPack::load(temp.path()).expect("load pack");
+
+        let report = channel_bindings_from_pack(&pack);
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| matches!(i.kind, ChannelBindingIssueKind::TextureMissing { ref path } if path.ends_with("textures/tex0.png"))));
+    }
+
+    #[test]
+    fn finds_cubemap_faces_case_insensitive() {
+        let temp = tempfile::tempdir().unwrap();
+        let cube = temp.path().join("cube");
+        fs::create_dir_all(&cube).unwrap();
+        fs::write(cube.join("POSX.JPG"), "").unwrap();
+        let found = find_cubemap_face(&cube, "posx").expect("posx present");
+        assert_eq!(found.file_stem().unwrap().to_string_lossy().to_ascii_lowercase(), "posx");
+    }
+
+    #[test]
+    fn reports_missing_cubemap_faces() {
+        let temp = tempfile::tempdir().unwrap();
+        let inputs = vec![PassInput {
+            channel: 1,
+            source: InputSource::Cubemap {
+                directory: PathBuf::from("cube"),
+            },
+        }];
+        let manifest = demo_manifest_with_inputs(inputs);
+        write_pack(
+            temp.path(),
+            &manifest,
+            &[("image.glsl", "// shader"), ("cube/posx.png", "")],
+        );
+        let pack = LocalPack::load(temp.path()).expect("load pack");
+
+        let report = channel_bindings_from_pack(&pack);
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| matches!(i.kind, ChannelBindingIssueKind::CubemapFaceMissing { .. })));
     }
 }
