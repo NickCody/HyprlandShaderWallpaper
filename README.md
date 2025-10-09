@@ -1,11 +1,6 @@
 # WallShader
 
-[![CI Status](https://github.com/NickCody/WallShader/actions/workflows/ci.yml/badge.svg)](https://github.com/NickCody/WallShader/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
-WallShader is a Rust-based live wallpaper engine for Wayland compositors written mostly by AI. 
-
-WallShader renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
+WallShader is a Rust-based wallpaper engine for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
 
 ## AppImage Installation (Recommended)
 
@@ -217,10 +212,6 @@ Key behaviours:
 - Each output resolves to a playlist via workspace or output selectors.
 - Workspace changes interrupt any active transition and start a new crossfade using
   `workspace_switch_crossfade` (set to `0` for hard cuts).
-- Crossfades are disabled automatically when a playlist item changes anti-aliasing or
-  color-space settings, since the renderer must rebuild the GPU pipeline for the new
-  sample count. Those swaps fall back to a hard cut and emit an info-level log so you
-  can spot the transition.
 - Playlist items can override FPS caps, antialiasing, and opt-in to one-time refreshes.
 - Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
 
@@ -412,25 +403,3 @@ Downstream packages and automation should mirror the installer’s behaviour:
 ## Release Notes
 
 See `CHANGELOG.md` for released versions and upgrade highlights.
-
-## Contributing
-
-Interested in contributing to WallShader? We welcome contributions!
-
-- Read the [Contributing Guide](CONTRIBUTING.md) for detailed guidelines
-- Check out the [Issue Tracker](https://github.com/NickCody/WallShader/issues) for tasks
-- All PRs must pass CI checks before merging (see [Branch Protection Guide](.github/BRANCH_PROTECTION.md))
-- Follow the Rust code style (`cargo fmt`) and fix all Clippy warnings
-
-Quick validation before submitting a PR:
-```bash
-just validate  # Runs build, tests, and clippy
-```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Open Issues
-
-- Crossfade doesn't work when you change antialiasing per shader in a playlist.
