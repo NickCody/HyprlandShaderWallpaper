@@ -356,6 +356,6 @@ mod tests {
         assert!(!wrapped.contains("uniform float iTime"));
         assert!(!wrapped.contains("uniform vec3 iResolution"));
         assert!(wrapped.contains("mainImage"));
-        assert!(wrapped.contains("wallshader_mix"));
+        assert!(wrapped.contains("wax11_mix"));
     }
 }

@@ -1,10 +1,9 @@
-//! Render policy, time so//! Spatial mapping
+//! Render policy, time sources, spatial mapping, and frame scheduling.
 //!
 //! - `FillMethod::{Stretch,Center,Tile}` governs how fragment coordinates map to the
 //!   physical surface. The GPU wrapper uses `wax11_Fill`/`wax11_FillWrap`
 //!   uniforms to remap `gl_FragCoord` into ShaderToy's space with optional letterboxing
 //!   or tiling.
-//!fill methods, and frame scheduling.
 //!
 //! The renderer separates “what to render” from “when to render”. This module
 //! defines the high-level behaviour (animate vs still vs export), the translation
@@ -33,7 +32,7 @@
 //! Spatial mapping
 //!
 //! - `FillMethod::{Stretch,Center,Tile}` governs how fragment coordinates map to the
-//!   physical surface. The GPU wrapper uses `wallshader_Fill`/`wallshader_FillWrap`
+//!   physical surface. The GPU wrapper uses `wax11_Fill`/`wax11_FillWrap`
 //!   uniforms to remap `gl_FragCoord` into ShaderToy’s space with optional letterboxing
 //!   or tiling.
 //!
