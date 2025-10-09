@@ -32,6 +32,7 @@ directories-next = "2"
 toml = "0.8"
 wgpu = "26"
 pollster = "0.3"
+thiserror.workspace = true
 
 [dev-dependencies]
 tempfile = "3"

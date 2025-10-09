@@ -7,16 +7,12 @@ antialias = "off"
 
 [playlists.shadertoy]
 mode = "continuous"
-item_duration = "300s"
+item_duration = "60s"
 crossfade = "3s"
 
 [[playlists.shadertoy.items]]
 handle = "shader://simplex-color"
-antialias = "4"
 
 [[playlists.shadertoy.items]]
 handle = "shader://template"
 
-[[playlists.shadertoy.items]]
-handle = "shadertoy://XsX3zl"
-duration = 60s
