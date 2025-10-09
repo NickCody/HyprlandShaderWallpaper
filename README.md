@@ -1,6 +1,9 @@
-# WallShader
+# wax11 shader
 
-WallShader is a Rust-based wallpaper engine for Wayland compositors. It renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
+wax11 shader is a Rust-based live wallpaper engine for Wayland compositors written mostly by AI. 
+
+wax11 shader renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
+>>>>>>> 1954ce0 (wax11 rebrand)
 
 ## AppImage Installation (Recommended)
 
@@ -13,20 +16,20 @@ All other dependencies are bundled in the AppImage.
 
 ### Download and Run
 
-1. Download the latest AppImage from the [Releases page](https://github.com/NickCody/WallShader/releases)
+1. Download the latest AppImage from the [Releases page](https://github.com/NickCody/wax11 shader/releases)
 2. Make it executable and run:
 
 ```bash
-chmod +x WallShader-x86_64.AppImage
-./WallShader-x86_64.AppImage --window --shadertoy https://www.shadertoy.com/view/3dXyWj
+chmod +x wax11 shader-x86_64.AppImage
+./wax11 shader-x86_64.AppImage --window --shadertoy https://www.shadertoy.com/view/3dXyWj
 ```
 
 Optional: move it to your PATH for convenience:
 
 ```bash
 mkdir -p ~/.local/bin
-mv WallShader-x86_64.AppImage ~/.local/bin/wallshader
-wallshader --help
+mv wax11 shader-x86_64.AppImage ~/.local/bin/wallshader
+wax11 --help
 ```
 
 ## Building from Source
@@ -121,10 +124,10 @@ nix-shell -p \
 Prefer a scripted setup? Use the curl-friendly installer that clones the repository, runs `cargo install`, and copies bundled shader packs into your wallpaper data directory without requiring root:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/wax11 shader/main/scripts/install.sh)"
 ```
 
-By default this grabs `main` from GitHub, overwriting `~/.local/share/wallshader/shaders` with the bundled shader packs and reinstalling the binary. Use `--data-dir` to pick a different destination or `--system` (with sudo) to install under `/usr/share/wallshader`. Additional flags help with constrained environments—`--skip-build` reuses an existing binary, and `--offline` forwards Cargo's offline mode. All installer options (including `--prefix` and `--ref`) are documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and `tar` are available before running.
+By default this grabs `main` from GitHub, overwriting `~/.local/share/wax11/shaders` with the bundled shader packs and reinstalling the binary. Use `--data-dir` to pick a different destination or `--system` (with sudo) to install under `/usr/share/wax11`. Additional flags help with constrained environments—`--skip-build` reuses an existing binary, and `--offline` forwards Cargo's offline mode. All installer options (including `--prefix` and `--ref`) are documented via `bash scripts/install.sh --help`. Ensure `cargo`, `git`, and `tar` are available before running.
 
 Working from a local checkout? Run the installer directly:
 
@@ -132,15 +135,15 @@ Working from a local checkout? Run the installer directly:
 scripts/install.sh --source .
 ```
 
-Pass `--data-dir ~/.local/share/wallshader` (or `--system`) to target a specific location. Re-run whenever you want to refresh shader packs while iterating.
+Pass `--data-dir ~/.local/share/wax11` (or `--system`) to target a specific location. Re-run whenever you want to refresh shader packs while iterating.
 
 #### Clone and Build with Just
 
 Install `just` via your package manager or with `cargo install just`, then:
 
 ```bash
-git clone https://github.com/NickCody/WallShader.git
-cd WallShader
+git clone https://github.com/NickCody/wax11 shader.git
+cd wax11 shader
 just setup
 just run-demo
 ```
@@ -163,7 +166,7 @@ Install the binary straight from the repository without cloning it:
 
 ```bash
 cargo install \
-  --git https://github.com/NickCody/WallShader \
+  --git https://github.com/NickCody/wax11 shader \
   --tag v0.9.1 \
   --locked \
   wallshader
@@ -177,17 +180,17 @@ If you already have the repository checked out, the same command works locally:
 cargo install --path crates/wallshader --locked --force wallshader
 ```
 
-The installed `wallshader` binary accepts the same CLI flags documented below, so you can run `wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from any directory.
+The installed `wax11` binary accepts the same CLI flags documented below, so you can run `wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from any directory.
 
 ## Features
 
 ### ShaderToy Integration
 
-WallShader can fetch and cache public ShaderToy shaders using the `--shadertoy <url>` flag. Supply your API key via `--shadertoy-api-key <key>` or the `SHADERTOY_API_KEY` environment variable. The installer bundles a few popular shaders under `shaders/shadertoy/` so you can try them without an API key.
+wax11 shader can fetch and cache public ShaderToy shaders using the `--shadertoy <url>` flag. Supply your API key via `--shadertoy-api-key <key>` or the `SHADERTOY_API_KEY` environment variable. The installer bundles a few popular shaders under `shaders/shadertoy/` so you can try them without an API key.
 
 ### Color Space & Gamma Handling
 
-By default WallShader assumes ShaderToy-style gamma output: it creates a non-sRGB swapchain and binds textures without automatic colour conversion, matching the WebGL defaults used on shadertoy.com. You can override this at several levels:
+By default wax11 shader assumes ShaderToy-style gamma output: it creates a non-sRGB swapchain and binds textures without automatic colour conversion, matching the WebGL defaults used on shadertoy.com. You can override this at several levels:
 
 - **CLI:** `--color-space {auto|gamma|linear}`. `auto` behaves like ShaderToy
   (`gamma`), while `linear` requests sRGB swapchains/textures so physically based
@@ -197,14 +200,14 @@ By default WallShader assumes ShaderToy-style gamma output: it creates a non-sRG
 - **Playlists:** Multi-playlist runs inherit the same hierarchy—global CLI flag
   dominates, otherwise each pack’s manifest decides the swapchain format.
 
-When switching between modes WallShader rebuilds GPU resources so playlists can mix gamma-authored and linear-authored content without restarting the daemon.
+When switching between modes wax11 shader rebuilds GPU resources so playlists can mix gamma-authored and linear-authored content without restarting the daemon.
 
 ### Playlists
 
 Enable playlist mode with `--playlist <file>` to drive different shaders per workspace or output. The configuration format is documented in `SpecMulti.md`, and sample playlists live under `shaders/playlists/` in the repo (e.g. `workspaces.toml`) and are copied to `$DATA_DIR/*.toml` by the installer. A quick way to experiment is:
 
 ```
-cargo run -p wallshader -- --playlist workspaces.toml
+cargo run -p wax11 -- --playlist workspaces.toml
 ```
 
 Key behaviours:
@@ -219,25 +222,25 @@ Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall
 
 ### Directories and CLI Helpers
 
-WallShader follows the XDG base directory spec. The core locations are:
+wax11 shader follows the XDG base directory spec. The core locations are:
 
-- Config: `~/.config/wallshader/` — **User customizations and overrides**
-- Data: `~/.local/share/wallshader/` — **Installed shader packs and playlists**
-- Cache: `~/.cache/wallshader/` — **ShaderToy cache and temporary files**
-- System defaults: `/usr/share/wallshader/` — **Bundled assets (AppImage, system packages)**
+- Config: `~/.config/wax11/` — **User customizations and overrides**
+- Data: `~/.local/share/wax11/` — **Installed shader packs and playlists**
+- Cache: `~/.cache/wax11/` — **ShaderToy cache and temporary files**
+- System defaults: `/usr/share/wax11/` — **Bundled assets (AppImage, system packages)**
 
-Set `WALLSHADER_CONFIG_DIR`, `WALLSHADER_DATA_DIR`, `WALLSHADER_CACHE_DIR`, and `WALLSHADER_SHARE_DIR` to relocate any directory. CLI flags always win over environment variables.
+Set `WAX11_CONFIG_DIR`, `WAX11_DATA_DIR`, `WAX11_CACHE_DIR`, and `WAX11_SHARE_DIR` to relocate any directory. CLI flags always win over environment variables.
 
 #### Directory Resolution Order
 
 Shaders and playlists are resolved in priority order: **CONFIG > DATA > SHARE > dev-root**
 
-1. **CONFIG_DIR** (`~/.config/wallshader/`) — Your personal modifications take precedence
-2. **DATA_DIR** (`~/.local/share/wallshader/`) — Installer-managed shader packs
-3. **SHARE_DIR** (`/usr/share/wallshader/`) — System-wide or AppImage-bundled defaults
+1. **CONFIG_DIR** (`~/.config/wax11/`) — Your personal modifications take precedence
+2. **DATA_DIR** (`~/.local/share/wax11/`) — Installer-managed shader packs
+3. **SHARE_DIR** (`/usr/share/wax11/`) — System-wide or AppImage-bundled defaults
 4. **dev-root** — Detected workspace root during development
 
-**To customize a shader:** Copy it from DATA_DIR or SHARE_DIR to CONFIG_DIR, then edit your copy. WallShader will always prefer your CONFIG_DIR version.
+**To customize a shader:** Copy it from DATA_DIR or SHARE_DIR to CONFIG_DIR, then edit your copy. wax11 shader will always prefer your CONFIG_DIR version.
 
 **AppImage behavior:** On first run, bundled shaders and playlists are automatically extracted from the AppImage's SHARE_DIR to your DATA_DIR. This happens once per version and always overwrites DATA_DIR to provide updates. Your CONFIG_DIR customizations are never touched.
 
@@ -262,8 +265,8 @@ This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlis
 - `--still` renders one frame and pauses the scheduler, keeping the surface alive for previews.
 - `--still-time <seconds|auto>` selects the timestamp for still/export captures (auto currently falls back to `0`).
 - `--still-export <path.png>` grabs the next frame to disk; the renderer forces window mode for capture.
-- `--still-exit <true|false>` controls whether WallShader exits after finishing a still export (defaults to `true`).
-  When exporting, WallShader hides the preview window unless `--window` is supplied, so headless
+- `--still-exit <true|false>` controls whether wax11 shader exits after finishing a still export (defaults to `true`).
+  When exporting, wax11 shader hides the preview window unless `--window` is supplied, so headless
   captures complete without flashing a surface.
 
 ### Quality & Adaptive Controls
@@ -275,7 +278,7 @@ This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlis
 
 ### Performance & GPU Options
 
-WallShader provides fine-grained control over GPU resource usage and rendering performance. By default, WallShader uses **friendly settings** that prioritize being a good "background citizen" and won't interfere with other GPU-intensive applications like web browsers.
+wax11 shader provides fine-grained control over GPU resource usage and rendering performance. By default, wax11 shader uses **friendly settings** that prioritize being a good "background citizen" and won't interfere with other GPU-intensive applications like web browsers.
 
 #### Frame Rate Control
 
@@ -300,7 +303,7 @@ WallShader provides fine-grained control over GPU resource usage and rendering p
 
 ```bash
 # Limit to 60 FPS normally, 5 FPS when hidden
-wallshader --fps 60 --fps-adaptive --max-fps-occluded 5
+wax11 --fps 60 --fps-adaptive --max-fps-occluded 5
 ```
 
 #### GPU Power Management
@@ -312,7 +315,7 @@ wallshader --fps 60 --fps-adaptive --max-fps-occluded 5
   - `high`, `high-performance`, `performance`, `max` → Maximum performance mode
 - **Example**: `--gpu-power high`
 - **What it does**:
-  - `low`: Yields GPU priority to interactive applications like browsers, games, and video players. Prevents WallShader from freezing or stuttering other GPU apps.
+  - `low`: Yields GPU priority to interactive applications like browsers, games, and video players. Prevents wax11 shader from freezing or stuttering other GPU apps.
   - `high`: Requests maximum GPU performance. Use when running complex shaders on a dedicated system or when visual quality is critical.
 
 **`--gpu-memory <mode>`**
@@ -323,7 +326,7 @@ wallshader --fps 60 --fps-adaptive --max-fps-occluded 5
 - **Example**: `--gpu-memory performance`
 - **What it does**:
   - `balanced`: Reduces GPU memory pressure, allowing other applications to allocate resources more easily
-  - `performance`: Requests maximum memory allocation priority for WallShader. May impact other GPU applications.
+  - `performance`: Requests maximum memory allocation priority for wax11 shader. May impact other GPU applications.
 
 **`--gpu-latency <frames>`**
 - **Default**: `2` (balanced sharing)
@@ -338,24 +341,24 @@ wallshader --fps 60 --fps-adaptive --max-fps-occluded 5
 
 **Friendly mode (default)** - Won't interfere with browsers or other GPU apps:
 ```bash
-wallshader shader://simplex
+wax11 shader://simplex
 # Equivalent to:
-wallshader shader://simplex --gpu-power low --gpu-memory balanced --gpu-latency 2
+wax11 shader://simplex --gpu-power low --gpu-memory balanced --gpu-latency 2
 ```
 
 **Maximum performance** - For dedicated wallpaper systems or showcases:
 ```bash
-wallshader shader://simplex --gpu-power high --gpu-memory performance --gpu-latency 1 --fps 120
+wax11 shader://simplex --gpu-power high --gpu-memory performance --gpu-latency 1 --fps 120
 ```
 
 **Battery saver** - Minimal resource usage:
 ```bash
-wallshader shader://simplex --fps 30 --fps-adaptive --max-fps-occluded 1
+wax11 shader://simplex --fps 30 --fps-adaptive --max-fps-occluded 1
 ```
 
 **Balanced high quality** - Good visuals without hogging the GPU:
 ```bash
-wallshader shader://simplex --fps 60 --gpu-power low --render-scale 1.0
+wax11 shader://simplex --fps 60 --gpu-power low --render-scale 1.0
 ```
 
 #### Anti-Aliasing
@@ -372,7 +375,7 @@ wallshader shader://simplex --fps 60 --gpu-power low --render-scale 1.0
 #### When to Adjust GPU Settings
 
 **Use default (friendly) settings when:**
-- Running WallShader alongside web browsers (especially with WebGL/Canvas content)
+- Running wax11 shader alongside web browsers (especially with WebGL/Canvas content)
 - Using video conferencing or streaming software
 - Playing games while wallpaper is visible
 - Running on a laptop or power-constrained system
@@ -384,13 +387,13 @@ wallshader shader://simplex --fps 60 --gpu-power low --render-scale 1.0
 - Visual quality is more important than resource sharing
 - System has multiple GPUs (dGPU + iGPU)
 
-**Tip**: If you experience stuttering in Firefox, Chrome, or games while WallShader is running, the default `low` power mode should prevent this. If issues persist, try adding `--fps 30` to further reduce GPU load.
+**Tip**: If you experience stuttering in Firefox, Chrome, or games while wax11 shader is running, the default `low` power mode should prevent this. If issues persist, try adding `--fps 30` to further reduce GPU load.
 
 ## Packaging Guidance
 
 Downstream packages and automation should mirror the installer’s behaviour:
 
-- Invoke `scripts/install.sh --skip-build --data-dir <dest>` during packaging to stage the bundled shader packs (`<dest>/<pack>/`) and playlists (`<dest>/*.toml`). When producing system packages (`.deb`, `.rpm`, etc.), call the script with `--system` or provide explicit `--prefix`/`--data-dir` flags that match your filesystem layout. Avoid running as root unless shipping a system-wide package. For user-focused bundles (AppImage, Flatpak, etc.) set `WALLSHADER_DATA_DIR` to a writable path and run the installer in `--skip-build` mode after the binary is staged. CI should execute `cargo test -p wallshader` to cover the installer integration test (`install_script_copies_defaults`) and ensure future changes keep the script functional.
+- Invoke `scripts/install.sh --skip-build --data-dir <dest>` during packaging to stage the bundled shader packs (`<dest>/<pack>/`) and playlists (`<dest>/*.toml`). When producing system packages (`.deb`, `.rpm`, etc.), call the script with `--system` or provide explicit `--prefix`/`--data-dir` flags that match your filesystem layout. Avoid running as root unless shipping a system-wide package. For user-focused bundles (AppImage, Flatpak, etc.) set `WAX11_DATA_DIR` to a writable path and run the installer in `--skip-build` mode after the binary is staged. CI should execute `cargo test -p wax11` to cover the installer integration test (`install_script_copies_defaults`) and ensure future changes keep the script functional.
 
 ## Workspace Layout
 

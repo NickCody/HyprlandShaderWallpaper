@@ -3,17 +3,17 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-WallShader installer
+wax11 installer
 
 Usage: install.sh [options]
 
 Options:
   --prefix <path>        Cargo install prefix (passed to `cargo install --root`). Optional.
-  --data-dir <path>      Destination for bundled shader packs (default: "${XDG_DATA_HOME:-$HOME/.local/share}/wallshader").
-  --system               Install for all users (prefix=/usr/local, data-dir=/usr/share/wallshader).
+  --data-dir <path>      Destination for bundled shader packs (default: "${XDG_DATA_HOME:-$HOME/.local/share}/wax11").
+  --system               Install for all users (prefix=/usr/local, data-dir=/usr/share/wax11).
                          Requires root privileges.
   --ref <git-ref>        Git branch, tag, or commit to install from (default: main).
-  --repo <git-url>       Source repository URL (default: https://github.com/NickCody/WallShader.git).
+  --repo <git-url>       Source repository URL (default: https://github.com/NickCody/wax11.git).
   --source <path>        Use an existing local checkout instead of cloning.
   --skip-build           Skip `cargo install` (useful if the binary is already present).
   --debug                Build in debug mode instead of release mode.
@@ -28,13 +28,13 @@ Examples:
   sudo bash install.sh --system
 
   # One-liner from GitHub
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/WallShader/main/scripts/install.sh)" -- --prefix "$HOME/.local"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NickCody/wax11/main/scripts/install.sh)" -- --prefix "$HOME/.local"
 USAGE
 }
 
 ensure_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "[wallshader-installer] Required command not found: $1" >&2
+    echo "[wax11-installer] Required command not found: $1" >&2
     exit 1
   fi
 }
@@ -50,7 +50,7 @@ trap clean_up EXIT
 prefix=""
 data_dir=""
 system_install=0
-repo_url="https://github.com/NickCody/WallShader.git"
+repo_url="https://github.com/NickCody/wax11.git"
 ref="main"
 source_dir=""
 skip_build=0
@@ -70,7 +70,7 @@ while [[ $# -gt 0 ]]; do
     --system)
       system_install=1
       prefix="/usr/local"
-      data_dir="/usr/share/wallshader"
+      data_dir="/usr/share/wax11"
       shift
       ;;
     --ref)
@@ -106,7 +106,7 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     *)
-      echo "[wallshader-installer] Unknown option: $1" >&2
+      echo "[wax11-installer] Unknown option: $1" >&2
       usage >&2
       exit 1
       ;;
@@ -114,12 +114,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $system_install -eq 1 && $(id -u) -ne 0 ]]; then
-  echo "[wallshader-installer] --system requires root privileges." >&2
+  echo "[wax11-installer] --system requires root privileges." >&2
   exit 1
 fi
 
 if [[ -z "$data_dir" ]]; then
-  data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wallshader"
+  data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wax11"
 fi
 
 ensure_command cargo
@@ -127,24 +127,24 @@ ensure_command git
 ensure_command tar
 ensure_command install
 
-TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t wallshader-install)
-repo_path="${TMPDIR_ROOT}/WallShaderade"
+TMPDIR_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t wax11-install)
+repo_path="${TMPDIR_ROOT}/wax11ade"
 
 if [[ -n "$source_dir" ]]; then
-  echo "[wallshader-installer] Using local source: $source_dir"
+  echo "[wax11-installer] Using local source: $source_dir"
   mkdir -p "$repo_path"
   (cd "$source_dir" && git rev-parse HEAD >/dev/null 2>&1) || {
-    echo "[wallshader-installer] Source directory must be a git checkout." >&2
+    echo "[wax11-installer] Source directory must be a git checkout." >&2
     exit 1
   }
   tar -C "$source_dir" --exclude='.git' -cf - . | tar -C "$repo_path" -xf -
 else
-  echo "[wallshader-installer] Cloning $repo_url@$ref"
+  echo "[wax11-installer] Cloning $repo_url@$ref"
   git clone --depth 1 --branch "$ref" "$repo_url" "$repo_path" >/dev/null
 fi
 
 if [[ $skip_build -eq 0 ]]; then
-  cargo_args=(install --path "$repo_path/crates/wallshader" --locked --force)
+  cargo_args=(install --path "$repo_path/crates/wax11" --locked --force)
   if [[ -n "$prefix" ]]; then
     cargo_args+=(--root "$prefix")
   fi
@@ -159,13 +159,13 @@ if [[ $skip_build -eq 0 ]]; then
   if [[ $debug_build -eq 1 ]]; then
     build_mode="debug"
   fi
-  echo "[wallshader-installer] Building wallshader via cargo ($build_mode mode)"
+  echo "[wax11-installer] Building wax11 via cargo ($build_mode mode)"
   cargo "${cargo_args[@]}"
 else
-  echo "[wallshader-installer] Skipping cargo build (--skip-build)"
+  echo "[wax11-installer] Skipping cargo build (--skip-build)"
 fi
 
-echo "[wallshader-installer] Installing bundled shaders and playlists into $data_dir"
+echo "[wax11-installer] Installing bundled shaders and playlists into $data_dir"
 mkdir -p "$data_dir/shaders" "$data_dir/playlists"
 
 # Install shader packs
@@ -184,11 +184,11 @@ if [[ -d "$repo_path/shaders" ]]; then
       rm -rf "$dest"
       mkdir -p "$dest"
       tar -C "$entry" -cf - . | tar -C "$dest" -xf -
-      echo "[wallshader-installer]   shader pack: $name"
+      echo "[wax11-installer]   shader pack: $name"
     fi
   done
 else
-  echo "[wallshader-installer] Warning: no shaders directory found in source" >&2
+  echo "[wax11-installer] Warning: no shaders directory found in source" >&2
 fi
 
 # Install playlists
@@ -199,23 +199,23 @@ if [[ -d "$repo_path/playlists" ]]; then
     dest="$data_dir/playlists/$name"
     cp "$playlist" "$dest"
     chmod 644 "$dest" 2>/dev/null || true
-    echo "[wallshader-installer]   playlist: $name"
+    echo "[wax11-installer]   playlist: $name"
   done
 else
-  echo "[wallshader-installer] Warning: no playlists directory found in source" >&2
+  echo "[wax11-installer] Warning: no playlists directory found in source" >&2
 fi
 
-bin_path=$(command -v wallshader 2>/dev/null || true)
+bin_path=$(command -v wax11 2>/dev/null || true)
 if [[ -z "$bin_path" && -n "$prefix" ]]; then
-  bin_path="$prefix/bin/wallshader (add to PATH)"
+  bin_path="$prefix/bin/wax11 (add to PATH)"
 fi
 
-echo "[wallshader-installer] wallshader installation complete"
+echo "[wax11-installer] wax11 installation complete"
 if [[ -n "$bin_path" ]]; then
-  echo "[wallshader-installer] Binary location: $bin_path"
+  echo "[wax11-installer] Binary location: $bin_path"
 else
-  echo "[wallshader-installer] Binary installed; ensure your cargo bin directory is on PATH."
+  echo "[wax11-installer] Binary installed; ensure your cargo bin directory is on PATH."
 fi
-echo "[wallshader-installer] Shader assets installed to: $data_dir"
+echo "[wax11-installer] Shader assets installed to: $data_dir"
 
-echo "[wallshader-installer] Run 'wallshader defaults where' to verify configuration."
+echo "[wax11-installer] Run 'wax11 defaults where' to verify configuration."

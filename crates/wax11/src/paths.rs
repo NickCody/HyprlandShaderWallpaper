@@ -1,4 +1,4 @@
-//! Discovers and normalises WallShader's config/data/cache roots, handling legacy
+//! Discovers and normalises wax11 shader's config/data/cache roots, handling legacy
 //! environment variables, developer overrides, and installer layouts so CLI tooling and
 //! runtime modules resolve packs consistently.
 //!
@@ -21,23 +21,23 @@ use anyhow::{anyhow, Context, Result};
 use directories_next::ProjectDirs;
 use tracing::{debug, warn};
 
-pub const ENV_CONFIG_DIR: &str = "WALLSHADER_CONFIG_DIR";
-pub const ENV_DATA_DIR: &str = "WALLSHADER_DATA_DIR";
-pub const ENV_CACHE_DIR: &str = "WALLSHADER_CACHE_DIR";
-pub const ENV_SHARE_DIR: &str = "WALLSHADER_SHARE_DIR";
+pub const ENV_CONFIG_DIR: &str = "WAX11_CONFIG_DIR";
+pub const ENV_DATA_DIR: &str = "WAX11_DATA_DIR";
+pub const ENV_CACHE_DIR: &str = "WAX11_CACHE_DIR";
+pub const ENV_SHARE_DIR: &str = "WAX11_SHARE_DIR";
 
 const QUALIFIER: &str = "org";
-const ORGANISATION: &str = "WallShaderade";
-const APPLICATION: &str = "wallshader";
+const ORGANISATION: &str = "wax11";
+const APPLICATION: &str = "wax11";
 
-const LEGACY_ENV_CONFIG_DIR: &str = "HYSHADEW_CONFIG_DIR";
-const LEGACY_ENV_DATA_DIR: &str = "HYSHADEW_DATA_DIR";
-const LEGACY_ENV_CACHE_DIR: &str = "HYSHADEW_CACHE_DIR";
-const LEGACY_ENV_SHARE_DIR: &str = "HYSHADEW_SHARE_DIR";
+const LEGACY_ENV_CONFIG_DIR: &str = "WALLSHADER_CONFIG_DIR";
+const LEGACY_ENV_DATA_DIR: &str = "WALLSHADER_DATA_DIR";
+const LEGACY_ENV_CACHE_DIR: &str = "WALLSHADER_CACHE_DIR";
+const LEGACY_ENV_SHARE_DIR: &str = "WALLSHADER_SHARE_DIR";
 
-const LEGACY_ORGANISATION: &str = "Hyprland";
-const LEGACY_APPLICATION: &str = "Hyshadew";
-const ENV_DEV_ROOT: &str = "WALLSHADER_DEV_ROOT";
+const LEGACY_ORGANISATION: &str = "WallShaderade";
+const LEGACY_APPLICATION: &str = "wallshader";
+const ENV_DEV_ROOT: &str = "WAX11_DEV_ROOT";
 
 #[derive(Debug, Clone)]
 pub struct AppPaths {
@@ -199,7 +199,7 @@ fn resolve_directory(
     }
 
     migrate_legacy_directory(primary, &legacy_candidates, label)
-        .with_context(|| format!("failed to resolve wallshader {label} directory"))
+        .with_context(|| format!("failed to resolve wax11 {label} directory"))
 }
 
 fn resolve_share_dir(
@@ -224,7 +224,7 @@ fn resolve_share_dir(
     if let Some(legacy) = legacy_share_dir(legacy_dirs) {
         if legacy.exists() {
             debug!(
-                "using legacy share directory at {} until /usr/share/wallshader is populated",
+                "using legacy share directory at {} until /usr/share/wax11 is populated",
                 legacy.display()
             );
             return Ok(legacy);
@@ -362,7 +362,7 @@ fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
 
 #[cfg(target_family = "unix")]
 fn default_share_dir(_: &ProjectDirs) -> PathBuf {
-    PathBuf::from("/usr/share/wallshader")
+    PathBuf::from("/usr/share/wax11")
 }
 
 #[cfg(not(target_family = "unix"))]
@@ -372,7 +372,7 @@ fn default_share_dir(project_dirs: &ProjectDirs) -> PathBuf {
 
 #[cfg(target_family = "unix")]
 fn legacy_share_dir(_: Option<&ProjectDirs>) -> Option<PathBuf> {
-    Some(PathBuf::from("/usr/share/hyshadew"))
+    Some(PathBuf::from("/usr/share/wallshader"))
 }
 
 #[cfg(not(target_family = "unix"))]
@@ -461,7 +461,7 @@ mod tests {
 
         let paths = AppPaths::discover().unwrap();
 
-        assert_eq!(paths.share_dir(), Path::new("/usr/share/wallshader"));
+        assert_eq!(paths.share_dir(), Path::new("/usr/share/wax11"));
     }
 
     #[test]
@@ -492,8 +492,8 @@ mod tests {
     #[test]
     fn migrates_legacy_directory_when_missing() {
         let root = TempDir::new().unwrap();
-        let legacy = root.path().join("hyshadew-config");
-        let primary = root.path().join("wallshader-config");
+        let legacy = root.path().join("wallshader-config");
+        let primary = root.path().join("wax11-config");
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join("settings.toml"), "foo = 1\n").unwrap();
 

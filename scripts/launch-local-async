@@ -1,7 +1,7 @@
 #!/bin/bash
 
-pkill wallshader
+pkill wax11
 trap '' HUP
-wallshader "$@" </dev/null >/dev/null 2>&1 &
+wax11 "$@" </dev/null >/dev/null 2>&1 &
 pid=$!
 disown "$pid"

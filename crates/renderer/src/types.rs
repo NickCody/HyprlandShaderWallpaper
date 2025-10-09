@@ -1,7 +1,7 @@
-//! Renderer data model and configuration surface for WallShader.
+//! Renderer data model and configuration surface for wax11 shader.
 //!
 //! This module defines the types that describe what and how we render:
-//! configuration passed in from the `wallshader` daemon/CLI, ShaderToy-style
+//! configuration passed in from the `wax11` daemon/CLI, ShaderToy-style
 //! channel bindings, color/alpha preferences, GPU usage hints, and feature
 //! toggles like anti-aliasing or fill method. Other renderer modules consume
 //! these types to initialise GPU state and drive presentation.
@@ -9,7 +9,7 @@
 //! At a glance
 //!
 //! ```text
-//! wallshader (CLI/daemon)
+//! wax11 (CLI/daemon)
 //!        │ builds
 //!        ▼
 //!  RendererConfig ──────────────┐

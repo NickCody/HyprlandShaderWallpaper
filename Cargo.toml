@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/wallshader", "crates/multiconfig",
+    "crates/wax11", "crates/multiconfig",
     "crates/renderer", "crates/scheduler",
     "crates/shadertoy",
 ]
@@ -9,10 +9,10 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/NickCody/WallShader"
-homepage = "https://github.com/NickCody/WallShader"
+repository = "https://github.com/NickCody/wax11"
+homepage = "https://github.com/NickCody/wax11"
 readme = "README.md"
-keywords = ["hyprland", "wallpaper", "shadertoy", "wayland"]
+keywords = ["hyprland", "wayland", "x11", "wallpaper", "shadertoy"]
 categories = ["graphics", "command-line-utilities"]
 
 [workspace.dependencies]

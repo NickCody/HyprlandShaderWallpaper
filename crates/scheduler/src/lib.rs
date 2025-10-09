@@ -1,5 +1,5 @@
 //! Drives playlist selection and timing based on `multiconfig` playlists so the
-//! `wallshader` daemon can keep Wayland outputs in sync with user-defined
+//! `wax11` daemon can keep Wayland outputs in sync with user-defined
 //! sequences. The daemon hands over parsed config plus target identifiers,
 //! while this crate tracks randomization, durations, and crossfade metadata
 //! before telling renderer orchestration which shader to show next.
@@ -17,7 +17,7 @@
 //!
 //! - `Scheduler::new`, `set_target`, `skip_target`, `tick`, and helpers manage
 //!   target lifecycles; they surface the next `SelectionChange` that
-//!   `wallshader`'s multi-playlist engine consumes.
+//!   `wax11`'s multi-playlist engine consumes.
 //! - `PlaylistRuntime::from_config`, `normalize_fps`, and `build_order` import
 //!   `multiconfig` defaults, apply overrides, and generate deterministic yet
 //!   shuffleable item sequences for each playlist mode.

@@ -2971,28 +2971,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wallshader"
-version = "0.9.1"
-dependencies = [
- "anyhow",
- "clap",
- "directories-next",
- "multiconfig",
- "pollster",
- "renderer",
- "scheduler",
- "serde",
- "serde_json",
- "shadertoy",
- "tempfile",
- "thiserror 1.0.69",
- "toml",
- "tracing",
- "tracing-subscriber",
- "wgpu",
-]
-
-[[package]]
 name = "want"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3095,6 +3073,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bad67dc8b2a1a6e5448428adec4c3e84c43e561d8c9ee8a9e5aabeb193ec41d1"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "wax11"
+version = "0.9.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "directories-next",
+ "multiconfig",
+ "pollster",
+ "renderer",
+ "scheduler",
+ "serde",
+ "serde_json",
+ "shadertoy",
+ "tempfile",
+ "thiserror 1.0.69",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "wgpu",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 //! Normalizes Shadertoy references and translates CLI-supplied handles into the
-//! strongly-typed identifiers that `wallshader` passes around when talking to the
+//! strongly-typed identifiers that `wax11` passes around when talking to the
 //! pack repository. It leans on `PathResolver` for filesystem semantics while
 //! shielding the rest of the crate from the many input shapes users feed the CLI.
 //!

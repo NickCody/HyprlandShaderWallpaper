@@ -1,6 +1,6 @@
-# Contributing to WallShader
+# Contributing to wax11 shader
 
-Thank you for your interest in contributing to WallShader! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to wax11 shader! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -41,8 +41,8 @@ Before contributing, ensure you have the development environment set up:
 
 3. **Clone the repository**:
    ```bash
-   git clone https://github.com/NickCody/WallShader.git
-   cd WallShader
+   git clone https://github.com/NickCody/wax11.git
+   cd wax11 shader
    ```
 
 4. **Install Just (optional but recommended)**:
@@ -116,7 +116,7 @@ All three must pass for CI to succeed.
    ```
 
 4. **Create the PR**:
-   - Go to https://github.com/NickCody/WallShader/pulls
+   - Go to https://github.com/NickCody/wax11/pulls
    - Click "New Pull Request"
    - Select your branch
    - Fill in the PR template with:
@@ -191,7 +191,7 @@ If the CI checks fail on your PR:
 
 ### Rust Code Style
 
-WallShader follows standard Rust formatting and linting:
+wax11 shader follows standard Rust formatting and linting:
 
 - **Formatting**: Use `rustfmt` (enforced by CI)
   ```bash
@@ -250,7 +250,7 @@ cargo test --verbose
 cargo test test_name
 
 # Run tests for a specific crate
-cargo test -p wallshader
+cargo test -p wax11
 cargo test -p renderer
 cargo test -p shadertoy
 ```
@@ -291,10 +291,10 @@ Contributors don't need to worry about releases - focus on making great PRs!
 
 ## Questions or Issues?
 
-- **Found a bug?** Open an issue: https://github.com/NickCody/WallShader/issues
+- **Found a bug?** Open an issue: https://github.com/NickCody/wax11/issues
 - **Have a question?** Open a discussion or issue
 - **Need help?** Tag maintainers in your PR or issue
 
 ## License
 
-By contributing to WallShader, you agree that your contributions will be licensed under the MIT License.
+By contributing to wax11 shader, you agree that your contributions will be licensed under the MIT License.

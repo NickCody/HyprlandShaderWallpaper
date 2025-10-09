@@ -6,7 +6,7 @@
 //! Types:
 //!
 //! - `PackError` classifies manifest parsing, validation, and I/O failures for
-//!   error reporting in `wallshader` telemetry.
+//!   error reporting in `wax11` telemetry.
 //! - `LocalPack` stores the resolved root directory and parsed `ShaderPackManifest`
 //!   for later traversal by repository and renderer glue.
 //!

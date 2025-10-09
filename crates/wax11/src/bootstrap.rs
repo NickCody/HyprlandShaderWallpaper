@@ -53,11 +53,11 @@ fn ensure_directory(path: &Path) -> Result<()> {
     } else {
         fs::create_dir_all(path).with_context(|| {
             format!(
-                "failed to create wallshader directory at {}",
+                "failed to create wax11 directory at {}",
                 path.display()
             )
         })?;
-        debug!(path = %path.display(), "created wallshader directory");
+        debug!(path = %path.display(), "created wax11 directory");
         Ok(())
     }
 }

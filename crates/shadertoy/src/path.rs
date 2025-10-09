@@ -1,7 +1,7 @@
 //! Centralizes filesystem and environment expansion rules so CLI handles and
 //! repository lookups agree on how to locate shader packs. `handle` calls into
 //! this helper before handing control to `repository`, and other crates reuse it
-//! to mirror WallShader's `$VAR`/`~` semantics when surfacing paths to users.
+//! to mirror wax11 shader's `$VAR`/`~` semantics when surfacing paths to users.
 //!
 //! Types:
 //!
@@ -13,7 +13,7 @@
 //! - `PathResolver::expand_path` performs `$VAR` and `~` expansion while logging
 //!   the transformation for troubleshooting.
 //! - `PathResolver::normalize_local_path` prefers working-directory candidates
-//!   when they exist, matching WallShader's path resolution order.
+//!   when they exist, matching wax11 shader's path resolution order.
 //! - Internal helpers `expand_home`, `expand_env_vars`, and `is_env_name_char`
 //!   implement the actual parsing, keeping error reporting precise.
 use std::env;

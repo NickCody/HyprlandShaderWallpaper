@@ -4,11 +4,11 @@ AppDir:
   path: ./AppDir
 
   app_info:
-    id: io.github.nickcody.wallshader
-    name: WallShader
-    icon: wallshader  
+    id: io.github.nickcody.wax11
+    name: wax11 shader
+    icon: wax11  
     version: "0.9.1"
-    exec: usr/bin/wallshader
+    exec: usr/bin/wax11
     exec_args: $@
 
   apt:
@@ -84,9 +84,9 @@ AppDir:
 
   files:
     include:
-      - usr/bin/wallshader
+      - usr/bin/wax11
       - usr/share/wallshader
-      - opt/wallshader
+      - opt/wax11
     exclude:
       - usr/lib/x86_64-linux-gnu/gconv
       - usr/share/man
@@ -104,10 +104,10 @@ AppDir:
       # Mesa driver paths
       LIBGL_DRIVERS_PATH: $APPDIR/usr/lib/x86_64-linux-gnu/dri
       # WallShader directories - use AppImage bundled assets as fallback
-      WALLSHADER_SHARE_DIR: $APPDIR/opt/wallshader
-      WALLSHADER_DATA_DIR: $HOME/.local/share/wallshader
-      WALLSHADER_CONFIG_DIR: $HOME/.config/wallshader
-      WALLSHADER_CACHE_DIR: $HOME/.cache/wallshader
+      WAX11_SHARE_DIR: $APPDIR/opt/wax11
+      WAX11_DATA_DIR: $HOME/.local/share/wax11
+      WAX11_CONFIG_DIR: $HOME/.config/wax11
+      WAX11_CACHE_DIR: $HOME/.cache/wax11
 
   test:
     fedora-30:
@@ -125,7 +125,7 @@ AppDir:
 
 AppImage:
   arch: x86_64
-  file_name: WallShader-x86_64.AppImage
+  file_name: wax11-x86_64.AppImage
   sign-key: None
   update-information: gh-releases-zsync|NickCody|WallShader|latest|WallShader-*x86_64.AppImage.zsync
 
@@ -137,8 +137,8 @@ script:
 
   # Verify the binary exists
   - |
-    if [ ! -f "target/release/wallshader" ]; then
-      echo "ERROR: target/release/wallshader not found!"
+    if [ ! -f "target/release/wax11" ]; then
+      echo "ERROR: target/release/wax11 not found!"
       echo "Please run 'cargo build --release' before building the AppImage."
       exit 1
     else
@@ -148,31 +148,31 @@ script:
   # Create necessary directories
   - mkdir -p AppDir/usr/bin
   - mkdir -p AppDir/usr/lib
-  - mkdir -p AppDir/usr/share/wallshader
+  - mkdir -p AppDir/usr/share/wax11
   - mkdir -p AppDir/usr/share/applications
   - mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
   # Copy the main binary
-  - cp target/release/wallshader AppDir/usr/bin/
+  - cp target/release/wax11 AppDir/usr/bin/
 
   # Bundle shaders and playlists inside the AppImage with proper structure
-  # Structure: opt/wallshader/shaders/<pack>/ and opt/wallshader/playlists/*.toml
-  # On first run, these are extracted to ~/.local/share/wallshader/ (always overwrites on version change)
-  # Users should customize in ~/.config/wallshader/ instead
-  - mkdir -p AppDir/opt/wallshader/shaders
-  - mkdir -p AppDir/opt/wallshader/playlists
+  # Structure: opt/wax11/shaders/<pack>/ and opt/wax11/playlists/*.toml
+  # On first run, these are extracted to ~/.local/share/wax11/ (always overwrites on version change)
+  # Users should customize in ~/.config/wax11/ instead
+  - mkdir -p AppDir/opt/wax11/shaders
+  - mkdir -p AppDir/opt/wax11/playlists
   - |
     # Copy shader packs
     for shader_dir in shaders/*/; do
       if [ -d "$shader_dir" ]; then
-        cp -r "$shader_dir" AppDir/opt/wallshader/shaders/
+        cp -r "$shader_dir" AppDir/opt/wax11/shaders/
       fi
     done
   - |
     # Copy playlists
     for playlist in playlists/*.toml; do
       if [ -f "$playlist" ]; then
-        cp "$playlist" AppDir/opt/wallshader/playlists/
+        cp "$playlist" AppDir/opt/wax11/playlists/
       fi
     done
 
@@ -181,10 +181,10 @@ script:
     cat > AppDir/usr/share/applications/wallshader.desktop << 'EOF'
     [Desktop Entry]
     Type=Application
-    Name=WallShader
+    Name=wax11 shader
     Comment=GPU shader wallpaper engine for Wayland
-    Exec=wallshader
-    Icon=wallshader
+    Exec=wax11
+    Icon=wax11
     Categories=Graphics;Utility;
     Keywords=wallpaper;shader;wayland;gpu;
     Terminal=false
@@ -206,7 +206,7 @@ script:
   - chmod +x AppDir/usr/share/applications/wallshader.desktop
 
   # Make the binary executable
-  - chmod +x AppDir/usr/bin/wallshader
+  - chmod +x AppDir/usr/bin/wax11
 
   # Create a symlink for the desktop file in the root
   - ln -sf usr/share/applications/wallshader.desktop AppDir/

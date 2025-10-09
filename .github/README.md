@@ -1,6 +1,6 @@
 # GitHub Configuration and Documentation
 
-This directory contains GitHub-specific configuration files and documentation for the WallShader project.
+This directory contains GitHub-specific configuration files and documentation for the wax11 shader project.
 
 ## Files in this Directory
 
@@ -27,7 +27,7 @@ This directory contains GitHub-specific configuration files and documentation fo
 
 ## For Contributors
 
-If you're contributing to WallShader:
+If you're contributing to wax11 shader:
 
 1. **Read the [CONTRIBUTING.md](../CONTRIBUTING.md)** in the repository root
 2. Use the **pull request template** when opening PRs (it's applied automatically)
@@ -50,4 +50,4 @@ The CI workflow runs automatically on:
 - Manual triggers (via GitHub Actions UI)
 - Release tags (builds and publishes AppImage)
 
-View the current CI status: [GitHub Actions](https://github.com/NickCody/WallShader/actions)
+View the current CI status: [GitHub Actions](https://github.com/NickCody/wax11 shader/actions)

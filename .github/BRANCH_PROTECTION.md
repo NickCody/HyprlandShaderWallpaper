@@ -8,7 +8,7 @@ Repository administrators should configure the following branch protection rules
 
 ### Step 1: Navigate to Branch Protection Settings
 
-1. Go to the repository on GitHub: https://github.com/NickCody/WallShader
+1. Go to the repository on GitHub: https://github.com/NickCody/wax11 shader
 2. Click **Settings** (requires admin access)
 3. In the left sidebar, click **Branches**
 4. Under "Branch protection rules", click **Add rule** or edit the existing rule for `main`
