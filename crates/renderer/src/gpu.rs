@@ -792,12 +792,16 @@ impl GpuState {
         self.update_time(mouse, now, time_sample);
         self.poll_prepare_results(now);
 
-        let mut warmup_state = None;
-        if let Some(pending) = self.pending.take() {
+        let mut pending_action: Option<(PendingPipeline, bool)> = None;
+        if let Some(mut pending) = self.pending.take() {
             if now >= pending.warmup_end {
                 self.begin_crossfade(pending.pipeline, pending.crossfade, now);
             } else {
-                warmup_state = Some(pending);
+                let should_prime = !pending.primed;
+                if should_prime {
+                    pending.primed = true;
+                }
+                pending_action = Some((pending, should_prime));
             }
         }
 
@@ -858,14 +862,16 @@ impl GpuState {
             }
         }
 
-        if let Some(pending) = warmup_state {
-            self.render_with_pipeline(
-                &mut encoder,
-                &view,
-                &pending.pipeline,
-                0.0,
-                wgpu::LoadOp::Load,
-            );
+        if let Some((pending, should_prime)) = pending_action {
+            if should_prime {
+                self.render_with_pipeline(
+                    &mut encoder,
+                    &view,
+                    &pending.pipeline,
+                    0.0,
+                    wgpu::LoadOp::Load,
+                );
+            }
             self.pending = Some(pending);
         }
 
@@ -902,6 +908,7 @@ impl GpuState {
                             pipeline,
                             crossfade,
                             warmup_end: now + warmup,
+                            primed: false,
                         });
                     } else {
                         tracing::trace!(
@@ -1348,6 +1355,7 @@ struct PendingPipeline {
     pipeline: ShaderPipeline,
     crossfade: Duration,
     warmup_end: Instant,
+    primed: bool,
 }
 
 struct MultisampleTarget {

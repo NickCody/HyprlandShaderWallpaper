@@ -1179,73 +1179,142 @@ impl SurfaceState {
 
 struct FramePacer {
     target_interval: Option<Duration>,
-    accumulator: Duration,
-    last_tick: Option<Instant>,
+    next_due: Option<Instant>,
+    last_callback: Option<Instant>,
+    average_callback: Option<Duration>,
     is_frame_scheduled: bool,
 }
 
 impl FramePacer {
     fn new(target_fps: Option<f32>) -> Self {
-        let target_interval = target_fps.and_then(|fps| {
-            if fps > 0.0 {
-                Some(Duration::from_secs_f32(1.0 / fps))
-            } else {
-                None
-            }
-        });
         Self {
-            target_interval,
-            accumulator: Duration::ZERO,
-            last_tick: None,
+            target_interval: Self::fps_to_interval(target_fps),
+            next_due: None,
+            last_callback: None,
+            average_callback: None,
             is_frame_scheduled: false,
         }
     }
 
-    fn set_target_fps(&mut self, target_fps: Option<f32>) {
-        self.target_interval = target_fps.and_then(|fps| {
+    fn fps_to_interval(target_fps: Option<f32>) -> Option<Duration> {
+        target_fps.and_then(|fps| {
             if fps > 0.0 {
                 Some(Duration::from_secs_f32(1.0 / fps))
             } else {
                 None
             }
-        });
-        self.accumulator = Duration::ZERO;
-        self.last_tick = None;
+        })
+    }
+
+    fn set_target_fps(&mut self, target_fps: Option<f32>) {
+        self.target_interval = Self::fps_to_interval(target_fps);
+        self.next_due = None;
+        self.last_callback = None;
+        self.average_callback = None;
         self.is_frame_scheduled = false;
     }
 
     fn reset(&mut self) {
-        self.accumulator = Duration::ZERO;
-        self.last_tick = Some(Instant::now());
+        self.next_due = None;
+        self.last_callback = None;
+        self.average_callback = None;
         self.is_frame_scheduled = false;
     }
 
     fn should_render(&mut self) -> bool {
         let now = Instant::now();
-        match (self.target_interval, self.last_tick) {
-            (Some(interval), Some(last)) => {
-                let delta = now.saturating_duration_since(last);
-                self.last_tick = Some(now);
-                self.accumulator = self.accumulator.saturating_add(delta);
-                if self.accumulator + Duration::from_micros(250) < interval {
-                    self.is_frame_scheduled = false;
-                    false
-                } else {
-                    self.accumulator = self.accumulator.saturating_sub(interval);
-                    self.is_frame_scheduled = false;
+        self.is_frame_scheduled = false;
+
+        let Some(target_interval) = self.target_interval else {
+            self.last_callback = Some(now);
+            self.next_due = None;
+            self.average_callback = None;
+            return true;
+        };
+
+        if let Some(last) = self.last_callback {
+            let delta = now.saturating_duration_since(last);
+            if delta > Duration::ZERO {
+                self.average_callback = Some(match self.average_callback {
+                    Some(avg) => Self::blend_interval(avg, delta),
+                    None => delta,
+                });
+            }
+        }
+        self.last_callback = Some(now);
+
+        let interval = self.cadence_interval(target_interval);
+        let tolerance = Self::tolerance(interval);
+
+        match self.next_due {
+            None => {
+                self.next_due = Some(now + interval);
+                true
+            }
+            Some(mut due) => {
+                if now + tolerance >= due {
+                    while now + tolerance >= due {
+                        due += interval;
+                    }
+                    self.next_due = Some(due);
                     true
+                } else {
+                    false
                 }
             }
-            (Some(_), None) => {
-                self.last_tick = Some(now);
-                self.is_frame_scheduled = false;
-                true
+        }
+    }
+
+    fn blend_interval(existing: Duration, observed: Duration) -> Duration {
+        const ALPHA: f64 = 0.15;
+        let existing_secs = existing.as_secs_f64();
+        let observed_secs = observed.as_secs_f64();
+        Duration::from_secs_f64(existing_secs * (1.0 - ALPHA) + observed_secs * ALPHA)
+    }
+
+    fn cadence_interval(&self, target_interval: Duration) -> Duration {
+        let average = self.average_callback.unwrap_or(target_interval);
+        if average.is_zero() {
+            return target_interval;
+        }
+
+        let target_secs = target_interval.as_secs_f64();
+        let callback_secs = average.as_secs_f64();
+        if target_secs <= callback_secs {
+            return target_interval;
+        }
+
+        let ratio = target_secs / callback_secs;
+        let candidates = [
+            ratio.floor().max(1.0),
+            ratio.ceil().max(1.0),
+            ratio.round().max(1.0),
+        ];
+
+        let mut best_interval = target_interval;
+        let mut best_error = f64::MAX;
+
+        for step in candidates {
+            if step.is_finite() && step >= 1.0 {
+                let interval_secs = callback_secs * step;
+                let error = (interval_secs - target_secs).abs() / target_secs;
+                if error <= 0.15 && error < best_error {
+                    best_error = error;
+                    best_interval = Duration::from_secs_f64(interval_secs);
+                }
             }
-            (None, _) => {
-                self.last_tick = Some(now);
-                self.is_frame_scheduled = false;
-                true
-            }
+        }
+
+        best_interval
+    }
+
+    fn tolerance(interval: Duration) -> Duration {
+        let candidate = Duration::from_secs_f64(interval.as_secs_f64() / 40.0);
+        let minimum = Duration::from_millis(1);
+        if candidate > minimum {
+            candidate
+        } else {
+            minimum
         }
     }
 }
