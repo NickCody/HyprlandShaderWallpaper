@@ -574,6 +574,18 @@ impl WallpaperManager {
                             );
                             crossfade = Duration::ZERO;
                         }
+                        if surface
+                            .gpu
+                            .as_ref()
+                            .map(|gpu| gpu.channel_kinds() != &layout_signature)
+                            .unwrap_or(false)
+                        {
+                            tracing::debug!(
+                                target = %surface_id.0,
+                                "channel layout changed; rebuilding GPU state"
+                            );
+                            surface.gpu = None;
+                        }
                         surface.apply_render_preferences(
                             target_fps,
                             antialiasing,

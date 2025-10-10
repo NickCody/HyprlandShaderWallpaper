@@ -48,7 +48,7 @@ use crate::run::{
     convert_gpu_memory, convert_gpu_power, resolve_render_scale, validate_occlusion_args,
 };
 
-const DEFAULT_PREWARM_MS: u64 = 250;
+const DEFAULT_PREWARM_MS: u64 = 100;
 
 pub fn run_multi(
     args: &RunArgs,

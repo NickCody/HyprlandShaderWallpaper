@@ -76,11 +76,13 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
+use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use bytemuck::{Pod, Zeroable};
 use chrono::{Datelike, Local, Timelike};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use image::imageops::flip_vertical_in_place;
 use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -106,6 +108,51 @@ enum ResolvedColorSpace {
     Linear,
 }
 
+struct PrepareJob {
+    id: u64,
+    shader_path: PathBuf,
+    channel_bindings: ChannelBindings,
+    channel_kinds: [ChannelTextureKind; CHANNEL_COUNT],
+    crossfade: Duration,
+    warmup: Duration,
+    requested_at: Instant,
+}
+
+enum PrepareCommand {
+    Prepare(Box<PrepareJob>),
+    Shutdown,
+}
+
+enum PrepareResult {
+    Ready {
+        id: u64,
+        pipeline: ShaderPipeline,
+        crossfade: Duration,
+        warmup: Duration,
+        requested_at: Instant,
+        finished_at: Instant,
+        shader_path: PathBuf,
+    },
+    Failed {
+        id: u64,
+        error: anyhow::Error,
+        requested_at: Instant,
+        shader_path: PathBuf,
+    },
+}
+
+struct PrepareWorkerContext {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    pipeline_layout: wgpu::PipelineLayout,
+    channel_layout: wgpu::BindGroupLayout,
+    vertex_module: wgpu::ShaderModule,
+    surface_format: wgpu::TextureFormat,
+    sample_count: u32,
+    color_space: ResolvedColorSpace,
+    shader_compiler: ShaderCompiler,
+}
+
 pub(crate) struct GpuState {
     _instance: wgpu::Instance,
     limits: wgpu::Limits,
@@ -118,11 +165,6 @@ pub(crate) struct GpuState {
     multisample_target: Option<MultisampleTarget>,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
-    channel_layout: wgpu::BindGroupLayout,
-    pipeline_layout: wgpu::PipelineLayout,
-    vertex_module: wgpu::ShaderModule,
-    color_space: ResolvedColorSpace,
-    shader_compiler: ShaderCompiler,
     channel_kinds: [ChannelTextureKind; CHANNEL_COUNT],
     uniforms: ShadertoyUniforms,
     current: ShaderPipeline,
@@ -140,6 +182,11 @@ pub(crate) struct GpuState {
     fps_sample_frame: u32,
     fps_sample_time: Instant,
     last_measured_fps: f32,
+    prepare_tx: Sender<PrepareCommand>,
+    prepare_rx: Receiver<PrepareResult>,
+    prepare_thread: Option<thread::JoinHandle<()>>,
+    next_prepare_id: u64,
+    pending_request_id: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -526,6 +573,20 @@ impl GpuState {
             None
         };
 
+        let worker_context = PrepareWorkerContext {
+            device: device.clone(),
+            queue: queue.clone(),
+            pipeline_layout: pipeline_layout.clone(),
+            channel_layout: channel_layout.clone(),
+            vertex_module: vertex_module.clone(),
+            surface_format,
+            sample_count,
+            color_space: resolved_color,
+            shader_compiler,
+        };
+
+        let (prepare_tx, prepare_rx, prepare_thread) = spawn_prepare_worker(worker_context)?;
+
         let mut state = Self {
             _instance: instance,
             limits,
@@ -538,11 +599,6 @@ impl GpuState {
             multisample_target,
             uniform_buffer,
             uniform_bind_group,
-            channel_layout,
-            pipeline_layout,
-            vertex_module,
-            color_space: resolved_color,
-            shader_compiler,
             channel_kinds,
             uniforms,
             current,
@@ -560,6 +616,11 @@ impl GpuState {
             fps_sample_frame: 0,
             fps_sample_time: Instant::now(),
             last_measured_fps: 60.0,
+            prepare_tx,
+            prepare_rx,
+            prepare_thread: Some(prepare_thread),
+            next_prepare_id: 1,
+            pending_request_id: None,
         };
         state.recompute_view_uniforms();
         state.queue.write_buffer(
@@ -650,33 +711,28 @@ impl GpuState {
             &channel_bindings.layout_signature(),
             "channel layout mismatch; caller must rebuild GPU state"
         );
-        let new_pipeline = ShaderPipeline::new(
-            &self.device,
-            &self.queue,
-            &self.pipeline_layout,
-            &self.channel_layout,
-            &self.vertex_module,
-            self.config.format,
-            self.sample_count,
-            shader_source,
-            channel_bindings,
-            &self.channel_kinds,
-            self.color_space,
-            self.shader_compiler,
-        )?;
-
+        self.pending = None;
+        let request_id = self.next_prepare_id;
+        self.next_prepare_id = self.next_prepare_id.wrapping_add(1);
+        self.pending_request_id = Some(request_id);
+        let job = PrepareJob {
+            id: request_id,
+            shader_path: shader_source.to_path_buf(),
+            channel_bindings: channel_bindings.clone(),
+            channel_kinds: self.channel_kinds,
+            crossfade,
+            warmup,
+            requested_at: now,
+        };
+        self.prepare_tx
+            .send(PrepareCommand::Prepare(Box::new(job)))
+            .map_err(|err| anyhow!("failed to dispatch shader prepare job: {err}"))?;
         tracing::debug!(
             shader = %shader_source.display(),
             crossfade_ms = crossfade.as_millis(),
             warmup_ms = warmup.as_millis(),
-            "swapping shader pipeline"
+            "queued asynchronous shader preparation"
         );
-
-        self.pending = Some(PendingPipeline {
-            pipeline: new_pipeline,
-            crossfade,
-            warmup_end: now + warmup,
-        });
 
         Ok(())
     }
@@ -734,6 +790,7 @@ impl GpuState {
     {
         let now = Instant::now();
         self.update_time(mouse, now, time_sample);
+        self.poll_prepare_results(now);
 
         let mut warmup_state = None;
         if let Some(pending) = self.pending.take() {
@@ -819,6 +876,60 @@ impl GpuState {
         self.queue.submit(std::iter::once(encoder.finish()));
 
         Ok(frame)
+    }
+
+    fn poll_prepare_results(&mut self, now: Instant) {
+        while let Ok(result) = self.prepare_rx.try_recv() {
+            match result {
+                PrepareResult::Ready {
+                    id,
+                    pipeline,
+                    crossfade,
+                    warmup,
+                    requested_at,
+                    finished_at,
+                    shader_path,
+                } => {
+                    let elapsed = finished_at.saturating_duration_since(requested_at);
+                    tracing::debug!(
+                        shader = %shader_path.display(),
+                        elapsed_ms = elapsed.as_millis(),
+                        "shader preparation completed"
+                    );
+                    if self.pending_request_id == Some(id) {
+                        self.pending_request_id = None;
+                        self.pending = Some(PendingPipeline {
+                            pipeline,
+                            crossfade,
+                            warmup_end: now + warmup,
+                        });
+                    } else {
+                        tracing::trace!(
+                            shader = %shader_path.display(),
+                            id,
+                            "discarded stale shader preparation result"
+                        );
+                    }
+                }
+                PrepareResult::Failed {
+                    id,
+                    error,
+                    requested_at,
+                    shader_path,
+                } => {
+                    let elapsed = now.saturating_duration_since(requested_at);
+                    tracing::error!(
+                        shader = %shader_path.display(),
+                        elapsed_ms = elapsed.as_millis(),
+                        error = %error,
+                        "shader preparation failed"
+                    );
+                    if self.pending_request_id == Some(id) {
+                        self.pending_request_id = None;
+                    }
+                }
+            }
+        }
     }
 
     fn logical_dimensions(&self) -> (f32, f32) {
@@ -1061,6 +1172,15 @@ impl GpuState {
                 steps = steps,
                 "starting crossfade transition"
             );
+        }
+    }
+}
+
+impl Drop for GpuState {
+    fn drop(&mut self) {
+        let _ = self.prepare_tx.send(PrepareCommand::Shutdown);
+        if let Some(handle) = self.prepare_thread.take() {
+            let _ = handle.join();
         }
     }
 }
@@ -1429,6 +1549,86 @@ impl ChannelResources {
         };
         queue.write_texture(texture_info, data, layout, extent);
     }
+}
+
+fn spawn_prepare_worker(
+    context: PrepareWorkerContext,
+) -> Result<(
+    Sender<PrepareCommand>,
+    Receiver<PrepareResult>,
+    thread::JoinHandle<()>,
+)> {
+    let (command_tx, command_rx) = unbounded();
+    let (result_tx, result_rx) = unbounded();
+    let PrepareWorkerContext {
+        device,
+        queue,
+        pipeline_layout,
+        channel_layout,
+        vertex_module,
+        surface_format,
+        sample_count,
+        color_space,
+        shader_compiler,
+    } = context;
+    let thread = thread::Builder::new()
+        .name("wax11-shader-prep".into())
+        .spawn(move || {
+            while let Ok(command) = command_rx.recv() {
+                match command {
+                    PrepareCommand::Prepare(job) => {
+                        let PrepareJob {
+                            id,
+                            shader_path,
+                            channel_bindings,
+                            channel_kinds,
+                            crossfade,
+                            warmup,
+                            requested_at,
+                        } = *job;
+                        let result = ShaderPipeline::new(
+                            &device,
+                            &queue,
+                            &pipeline_layout,
+                            &channel_layout,
+                            &vertex_module,
+                            surface_format,
+                            sample_count,
+                            shader_path.as_path(),
+                            &channel_bindings,
+                            &channel_kinds,
+                            color_space,
+                            shader_compiler,
+                        );
+                        match result {
+                            Ok(pipeline) => {
+                                let finished_at = Instant::now();
+                                let _ = result_tx.send(PrepareResult::Ready {
+                                    id,
+                                    pipeline,
+                                    crossfade,
+                                    warmup,
+                                    requested_at,
+                                    finished_at,
+                                    shader_path,
+                                });
+                            }
+                            Err(error) => {
+                                let _ = result_tx.send(PrepareResult::Failed {
+                                    id,
+                                    error,
+                                    requested_at,
+                                    shader_path,
+                                });
+                            }
+                        }
+                    }
+                    PrepareCommand::Shutdown => break,
+                }
+            }
+        })
+        .context("failed to spawn shader preparation worker")?;
+    Ok((command_tx, result_rx, thread))
 }
 
 fn create_channel_resources(
