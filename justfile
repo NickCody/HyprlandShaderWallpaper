@@ -12,17 +12,18 @@ check:
 
 # Run the default windowed demo shader
 run-demo:
-	cargo run -p wallshader -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
+	cargo run -p wax11 -- --window --shadertoy https://www.shadertoy.com/view/3dXyWj
 
 # Run the playlist sample configuration
 run-playlist:
-	cargo run -p wallshader -- --playlist workspaces.toml
+	cargo run -p wax11 -- --playlist workspaces.toml
 
-# Mirror the GitHub Actions workflow (build + tests + clippy)
+# Mirror the GitHub Actions workflow (build + tests + clippy + format check)
 validate:
 	cargo build --verbose
 	cargo test --verbose
 	cargo clippy --all-targets --all-features -- -D warnings
+	cargo fmt --all --check
 
 # Create a new release tag and push it (use: just release 0.9.2)
 release VERSION:
@@ -47,7 +48,7 @@ release VERSION:
 	else
 		echo "⚠️  Warning: gh CLI not found."
 		echo "Please manually delete any existing release at:"
-		echo "https://github.com/NickCody/WallShader/releases/tag/$TAG"
+		echo "https://github.com/NickCody/wax11/releases/tag/$TAG"
 		read -p "Press Enter when ready to continue..."
 	fi
 	
@@ -70,4 +71,4 @@ release VERSION:
 	git push origin "$TAG"
 	
 	echo "✅ Release $TAG created and pushed!"
-	echo "🚀 Check the build progress at: https://github.com/NickCody/WallShader/actions"
+	echo "🚀 Check the build progress at: https://github.com/NickCody/wax11/actions"

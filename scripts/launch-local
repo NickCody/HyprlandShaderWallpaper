@@ -1,4 +1,4 @@
 #!/bin/bash
 
-pkill wallshader
-wallshader "$@"
+pkill wax11
+wax11 "$@"

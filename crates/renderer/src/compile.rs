@@ -26,7 +26,7 @@
 //!
 //! - `gpu::GpuState` calls `compile_vertex_shader` (static) and
 //!   `compile_fragment_shader` (wrapped user shader) while building pipelines.
-//! - Wrapped source is dumped to `/tmp/wallshader_wrapped.frag` when compiling the
+//! - Wrapped source is dumped to `/tmp/wax11_wrapped.frag` when compiling the
 //!   fragment shader to aid diagnostics and naga/shaderc comparisons.
 //!
 //! Key functions
@@ -62,7 +62,7 @@ pub(crate) fn compile_vertex_shader(
 
 /// Wraps the user shader with our ShaderToy prelude and compiles it as GLSL.
 ///
-/// The wrapped source is dumped to `/tmp/wallshader_wrapped.frag` to aid
+/// The wrapped source is dumped to `/tmp/wax11_wrapped.frag` to aid
 /// debugging when compilation fails in `wgpu`.
 pub(crate) fn compile_fragment_shader(
     device: &wgpu::Device,
@@ -71,7 +71,7 @@ pub(crate) fn compile_fragment_shader(
 ) -> Result<wgpu::ShaderModule> {
     let wrapped = wrap_shadertoy_fragment(source);
 
-    if let Err(err) = std::fs::write("/tmp/wallshader_wrapped.frag", &wrapped) {
+    if let Err(err) = std::fs::write("/tmp/wax11_wrapped.frag", &wrapped) {
         tracing::debug!(error = %err, "failed to dump wrapped shader");
     }
 
@@ -79,7 +79,7 @@ pub(crate) fn compile_fragment_shader(
         device,
         &wrapped,
         ShaderStage::Fragment,
-        "wallshader fragment",
+        "wax11 fragment",
         compiler,
     )
     .with_context(|| "failed to compile fragment shader")
@@ -171,29 +171,29 @@ layout(std140, set = 0, binding = 0) uniform ShaderParams {
 #define iMouse ubo._iMouse
 #define iDate ubo._iDate
 #define iSampleRate ubo._iSampleRate
-#define wallshader_mix ubo._iFade
+#define wax11_mix ubo._iFade
 #define iChannelTime ubo._iChannelTime
 #define iChannelResolution ubo._iChannelResolution
 
-layout(set = 1, binding = 0) uniform texture2D wallshader_channel0_texture;
-layout(set = 1, binding = 1) uniform sampler wallshader_channel0_sampler;
-layout(set = 1, binding = 2) uniform texture2D wallshader_channel1_texture;
-layout(set = 1, binding = 3) uniform sampler wallshader_channel1_sampler;
-layout(set = 1, binding = 4) uniform texture2D wallshader_channel2_texture;
-layout(set = 1, binding = 5) uniform sampler wallshader_channel2_sampler;
-layout(set = 1, binding = 6) uniform texture2D wallshader_channel3_texture;
-layout(set = 1, binding = 7) uniform sampler wallshader_channel3_sampler;
+layout(set = 1, binding = 0) uniform texture2D wax11_channel0_texture;
+layout(set = 1, binding = 1) uniform sampler wax11_channel0_sampler;
+layout(set = 1, binding = 2) uniform texture2D wax11_channel1_texture;
+layout(set = 1, binding = 3) uniform sampler wax11_channel1_sampler;
+layout(set = 1, binding = 4) uniform texture2D wax11_channel2_texture;
+layout(set = 1, binding = 5) uniform sampler wax11_channel2_sampler;
+layout(set = 1, binding = 6) uniform texture2D wax11_channel3_texture;
+layout(set = 1, binding = 7) uniform sampler wax11_channel3_sampler;
 
-#define iChannel0 sampler2D(wallshader_channel0_texture, wallshader_channel0_sampler)
-#define iChannel1 sampler2D(wallshader_channel1_texture, wallshader_channel1_sampler)
-#define iChannel2 sampler2D(wallshader_channel2_texture, wallshader_channel2_sampler)
-#define iChannel3 sampler2D(wallshader_channel3_texture, wallshader_channel3_sampler)
-#define wallshader_Surface ubo._iSurface
-#define wallshader_Fill ubo._iFill
-#define wallshader_FillWrap ubo._iFillWrap
+#define iChannel0 sampler2D(wax11_channel0_texture, wax11_channel0_sampler)
+#define iChannel1 sampler2D(wax11_channel1_texture, wax11_channel1_sampler)
+#define iChannel2 sampler2D(wax11_channel2_texture, wax11_channel2_sampler)
+#define iChannel3 sampler2D(wax11_channel3_texture, wax11_channel3_sampler)
+#define wax11_Surface ubo._iSurface
+#define wax11_Fill ubo._iFill
+#define wax11_FillWrap ubo._iFillWrap
 
-vec4 wallshader_gl_FragCoord;
-#define gl_FragCoord wallshader_gl_FragCoord
+vec4 wax11_gl_FragCoord;
+#define gl_FragCoord wax11_gl_FragCoord
 ";
 
 /// GLSL epilogue that remaps coordinates and delegates to `mainImage`.
@@ -202,27 +202,27 @@ const FOOTER: &str = r"void main() {
     // We temporarily undef the macro so we can read the hardware builtin.
     #undef gl_FragCoord
     vec2 builtinFC = vec2(gl_FragCoord.x, gl_FragCoord.y);
-    #define gl_FragCoord wallshader_gl_FragCoord
+    #define gl_FragCoord wax11_gl_FragCoord
 
     vec2 mapped = vec2(
-        builtinFC.x * wallshader_Fill.x + wallshader_Fill.z,
-        (wallshader_Surface.y - builtinFC.y) * wallshader_Fill.y + wallshader_Fill.w
+        builtinFC.x * wax11_Fill.x + wax11_Fill.z,
+        (wax11_Surface.y - builtinFC.y) * wax11_Fill.y + wax11_Fill.w
     );
 
     bool outside = mapped.x < 0.0 || mapped.y < 0.0 || mapped.x >= iResolution.x || mapped.y >= iResolution.y;
 
-    if (wallshader_FillWrap.x > 0.0) {
-        mapped.x = mod(mapped.x, wallshader_FillWrap.x);
+    if (wax11_FillWrap.x > 0.0) {
+        mapped.x = mod(mapped.x, wax11_FillWrap.x);
         if (mapped.x < 0.0) {
-            mapped.x += wallshader_FillWrap.x;
+            mapped.x += wax11_FillWrap.x;
         }
         outside = false;
     }
 
-    if (wallshader_FillWrap.y > 0.0) {
-        mapped.y = mod(mapped.y, wallshader_FillWrap.y);
+    if (wax11_FillWrap.y > 0.0) {
+        mapped.y = mod(mapped.y, wax11_FillWrap.y);
         if (mapped.y < 0.0) {
-            mapped.y += wallshader_FillWrap.y;
+            mapped.y += wax11_FillWrap.y;
         }
         outside = false;
     }
@@ -233,11 +233,11 @@ const FOOTER: &str = r"void main() {
     }
 
     vec2 fragCoord = mapped;
-    wallshader_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
+    wax11_gl_FragCoord = vec4(fragCoord, 0.0, 1.0);
 
     vec4 color = vec4(0.0);
     mainImage(color, fragCoord);
-    outColor = vec4(color.rgb * wallshader_mix, wallshader_mix);
+    outColor = vec4(color.rgb * wax11_mix, wax11_mix);
 }
 ";
 
@@ -356,6 +356,6 @@ mod tests {
         assert!(!wrapped.contains("uniform float iTime"));
         assert!(!wrapped.contains("uniform vec3 iResolution"));
         assert!(wrapped.contains("mainImage"));
-        assert!(wrapped.contains("wallshader_mix"));
+        assert!(wrapped.contains("wax11_mix"));
     }
 }

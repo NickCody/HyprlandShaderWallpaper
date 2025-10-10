@@ -51,13 +51,9 @@ fn ensure_directory(path: &Path) -> Result<()> {
             bail!("filesystem entry at {} is not a directory", path.display());
         }
     } else {
-        fs::create_dir_all(path).with_context(|| {
-            format!(
-                "failed to create wallshader directory at {}",
-                path.display()
-            )
-        })?;
-        debug!(path = %path.display(), "created wallshader directory");
+        fs::create_dir_all(path)
+            .with_context(|| format!("failed to create wax11 directory at {}", path.display()))?;
+        debug!(path = %path.display(), "created wax11 directory");
         Ok(())
     }
 }

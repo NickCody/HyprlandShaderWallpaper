@@ -32,7 +32,7 @@ pub fn dump_startup_diagnostics(
     client: Option<&ShadertoyClient>,
     resolver: &PathResolver,
 ) {
-    info!("=== WallShader Startup Diagnostics ===");
+    info!("=== wax11 shader Startup Diagnostics ===");
 
     // Global options
     dump_global_options(args, paths);

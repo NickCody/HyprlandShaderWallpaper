@@ -9,7 +9,7 @@
 //!
 //! ```text
 //! WallpaperRuntime
-//!   ├─ channel (Sender<WallpaperCommand>)  ◀────────── wallshader daemon/CLI
+//!   ├─ channel (Sender<WallpaperCommand>)  ◀────────── wax11 daemon/CLI
 //!   └─ thread: run_internal
 //!        ├─ Wayland registry + event queue
 //!        ├─ WallpaperManager
@@ -152,7 +152,7 @@ impl WallpaperRuntime {
     pub fn spawn(config: RendererConfig) -> Result<Self> {
         let (sender, receiver) = crossbeam_channel::unbounded();
         let handle = thread::Builder::new()
-            .name("wallshader-wallpaper".into())
+            .name("wax11-wallpaper".into())
             .spawn(move || run_internal(config, receiver))
             .context("failed to spawn wallpaper thread")?;
 
@@ -453,7 +453,7 @@ impl WallpaperManager {
             qh,
             wl_surface,
             Layer::Background,
-            Some("wallshader".to_string()),
+            Some("wax11".to_string()),
             output.as_ref(),
         );
         layer_surface.set_anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT);

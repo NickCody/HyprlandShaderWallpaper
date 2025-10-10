@@ -1,6 +1,6 @@
 //! Windowed preview runtime (winit event loop + input to uniforms).
 //!
-//! This module implements the interactive preview path used by `wallshader --window`.
+//! This module implements the interactive preview path used by `wax11 --window`.
 //! It owns the winit event loop thread, maps mouse/keyboard input to ShaderToy
 //! uniforms, and drives `gpu::GpuState` per-frame according to a `RenderPolicy`.
 //! It can also run a one-shot still/export capture without showing the window.
@@ -430,7 +430,7 @@ impl WindowRuntime {
         let (ready_tx, ready_rx) = bounded(1);
         let (signal_tx, signal_rx) = unbounded();
         let handle = thread::Builder::new()
-            .name("wallshader-window".into())
+            .name("wax11-window".into())
             .spawn(move || run_window_thread(config, ready_tx, signal_tx))
             .map_err(|err| anyhow!("failed to spawn window thread: {err}"))?;
 
@@ -509,7 +509,7 @@ fn run_window_thread(
 
     let window_size = PhysicalSize::new(config.surface_size.0, config.surface_size.1);
     let mut builder = WindowBuilder::new()
-        .with_title("WallShader Preview")
+        .with_title("wax11 shader Preview")
         .with_inner_size(window_size);
     if !config.show_window {
         builder = builder.with_visible(false);

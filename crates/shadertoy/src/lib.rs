@@ -1,5 +1,5 @@
 //! Crate entry point wiring together Shadertoy manifest parsing, path
-//! resolution, remote fetching, and repository lookup so `wallshader` and
+//! resolution, remote fetching, and repository lookup so `wax11` and
 //! `renderer` consumers can pull everything they need from a single module. The
 //! higher-level daemon imports these re-exports to parse CLI handles, locate
 //! shaders, and translate ShaderToy payloads into renderer-ready packs without

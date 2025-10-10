@@ -1,9 +1,9 @@
-//! Multi-playlist configuration model and parser for WallShader.
+//! Multi-playlist configuration model and parser for wax11 shader.
 //!
 //! This crate defines the TOML schema used to drive multi-playlist wallpaper
 //! behaviour and provides parsing, validation, and small helpers to resolve
 //! effective per-item settings. It does not touch rendering directly; instead,
-//! `wallshader` consumes these types to select shaders and timing, then issues
+//! `wax11` consumes these types to select shaders and timing, then issues
 //! swap requests to the renderer.
 //!
 //! Flow
@@ -15,7 +15,7 @@
 //!     multiconfig::MultiConfig  ◀─ from_toml_str + validate()
 //!               │
 //!               ▼
-//!     wallshader::multi (engine)
+//!     wax11::multi (engine)
 //!         ├─ pick Playlist by target selector
 //!         ├─ resolve item (defaults + overrides)
 //!         └─ emit SwapRequest (shader, fps, AA, crossfade)

@@ -1,10 +1,10 @@
-# WallShader TODO
+# wax11 shader TODO
 
-This document outlines future development tasks and specifications for WallShader, organized by major areas of focus.
+This document outlines future development tasks and specifications for wax11 shader, organized by major areas of focus.
 
 ## Broadening Linux Environment Support
 
-This section outlines remaining work to broaden WallShader beyond Hyprland-first wallpaper workflow. The focus is Linux; targets are Wayland (generic and vendor‑specific) and X11.
+This section outlines remaining work to broaden wax11 shader beyond Hyprland-first wallpaper workflow. The focus is Linux; targets are Wayland (generic and vendor‑specific) and X11.
 
 ### Phase 2 — Generic adapters & X11 stills
 - Wayland layer‑shell adapter (BACKGROUND layer, per‑output)
@@ -44,7 +44,7 @@ This section outlines remaining work to broaden WallShader beyond Hyprland-first
   - Probe Wayland protocols; detect compositor vendor; log clear fallbacks
   - On X11, detect compositing, DPIs, screens
 - Diagnostics
-  - `wallshader doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode
+  - `wax11 doctor` prints adapters, protocols, wgpu backend/driver, FPS/occlusion, and recommended mode
 
 ### CLI Surface (additive)
 - Rendering: `--still-refresh`, `--still-on-idle`
@@ -69,11 +69,11 @@ Set up GitHub Actions to run formatting, clippy, and tests, then use `cargo dist
 
 ### Distribution Packaging
 **Package for popular Linux distributions**
-Start with an Arch AUR `-git` recipe that builds via `cargo build --release`, then graduate to a tagged package once releases stabilize. Provide a `flake.nix` offering `nix run .#wallshader` and a reproducible dev shell. Explore Debian packaging (`cargo deb` or native `debian/` rules) and consider Flatpak when shader assets and GPU permissions are fully mapped out.
+Start with an Arch AUR `-git` recipe that builds via `cargo build --release`, then graduate to a tagged package once releases stabilize. Provide a `flake.nix` offering `nix run .#wax11` and a reproducible dev shell. Explore Debian packaging (`cargo deb` or native `debian/` rules) and consider Flatpak when shader assets and GPU permissions are fully mapped out.
 
 ### Documentation and Policies
 **Provide an optional installer helper**
-Offer a POSIX `install.sh` (or `just install`) that copies the release binary into `~/.local/bin`, seeds configs under `~/.config/wallshader/`, respects `--prefix`, and runs idempotently. Document cache/config paths so packagers can relocate assets to standard XDG directories.
+Offer a POSIX `install.sh` (or `just install`) that copies the release binary into `~/.local/bin`, seeds configs under `~/.config/wax11/`, respects `--prefix`, and runs idempotently. Document cache/config paths so packagers can relocate assets to standard XDG directories.
 
 **Formalize open-source policies and docs**
 Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `AGENTS.md`. Sign release tags (GPG) for integrity. Ensure telemetry defaults to XDG-friendly cache/log locations and keep runbook-style notes so future maintainers understand diagnostics and tracing expectations.
@@ -82,7 +82,7 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 - Support profiles (`--profile NAME`) to namespace directories
 - Add manifest schema migrations based on `defaults_version`
 - Allow per-shader local override files layered above defaults
-- Provide `wallshader doctor` for diagnosing missing directories or stale defaults
+- Provide `wax11 doctor` for diagnosing missing directories or stale defaults
 
 ## Multi-Workspace Playlists
 

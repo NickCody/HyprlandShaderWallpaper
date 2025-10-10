@@ -1,5 +1,5 @@
 //! Provides a narrow view of the resolved directory layout so `main.rs` and diagnostics
-//! commands can surface where WallShader reads and writes state, pulling from `paths.rs`
+//! commands can surface where wax11 shader reads and writes state, pulling from `paths.rs`
 //! discovery logic.
 //!
 //! Types:

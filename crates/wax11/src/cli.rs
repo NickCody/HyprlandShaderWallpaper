@@ -23,10 +23,10 @@ use crate::handles::{LaunchHandleArg, PlaylistHandleArg};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "wallshader",
+    name = "wax11",
     author,
     version,
-    about = "WallShader daemon",
+    about = "wax11 shader daemon",
     arg_required_else_help = false
 )]
 pub struct Cli {

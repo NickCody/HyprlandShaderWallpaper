@@ -1,4 +1,4 @@
-//! Renderer crate for WallShader (Wayland wallpaper engine + preview window).
+//! Renderer crate for wax11 shader (Wayland wallpaper engine + preview window).
 //!
 //! This crate ties together the wgpu rendering backend, a ShaderToy-compatible
 //! shader wrapper, and two front-ends: a Wayland wallpaper path and a winit-based
@@ -8,7 +8,7 @@
 //! Big picture
 //!
 //! ```text
-//! wallshader (daemon/CLI)
+//! wax11 (daemon/CLI)
 //!        │  builds
 //!        ▼
 //!  renderer::Renderer ────────────────┐
@@ -108,7 +108,7 @@ impl Renderer {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
         let mut builder = WindowBuilder::new()
-            .with_title("WallShader Preview")
+            .with_title("wax11 shader Preview")
             .with_inner_size(window_size);
         if !self.config.show_window {
             builder = builder.with_visible(false);
@@ -229,7 +229,7 @@ impl Renderer {
         let event_loop = EventLoop::new().context("failed to initialize event loop")?;
         let window_size = PhysicalSize::new(self.config.surface_size.0, self.config.surface_size.1);
         let builder = WindowBuilder::new()
-            .with_title("WallShader Export")
+            .with_title("wax11 shader Export")
             .with_inner_size(window_size)
             .with_visible(self.config.show_window);
         let window = builder

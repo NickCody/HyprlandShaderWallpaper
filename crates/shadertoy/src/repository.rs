@@ -1,6 +1,6 @@
 //! Resolves shader handles into ready-to-render packs, hiding the difference
 //! between local directories and cached Shadertoy downloads from the rest of
-//! WallShader. CLI and playlist code hand it `ShaderHandle`s, while it consults
+//! wax11 shader. CLI and playlist code hand it `ShaderHandle`s, while it consults
 //! `PathResolver`, `LocalPack`, and `ShadertoyClient` to load manifests, fetch
 //! missing assets, and return entry GLSL paths.
 //!
