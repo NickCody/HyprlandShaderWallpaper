@@ -18,11 +18,12 @@ run-demo:
 run-playlist:
 	cargo run -p wax11 -- --playlist workspaces.toml
 
-# Mirror the GitHub Actions workflow (build + tests + clippy)
+# Mirror the GitHub Actions workflow (build + tests + clippy + format check)
 validate:
 	cargo build --verbose
 	cargo test --verbose
 	cargo clippy --all-targets --all-features -- -D warnings
+	cargo fmt --all --check
 
 # Create a new release tag and push it (use: just release 0.9.2)
 release VERSION:

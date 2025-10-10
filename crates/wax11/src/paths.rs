@@ -43,21 +43,9 @@ impl AppPaths {
         let project_dirs = ProjectDirs::from(QUALIFIER, ORGANISATION, APPLICATION)
             .ok_or_else(|| anyhow!("failed to determine user directories"))?;
 
-        let config_dir = resolve_directory(
-            ENV_CONFIG_DIR,
-            project_dirs.config_dir(),
-            "config",
-        )?;
-        let data_dir = resolve_directory(
-            ENV_DATA_DIR,
-            project_dirs.data_dir(),
-            "data",
-        )?;
-        let cache_dir = resolve_directory(
-            ENV_CACHE_DIR,
-            project_dirs.cache_dir(),
-            "cache",
-        )?;
+        let config_dir = resolve_directory(ENV_CONFIG_DIR, project_dirs.config_dir(), "config")?;
+        let data_dir = resolve_directory(ENV_DATA_DIR, project_dirs.data_dir(), "data")?;
+        let cache_dir = resolve_directory(ENV_CACHE_DIR, project_dirs.cache_dir(), "cache")?;
 
         let share_dir = resolve_share_dir(&project_dirs)?;
         let dev_root = detect_dev_root();
@@ -146,29 +134,27 @@ impl AppPaths {
     }
 }
 
-fn resolve_directory(
-    primary_env: &str,
-    primary_default: &Path,
-    label: &str,
-) -> Result<PathBuf> {
+fn resolve_directory(primary_env: &str, primary_default: &Path, label: &str) -> Result<PathBuf> {
     if let Some(value) = env_override(primary_env) {
         return Ok(value);
     }
 
     let primary = primary_default.to_path_buf();
-    
+
     // Create directory if it doesn't exist
     if !primary.exists() {
-        fs::create_dir_all(&primary)
-            .with_context(|| format!("failed to create wax11 {label} directory at {}", primary.display()))?;
+        fs::create_dir_all(&primary).with_context(|| {
+            format!(
+                "failed to create wax11 {label} directory at {}",
+                primary.display()
+            )
+        })?;
     }
-    
+
     Ok(primary)
 }
 
-fn resolve_share_dir(
-    project_dirs: &ProjectDirs,
-) -> Result<PathBuf> {
+fn resolve_share_dir(project_dirs: &ProjectDirs) -> Result<PathBuf> {
     if let Some(value) = env_override(ENV_SHARE_DIR) {
         return Ok(value);
     }
@@ -295,6 +281,4 @@ mod tests {
 
         assert_eq!(paths.share_dir(), Path::new("/usr/share/wax11"));
     }
-
-
 }
