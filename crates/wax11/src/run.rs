@@ -47,7 +47,7 @@ pub fn run(args: RunArgs) -> Result<()> {
         cache_base = %paths.cache_dir().display(),
         cache = %cache_root.display(),
         share = %paths.share_dir().display(),
-        "resolved wallshader paths"
+        "resolved wax11 paths"
     );
 
     let client = build_client(&args)?;
@@ -80,7 +80,7 @@ pub fn run(args: RunArgs) -> Result<()> {
     let entry_handle = resolve_entry_handle(&args)?;
     log_entry_handle(&entry_handle, &paths);
     let handle = entry_handle.clone().into_shader_handle();
-    tracing::info!(?handle, "bootstrapping wallshader wallpaper daemon");
+    tracing::info!(?handle, "bootstrapping wax11 wallpaper daemon");
     log_handle_warnings(&args, &handle, client.as_ref());
     let context = prepare_single_run(&args, &repo, client.as_ref(), handle.clone())?;
     run_single(context)
@@ -118,7 +118,7 @@ fn log_entry_handle(handle: &EntryHandle, paths: &AppPaths) {
 }
 
 pub fn initialise_tracing() {
-    let default_filter = "warn,wallshader=info,renderer=info,naga=error,wgpu=error,wgpu_core=error,wgpu_hal=error,winit=error,smithay_client_toolkit=error";
+    let default_filter = "warn,wax11=info,renderer=info,naga=error,wgpu=error,wgpu_core=error,wgpu_hal=error,winit=error,smithay_client_toolkit=error";
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
     tracing_subscriber::fmt()

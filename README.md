@@ -28,7 +28,7 @@ Optional: move it to your PATH for convenience:
 
 ```bash
 mkdir -p ~/.local/bin
-mv wax11 shader-x86_64.AppImage ~/.local/bin/wallshader
+mv wax11 shader-x86_64.AppImage ~/.local/bin/wax11
 wax11 --help
 ```
 
@@ -169,7 +169,7 @@ cargo install \
   --git https://github.com/NickCody/wax11 shader \
   --tag v0.9.1 \
   --locked \
-  wallshader
+  wax11
 ```
 
 During active development you can substitute `--branch main` to follow the latest changes. Add `--force` to reinstall after pulling a new tag.
@@ -177,10 +177,10 @@ During active development you can substitute `--branch main` to follow the lates
 If you already have the repository checked out, the same command works locally:
 
 ```bash
-cargo install --path crates/wallshader --locked --force wallshader
+cargo install --path crates/wax11 --locked --force wax11
 ```
 
-The installed `wax11` binary accepts the same CLI flags documented below, so you can run `wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from any directory.
+The installed `wax11` binary accepts the same CLI flags documented below, so you can run `wax11 --window --shadertoy https://www.shadertoy.com/view/3dXyWj` from any directory.
 
 ## Features
 
@@ -218,7 +218,7 @@ Key behaviours:
 - Playlist items can override FPS caps, antialiasing, and opt-in to one-time refreshes.
 - Playlist entries now support `mode = "still"` (optionally `still_time = "2s"`) for photo-style slides that render once.
 
-Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs with the `[wallshader]` prefix highlight shader compilation or timing diagnostics.
+Runtime telemetry is emitted via `tracing` (see `scripts/launch-local`) and wall-clock logs with the `[wax11]` prefix highlight shader compilation or timing diagnostics.
 
 ### Directories and CLI Helpers
 
@@ -246,7 +246,7 @@ Shaders and playlists are resolved in priority order: **CONFIG > DATA > SHARE > 
 
 Bundled shader packs and sample playlists live under `shaders/` and `playlists/` in the repository. The installer mirrors those directories to your data location, and you can rerun it any time you want to refresh the packs while developing.
 
-Run `wallshader defaults where` to print the resolved config/data/cache/share paths if you need to double-check the environment.
+Run `wax11 defaults where` to print the resolved config/data/cache/share paths if you need to double-check the environment.
 
 ### Path Resolution & Environment Variables
 
@@ -258,7 +258,7 @@ Local shader handles accept shell-style expansions so configs stay portable:
 - Anything containing a `/` is treated literally after expansion, relative to the process working directory unless the path is absolute.
 - `shader://<pack>` searches CONFIG_DIR, then DATA_DIR, then legacy `shaders/` trees, and finally SHARE_DIR.
 
-This logic applies across CLI handles (`wallshader $HOME/shaders/demo`), playlist manifests, and the defaults bootstrap. Run `wallshader defaults where` to inspect which directories are currently active.
+This logic applies across CLI handles (`wax11 $HOME/shaders/demo`), playlist manifests, and the defaults bootstrap. Run `wax11 defaults where` to inspect which directories are currently active.
 
 ### Still Frames & Exports
 
@@ -397,7 +397,7 @@ Downstream packages and automation should mirror the installer’s behaviour:
 
 ## Workspace Layout
 
-- `crates/wallshader`: Daemon entry point and CLI that orchestrates rendering.
+- `crates/wax11`: Daemon entry point and CLI that orchestrates rendering.
 - `crates/renderer`: Rendering abstraction that manages shader wrapping and frame uniforms.
 - `crates/shadertoy`: Integration layer for ShaderToy downloads, caching, and manifest validation.
 - `shaders/`: User-provided shader packs mirroring ShaderToy render pass structure.

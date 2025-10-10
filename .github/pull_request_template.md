@@ -35,7 +35,7 @@
 
 ```bash
 # Example commands you used for testing
-wallshader --window --shadertoy https://www.shadertoy.com/view/3dXyWj
+wax11 --window --shadertoy https://www.shadertoy.com/view/3dXyWj
 ```
 
 ## Screenshots/Demos

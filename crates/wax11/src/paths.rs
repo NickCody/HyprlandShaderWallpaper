@@ -30,13 +30,13 @@ const QUALIFIER: &str = "org";
 const ORGANISATION: &str = "wax11";
 const APPLICATION: &str = "wax11";
 
-const LEGACY_ENV_CONFIG_DIR: &str = "WALLSHADER_CONFIG_DIR";
-const LEGACY_ENV_DATA_DIR: &str = "WALLSHADER_DATA_DIR";
-const LEGACY_ENV_CACHE_DIR: &str = "WALLSHADER_CACHE_DIR";
-const LEGACY_ENV_SHARE_DIR: &str = "WALLSHADER_SHARE_DIR";
+const LEGACY_ENV_CONFIG_DIR: &str = "WAX11_CONFIG_DIR";
+const LEGACY_ENV_DATA_DIR: &str = "WAX11_DATA_DIR";
+const LEGACY_ENV_CACHE_DIR: &str = "WAX11_CACHE_DIR";
+const LEGACY_ENV_SHARE_DIR: &str = "WAX11_SHARE_DIR";
 
-const LEGACY_ORGANISATION: &str = "WallShaderade";
-const LEGACY_APPLICATION: &str = "wallshader";
+const LEGACY_ORGANISATION: &str = "WAX11ade";
+const LEGACY_APPLICATION: &str = "wax11";
 const ENV_DEV_ROOT: &str = "WAX11_DEV_ROOT";
 
 #[derive(Debug, Clone)]
@@ -372,7 +372,7 @@ fn default_share_dir(project_dirs: &ProjectDirs) -> PathBuf {
 
 #[cfg(target_family = "unix")]
 fn legacy_share_dir(_: Option<&ProjectDirs>) -> Option<PathBuf> {
-    Some(PathBuf::from("/usr/share/wallshader"))
+    Some(PathBuf::from("/usr/share/wax11"))
 }
 
 #[cfg(not(target_family = "unix"))]
@@ -492,7 +492,7 @@ mod tests {
     #[test]
     fn migrates_legacy_directory_when_missing() {
         let root = TempDir::new().unwrap();
-        let legacy = root.path().join("wallshader-config");
+        let legacy = root.path().join("wax11-config");
         let primary = root.path().join("wax11-config");
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join("settings.toml"), "foo = 1\n").unwrap();

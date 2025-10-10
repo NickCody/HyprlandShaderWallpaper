@@ -1,8 +1,8 @@
-# Rebranding Summary: WallShader → wax11 shader
+# Rebranding Summary: WAX11 → wax11 shader
 
 ## Overview
 
-The project has been successfully rebranded from **WallShader** to **wax11 shader** (full name) with **wax11** as the binary name.
+The project has been successfully rebranded from **WAX11** to **wax11 shader** (full name) with **wax11** as the binary name.
 
 **Key naming conventions:**
 - **Full project name:** "wax11 shader" (lowercase, Wayland/X11 shader)
@@ -15,7 +15,7 @@ The project has been successfully rebranded from **WallShader** to **wax11 shade
 ## Changes Made
 
 ### 1. Build System & Crates
-- ✅ Renamed `crates/wallshader` → `crates/wax11`
+- ✅ Renamed `crates/wax11` → `crates/wax11`
 - ✅ Updated `Cargo.toml` workspace metadata:
   - Repository: `https://github.com/NickCody/wax11`
   - Keywords: kept `hyprland`, `wayland`, added `x11`, `shadertoy`, `wallpaper`
@@ -24,20 +24,20 @@ The project has been successfully rebranded from **WallShader** to **wax11 shade
 - ✅ Updated all crate cross-references
 
 ### 2. Environment Variables
-- `WALLSHADER_CONFIG_DIR` → `WAX11_CONFIG_DIR`
-- `WALLSHADER_DATA_DIR` → `WAX11_DATA_DIR`
-- `WALLSHADER_CACHE_DIR` → `WAX11_CACHE_DIR`
-- `WALLSHADER_SHARE_DIR` → `WAX11_SHARE_DIR`
-- `WALLSHADER_DEV_ROOT` → `WAX11_DEV_ROOT`
+- `WAX11_CONFIG_DIR` → `WAX11_CONFIG_DIR`
+- `WAX11_DATA_DIR` → `WAX11_DATA_DIR`
+- `WAX11_CACHE_DIR` → `WAX11_CACHE_DIR`
+- `WAX11_SHARE_DIR` → `WAX11_SHARE_DIR`
+- `WAX11_DEV_ROOT` → `WAX11_DEV_ROOT`
 
-**Legacy migration:** Old `WALLSHADER_*` variables are now treated as legacy fallbacks in `paths.rs`, allowing smooth migration for existing users.
+**Legacy migration:** Old `WAX11_*` variables are now treated as legacy fallbacks in `paths.rs`, allowing smooth migration for existing users.
 
 ### 3. Directory Paths
-- `~/.config/wallshader` → `~/.config/wax11`
-- `~/.local/share/wallshader` → `~/.local/share/wax11`
-- `~/.cache/wallshader` → `~/.cache/wax11`
-- `/usr/share/wallshader` → `/usr/share/wax11`
-- `opt/wallshader` → `opt/wax11`
+- `~/.config/wax11` → `~/.config/wax11`
+- `~/.local/share/wax11` → `~/.local/share/wax11`
+- `~/.cache/wax11` → `~/.cache/wax11`
+- `/usr/share/wax11` → `/usr/share/wax11`
+- `opt/wax11` → `opt/wax11`
 
 **Legacy migration:** Old directories are automatically migrated on first run via `paths.rs`.
 
@@ -66,9 +66,9 @@ The project has been successfully rebranded from **WallShader** to **wax11 shade
   - AppImage filename: `wax11-x86_64.AppImage`
   - All environment variables and paths updated
 - ✅ Desktop files renamed and updated:
-  - `wallshader.desktop` → `wax11.desktop`
-  - `io.github.nickcody.wallshader.desktop` → `io.github.nickcody.wax11.desktop`
-- ✅ Icon renamed: `wallshader.svg` → `wax11.svg` (icon text updated from "WS" to "W")
+  - `wax11.desktop` → `wax11.desktop`
+  - `io.github.nickcody.wax11.desktop` → `io.github.nickcody.wax11.desktop`
+- ✅ Icon renamed: `wax11.svg` → `wax11.svg` (icon text updated from "WS" to "W")
 
 ### 7. GitHub Workflows
 - ✅ `.github/workflows/ci.yml` - Updated AppImage names, artifacts, binary paths
@@ -76,41 +76,41 @@ The project has been successfully rebranded from **WallShader** to **wax11 shade
 
 ### 8. Code Updates
 - ✅ All Rust source files updated:
-  - Thread names: `"wallshader-*"` → `"wax11-*"`
-  - Labels: `"wallshader *"` → `"wax11 *"`
-  - Debug paths: `/tmp/wallshader_wrapped.frag` → `/tmp/wax11_wrapped.frag`
-  - GLSL macro prefixes: `wallshader_*` → `wax11_*` (e.g., `wallshader_Fill` → `wax11_Fill`)
+  - Thread names: `"wax11-*"` → `"wax11-*"`
+  - Labels: `"wax11 *"` → `"wax11 *"`
+  - Debug paths: `/tmp/wax11_wrapped.frag` → `/tmp/wax11_wrapped.frag`
+  - GLSL macro prefixes: `wax11_*` → `wax11_*` (e.g., `wax11_Fill` → `wax11_Fill`)
   - Comments and documentation updated throughout
 
 ### 9. Internal GLSL Shaders
 Updated all internal shader macros and uniforms:
-- `wallshader_mix` → `wax11_mix`
-- `wallshader_channel*_texture` → `wax11_channel*_texture`
-- `wallshader_channel*_sampler` → `wax11_channel*_sampler`
-- `wallshader_Surface` → `wax11_Surface`
-- `wallshader_Fill` → `wax11_Fill`
-- `wallshader_FillWrap` → `wax11_FillWrap`
-- `wallshader_gl_FragCoord` → `wax11_gl_FragCoord`
+- `wax11_mix` → `wax11_mix`
+- `wax11_channel*_texture` → `wax11_channel*_texture`
+- `wax11_channel*_sampler` → `wax11_channel*_sampler`
+- `wax11_Surface` → `wax11_Surface`
+- `wax11_Fill` → `wax11_Fill`
+- `wax11_FillWrap` → `wax11_FillWrap`
+- `wax11_gl_FragCoord` → `wax11_gl_FragCoord`
 
 ## Migration Path for Users
 
 ### Automatic Migration
 The code includes automatic migration logic in `crates/wax11/src/paths.rs`:
-1. Old `WALLSHADER_*` environment variables are treated as legacy fallbacks
-2. Old directories (`~/.config/wallshader`, etc.) are automatically renamed to new paths
-3. Legacy organization paths (`WallShaderade`) are migrated to new structure
+1. Old `WAX11_*` environment variables are treated as legacy fallbacks
+2. Old directories (`~/.config/wax11`, etc.) are automatically renamed to new paths
+3. Legacy organization paths (`WAX11ade`) are migrated to new structure
 
 ### Manual Steps for Users
-Users upgrading from WallShader to wax11 shader can:
+Users upgrading from WAX11 to wax11 shader can:
 1. Rename environment variables in their shell configs (optional, but recommended)
-2. Update any custom scripts that call `wallshader` → `wax11`
+2. Update any custom scripts that call `wax11` → `wax11`
 3. Update desktop launchers and systemd services to use `wax11` binary
 
 ### Breaking Changes
-- Binary name changed: `wallshader` → `wax11`
-- All paths changed: `*/wallshader/` → `*/wax11/`
-- Environment variables changed: `WALLSHADER_*` → `WAX11_*`
-- Repository URL changed: `.../WallShader` → `.../wax11`
+- Binary name changed: `wax11` → `wax11`
+- All paths changed: `*/wax11/` → `*/wax11/`
+- Environment variables changed: `WAX11_*` → `WAX11_*`
+- Repository URL changed: `.../WAX11` → `.../wax11`
 
 ## Validation
 

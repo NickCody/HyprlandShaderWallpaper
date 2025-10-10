@@ -1,6 +1,6 @@
 //! Entry point wiring that stitches together the CLI surface, filesystem bootstrap, and
 //! single- or multi-playlist runtime paths before delegating to `run.rs`, while exposing
-//! utility commands like `wallshader defaults where`.
+//! utility commands like `wax11 defaults where`.
 //!
 //! Types:
 //!

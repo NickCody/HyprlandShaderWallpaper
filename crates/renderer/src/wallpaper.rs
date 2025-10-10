@@ -9,7 +9,7 @@
 //!
 //! ```text
 //! WallpaperRuntime
-//!   ├─ channel (Sender<WallpaperCommand>)  ◀────────── wallshader daemon/CLI
+//!   ├─ channel (Sender<WallpaperCommand>)  ◀────────── wax11 daemon/CLI
 //!   └─ thread: run_internal
 //!        ├─ Wayland registry + event queue
 //!        ├─ WallpaperManager

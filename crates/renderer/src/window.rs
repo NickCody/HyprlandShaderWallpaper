@@ -1,6 +1,6 @@
 //! Windowed preview runtime (winit event loop + input to uniforms).
 //!
-//! This module implements the interactive preview path used by `wallshader --window`.
+//! This module implements the interactive preview path used by `wax11 --window`.
 //! It owns the winit event loop thread, maps mouse/keyboard input to ShaderToy
 //! uniforms, and drives `gpu::GpuState` per-frame according to a `RenderPolicy`.
 //! It can also run a one-shot still/export capture without showing the window.
