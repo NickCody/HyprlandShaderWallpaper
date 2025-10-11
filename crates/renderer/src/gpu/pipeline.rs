@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
@@ -44,6 +44,7 @@ pub(crate) struct ShaderPipeline {
     pub channel_resources: Vec<ChannelResources>,
     pub _channel_layout: wgpu::BindGroupLayout,
     has_keyboard: bool,
+    pub shader_source: PathBuf,
 }
 
 impl ShaderPipeline {
@@ -147,6 +148,7 @@ impl ShaderPipeline {
             channel_resources,
             _channel_layout: channel_layout,
             has_keyboard,
+            shader_source: shader_path.to_path_buf(),
         })
     }
 

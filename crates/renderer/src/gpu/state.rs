@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+use tracing::{debug, warn};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 
@@ -84,12 +85,16 @@ pub(crate) struct GpuState {
     last_frame_time: Instant,
     frame_count: u32,
     last_override_sample: Option<TimeSample>,
+    last_fps_update: Instant,
+    frames_since_last_update: u32,
+    frames_per_second: f32,
 }
 
 struct PendingPipeline {
     pipeline: ShaderPipeline,
     warmup_end: Instant,
     crossfade: Duration,
+    warmed: bool,
 }
 
 struct MultisampleTarget {
@@ -224,6 +229,9 @@ impl GpuState {
             last_frame_time: Instant::now(),
             frame_count: 0,
             last_override_sample: None,
+            last_fps_update: Instant::now(),
+            frames_since_last_update: 0,
+            frames_per_second: 60.0,
         })
     }
 
@@ -327,6 +335,7 @@ impl GpuState {
             pipeline,
             warmup_end: now + warmup,
             crossfade,
+            warmed: false,
         });
         Ok(())
     }
@@ -355,7 +364,40 @@ impl GpuState {
         mouse: [f32; 4],
         time_sample: Option<TimeSample>,
     ) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError> {
+        // Acquire the next frame texture early. This call can block, so we do it before
+        // handling shader transitions to avoid compounding delays.
+        let frame_acquisition_start = Instant::now();
+        let frame = self.context.surface.get_current_texture()?;
+        let frame_acquisition_duration = frame_acquisition_start.elapsed();
+        let frame_time_budget = Duration::from_secs_f32(1.0 / self.frames_per_second);
+
+        if frame_acquisition_duration > frame_time_budget {
+            warn!(
+                "acquiring frame took {}ms, which is over the frame budget of {}ms (at {} FPS)",
+                frame_acquisition_duration.as_millis(),
+                frame_time_budget.as_millis(),
+                self.frames_per_second.round(),
+            );
+        }
+
         let now = Instant::now();
+        self.frames_since_last_update += 1;
+        let elapsed_since_fps_update = now.saturating_duration_since(self.last_fps_update);
+        if elapsed_since_fps_update >= Duration::from_secs(1) {
+            self.frames_per_second =
+                self.frames_since_last_update as f32 / elapsed_since_fps_update.as_secs_f32();
+            self.frames_since_last_update = 0;
+            self.last_fps_update = now;
+            debug!(
+                fps = self.frames_per_second.round(),
+                frame_count = self.frame_count,
+                time = self.uniforms.i_time,
+                crossfading = self.fade.is_some(),
+                pending = self.pending.is_some(),
+                "render stats"
+            );
+        }
+
         self.uniforms.update_time(
             &mut self.start_time,
             &mut self.last_frame_time,
@@ -375,7 +417,6 @@ impl GpuState {
             }
         }
 
-        let frame = self.context.surface.get_current_texture()?;
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -418,14 +459,28 @@ impl GpuState {
         self.previous = previous_pipeline;
         self.fade = fade_state;
 
-        if let Some(pending) = pending_action {
-            self.encode_draw(
-                &mut encoder,
-                &view,
-                &pending.pipeline,
-                0.0,
-                wgpu::LoadOp::Load,
-            );
+        if let Some(mut pending) = pending_action {
+            if !pending.warmed {
+                // Pre-warm the pending pipeline by encoding a draw with zero mix. This forces the
+                // driver to compile the shader and allocate resources before the crossfade begins,
+                // preventing a stutter on the first frame of the transition.
+                let prewarm_start = Instant::now();
+                self.encode_draw(
+                    &mut encoder,
+                    &view,
+                    &pending.pipeline,
+                    0.0,
+                    wgpu::LoadOp::Load,
+                );
+                let prewarm_duration = prewarm_start.elapsed();
+                debug!(
+                    shader = %pending.pipeline.shader_source.display(),
+                    duration_us = prewarm_duration.as_micros(),
+                    frame_acquisition_duration_us = frame_acquisition_duration.as_micros(),
+                    "pre-warmed new shader pipeline"
+                );
+                pending.warmed = true;
+            }
             self.pending = Some(pending);
         }
 
@@ -467,10 +522,14 @@ impl GpuState {
         mix: f32,
         load: wgpu::LoadOp<wgpu::Color>,
     ) {
-        if mix <= 0.0 {
-            return;
-        }
         self.draw_pipeline(pipeline, mix);
+
+        // Pre-warming: a `mix` of 0.0 indicates that this pass is only for compiling the
+        // shader and allocating resources. We submit the uniform buffer write and bind
+        // the pipeline, but skip the draw call itself. This avoids a stutter on the first
+        // frame of a crossfade.
+        let is_prewarming = mix <= 0.0;
+
         // Upload uniforms for this pass via a staging buffer and copy on the encoder so
         // each pass sees its own uniform values (prevents crossfade mix bleeding).
         let staging = self
@@ -512,7 +571,10 @@ impl GpuState {
         render_pass.set_pipeline(&pipeline.pipeline);
         render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         render_pass.set_bind_group(1, &pipeline.channel_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+
+        if !is_prewarming {
+            render_pass.draw(0..3, 0..1);
+        }
     }
 
     fn promote_pending(&mut self, pending: PendingPipeline, now: Instant) {
