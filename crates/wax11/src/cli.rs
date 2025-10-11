@@ -17,7 +17,10 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use renderer::{Antialiasing, ColorSpaceMode, ExportFormat, FillMethod, ShaderCompiler};
+use renderer::{
+    Antialiasing, ColorSpaceMode, CrossfadeCurve, ExportFormat, FillMethod, ShaderCompiler,
+    VsyncMode,
+};
 
 use crate::handles::{LaunchHandleArg, PlaylistHandleArg};
 
@@ -158,6 +161,23 @@ pub struct RunArgs {
     /// GPU frame latency: number of frames (1-3, default 2 for balanced performance).
     #[arg(long, value_name = "FRAMES", default_value = "2")]
     pub gpu_latency: u32,
+
+    /// Crossfade easing curve: `linear`, `smoothstep`, or `ease-in-out`.
+    #[arg(
+        long,
+        value_name = "CURVE",
+        value_parser = parse_crossfade_curve
+    )]
+    pub crossfade_curve: Option<CrossfadeCurve>,
+
+    /// Disable VSync to reduce stutter: `never` (default, always use vsync), `crossfade` (disable only during crossfades), or `always` (never use vsync, may cause tearing).
+    #[arg(
+        long = "no-vsync",
+        value_name = "MODE",
+        value_parser = parse_vsync_mode,
+        default_value = "never"
+    )]
+    pub vsync_mode: VsyncMode,
 }
 
 /// GPU power preference mode.
@@ -263,6 +283,23 @@ pub fn parse_color_space(value: &str) -> Result<ColorSpaceMode, String> {
         "linear" | "srgb" => Ok(ColorSpaceMode::Linear),
         other => Err(format!(
             "unknown color space '{other}'; expected auto, gamma, or linear"
+        )),
+    }
+}
+
+pub fn parse_crossfade_curve(value: &str) -> Result<CrossfadeCurve, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("crossfade curve must not be empty".to_string());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "linear" => Ok(CrossfadeCurve::Linear),
+        "smoothstep" => Ok(CrossfadeCurve::Smoothstep),
+        "ease-in-out" | "ease_in_out" | "easeinout" => Ok(CrossfadeCurve::EaseInOut),
+        other => Err(format!(
+            "unknown crossfade curve '{other}'; expected linear, smoothstep, or ease-in-out"
         )),
     }
 }
@@ -386,6 +423,23 @@ pub fn parse_gpu_memory(value: &str) -> Result<GpuMemoryMode, String> {
         "performance" | "perf" | "max" => Ok(GpuMemoryMode::Performance),
         other => Err(format!(
             "unknown GPU memory mode '{other}'; expected balanced or performance"
+        )),
+    }
+}
+
+pub fn parse_vsync_mode(value: &str) -> Result<VsyncMode, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("VSync mode must not be empty".into());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "never" | "on" | "enabled" => Ok(VsyncMode::Never),
+        "crossfade" | "xfade" | "transition" => Ok(VsyncMode::Crossfade),
+        "always" | "off" | "disabled" => Ok(VsyncMode::Always),
+        other => Err(format!(
+            "unknown VSync mode '{other}'; expected never, crossfade, or always"
         )),
     }
 }

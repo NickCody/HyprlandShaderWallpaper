@@ -41,6 +41,7 @@
 //!   rendering and colour handling policies.
 //! - `GpuPowerPreference`, `GpuMemoryMode` — adapter/device usage hints.
 //!
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -186,6 +187,16 @@ pub enum ShaderCompiler {
     NagaGlsl,
 }
 
+impl Hash for ShaderCompiler {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let value = match self {
+            ShaderCompiler::Shaderc => 0u8,
+            ShaderCompiler::NagaGlsl => 1u8,
+        };
+        value.hash(state);
+    }
+}
+
 impl Default for ShaderCompiler {
     fn default() -> Self {
         if cfg!(feature = "shaderc") {
@@ -237,6 +248,18 @@ pub enum SurfaceAlpha {
     Opaque,
     /// Frames may contain transparency and should be blended by the compositor.
     Transparent,
+}
+
+/// Envelope applied to crossfades between shaders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CrossfadeCurve {
+    /// Linear progression from 0 → 1.
+    Linear,
+    /// Smoothstep easing (default) for gentle acceleration/deceleration.
+    #[default]
+    Smoothstep,
+    /// Quadratic ease-in/ease-out.
+    EaseInOut,
 }
 
 impl Default for SurfaceAlpha {
@@ -292,6 +315,23 @@ impl Default for GpuMemoryMode {
     }
 }
 
+/// VSync behavior control for testing stutter mitigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VsyncMode {
+    /// VSync always enabled (default, prevents tearing).
+    Never,
+    /// VSync disabled only during shader crossfades.
+    Crossfade,
+    /// VSync always disabled (may cause tearing but eliminates vsync-related stutter).
+    Always,
+}
+
+impl Default for VsyncMode {
+    fn default() -> Self {
+        Self::Never
+    }
+}
+
 /// Immutable configuration passed to the renderer at start-up.
 ///
 /// `RendererConfig` mirrors CLI flags and tells the renderer which shader file
@@ -331,12 +371,16 @@ pub struct RendererConfig {
     pub exit_on_export: bool,
     /// High-level render behaviour requested by the caller.
     pub policy: RenderPolicy,
+    /// Shape to use when crossfading between shaders.
+    pub crossfade_curve: CrossfadeCurve,
     /// GPU power preference for adapter selection.
     pub gpu_power: GpuPowerPreference,
     /// GPU memory allocation mode.
     pub gpu_memory: GpuMemoryMode,
     /// GPU frame latency (number of frames buffered).
     pub gpu_latency: u32,
+    /// VSync behavior (never disable, disable during crossfade, or always disable).
+    pub vsync_mode: VsyncMode,
 }
 
 impl Default for RendererConfig {
@@ -359,9 +403,11 @@ impl Default for RendererConfig {
             show_window: true,
             exit_on_export: true,
             policy: RenderPolicy::default(),
+            crossfade_curve: CrossfadeCurve::default(),
             gpu_power: GpuPowerPreference::default(),
             gpu_memory: GpuMemoryMode::default(),
             gpu_latency: 2,
+            vsync_mode: VsyncMode::default(),
         }
     }
 }

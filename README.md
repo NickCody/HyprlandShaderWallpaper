@@ -3,7 +3,6 @@
 wax11 shader is a Rust-based live wallpaper engine for Wayland compositors written mostly by AI. 
 
 wax11 shader renders ShaderToy-compatible GPU shaders as live backgrounds and supports both remote ShaderToy content and local shader packs. It can run in windowed mode for testing or as a daemon that manages multiple outputs and workspaces, with optional playlist support for rotating wallpapers. 
->>>>>>> 1954ce0 (wax11 rebrand)
 
 ## AppImage Installation (Recommended)
 

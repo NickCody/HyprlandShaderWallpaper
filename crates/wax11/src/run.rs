@@ -273,9 +273,11 @@ fn prepare_single_run(
         show_window,
         exit_on_export,
         policy: render_policy,
+        crossfade_curve: args.crossfade_curve.unwrap_or_default(),
         gpu_power: convert_gpu_power(args.gpu_power),
         gpu_memory: convert_gpu_memory(args.gpu_memory),
         gpu_latency: args.gpu_latency,
+        vsync_mode: args.vsync_mode,
     };
 
     Ok(SingleRunConfig { renderer_config })

@@ -116,6 +116,12 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 ### Minor Optimizations
 - Revisit crossfade warm-up behaviour to eliminate residual frame jitter once additional profiling data is available
 
+## Crossfade Optimizations
+- Introduce a lightweight `PrepareShader` worker so playlist swaps never block the Wayland render thread; keep the current thread focused on presenting frames.
+- Reduce default warmup to roughly a single heartbeat (~100 ms) and only render the pending pipeline once preparation completes to avoid prolonged double-pass load.
+- Emit preparation telemetry (start/end timestamps, fallback counters) so we can spot late arrivals and tune lead times.
+- Future: layer in playlist lookahead plus a small pipeline cache once the async path proves stable.
+
 ## Path & Handle Specification
 
 ### Advanced Handle Schemes
@@ -144,3 +150,6 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 
 ### Quality Assurance Tools
 - **Validation tooling**: Capture side-by-side screenshots or numeric comparisons against Shadertoy for both gamma and linear modes to document expected output
+
+
+Test WINIT_UNIX_BACKEND=x11

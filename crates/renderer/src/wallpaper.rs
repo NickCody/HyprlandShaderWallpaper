@@ -68,7 +68,7 @@ use crate::gpu::{FileExportTarget, GpuState, RenderExportError};
 use crate::runtime::{time_source_for_policy, BoxedTimeSource, FillMethod, RenderPolicy};
 use crate::types::{
     AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, GpuMemoryMode,
-    GpuPowerPreference, RendererConfig, ShaderCompiler, SurfaceAlpha,
+    GpuPowerPreference, RendererConfig, ShaderCompiler, SurfaceAlpha, VsyncMode,
 };
 
 const SOFTWARE_FPS_CAP: f32 = 15.0;
@@ -140,6 +140,7 @@ pub struct SwapRequest {
     pub shader_source: PathBuf,
     pub channel_bindings: ChannelBindings,
     pub crossfade: Duration,
+    pub crossfade_curve: crate::types::CrossfadeCurve,
     pub target_fps: Option<f32>,
     pub antialiasing: Antialiasing,
     pub surface_alpha: SurfaceAlpha,
@@ -318,6 +319,8 @@ struct WallpaperManager {
     gpu_power: GpuPowerPreference,
     gpu_memory: GpuMemoryMode,
     gpu_latency: u32,
+    crossfade_curve: crate::types::CrossfadeCurve,
+    vsync_mode: VsyncMode,
 }
 
 impl WallpaperManager {
@@ -352,6 +355,8 @@ impl WallpaperManager {
             gpu_power: config.gpu_power,
             gpu_memory: config.gpu_memory,
             gpu_latency: config.gpu_latency,
+            crossfade_curve: config.crossfade_curve,
+            vsync_mode: config.vsync_mode,
         })
     }
 
@@ -487,6 +492,8 @@ impl WallpaperManager {
             self.gpu_power,
             self.gpu_memory,
             self.gpu_latency,
+            self.crossfade_curve,
+            self.vsync_mode,
         )?;
         if let Some(size) = initial_size {
             if surface_state
@@ -543,6 +550,7 @@ impl WallpaperManager {
                     shader_source,
                     channel_bindings,
                     mut crossfade,
+                    crossfade_curve,
                     target_fps,
                     antialiasing,
                     surface_alpha,
@@ -574,6 +582,19 @@ impl WallpaperManager {
                             );
                             crossfade = Duration::ZERO;
                         }
+                        if surface
+                            .gpu
+                            .as_ref()
+                            .map(|gpu| gpu.channel_kinds() != &layout_signature)
+                            .unwrap_or(false)
+                        {
+                            tracing::debug!(
+                                target = %surface_id.0,
+                                "channel layout changed; rebuilding GPU state"
+                            );
+                            surface.gpu = None;
+                        }
+                        surface.crossfade_curve = crossfade_curve;
                         surface.apply_render_preferences(
                             target_fps,
                             antialiasing,
@@ -591,6 +612,7 @@ impl WallpaperManager {
                             shader_source.as_path(),
                             &channel_bindings,
                             crossfade,
+                            crossfade_curve,
                             warmup,
                         ) {
                             tracing::error!(
@@ -848,6 +870,7 @@ struct SurfaceState {
     shader_source: PathBuf,
     channel_bindings: ChannelBindings,
     crossfade: Duration,
+    crossfade_curve: crate::types::CrossfadeCurve,
     output_key: Option<OutputId>,
     antialiasing: Antialiasing,
     surface_alpha: SurfaceAlpha,
@@ -862,6 +885,7 @@ struct SurfaceState {
     gpu_power: GpuPowerPreference,
     gpu_memory: GpuMemoryMode,
     gpu_latency: u32,
+    vsync_mode: VsyncMode,
 }
 
 impl SurfaceState {
@@ -883,6 +907,8 @@ impl SurfaceState {
         gpu_power: GpuPowerPreference,
         gpu_memory: GpuMemoryMode,
         gpu_latency: u32,
+        crossfade_curve: crate::types::CrossfadeCurve,
+        vsync_mode: VsyncMode,
     ) -> Result<Self> {
         let time_source = time_source_for_policy(&policy)?;
         Ok(Self {
@@ -908,6 +934,8 @@ impl SurfaceState {
             gpu_power,
             gpu_memory,
             gpu_latency,
+            crossfade_curve,
+            vsync_mode,
         })
     }
 
@@ -937,6 +965,8 @@ impl SurfaceState {
             self.gpu_power,
             self.gpu_memory,
             self.gpu_latency,
+            self.crossfade_curve,
+            self.vsync_mode,
         )?;
         let is_software = gpu.adapter_profile().is_software();
         if is_software {
@@ -960,14 +990,23 @@ impl SurfaceState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         crossfade: Duration,
+        crossfade_curve: crate::types::CrossfadeCurve,
         warmup: Duration,
     ) -> Result<()> {
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.set_shader(shader_source, channel_bindings, crossfade, warmup, now)?;
+            gpu.set_shader(
+                shader_source,
+                channel_bindings,
+                crossfade,
+                warmup,
+                now,
+                crossfade_curve,
+            )?;
         }
         self.shader_source = shader_source.to_path_buf();
         self.channel_bindings = channel_bindings.clone();
         self.crossfade = crossfade;
+        self.crossfade_curve = crossfade_curve;
         self.rendered_once = false;
         Ok(())
     }
@@ -1057,7 +1096,7 @@ impl SurfaceState {
                 RenderPolicy::Export { path, format, .. } => {
                     let target = FileExportTarget {
                         path: path.clone(),
-                        format: *format,
+                        _format: *format,
                     };
                     Some(gpu.render_export([0.0; 4], Some(sample), &target))
                 }
@@ -1071,8 +1110,10 @@ impl SurfaceState {
                 match result {
                     Ok(_) => {}
                     Err(RenderExportError::Surface(surface_err)) => return Err(surface_err),
-                    Err(RenderExportError::Export(other)) => {
-                        tracing::error!(error = %other, "failed to export still frame");
+                    Err(RenderExportError::Unsupported) => {
+                        tracing::warn!(
+                            "still-frame export is currently unavailable in the simplified renderer"
+                        );
                     }
                 }
             }
@@ -1167,73 +1208,142 @@ impl SurfaceState {
 
 struct FramePacer {
     target_interval: Option<Duration>,
-    accumulator: Duration,
-    last_tick: Option<Instant>,
+    next_due: Option<Instant>,
+    last_callback: Option<Instant>,
+    average_callback: Option<Duration>,
     is_frame_scheduled: bool,
 }
 
 impl FramePacer {
     fn new(target_fps: Option<f32>) -> Self {
-        let target_interval = target_fps.and_then(|fps| {
-            if fps > 0.0 {
-                Some(Duration::from_secs_f32(1.0 / fps))
-            } else {
-                None
-            }
-        });
         Self {
-            target_interval,
-            accumulator: Duration::ZERO,
-            last_tick: None,
+            target_interval: Self::fps_to_interval(target_fps),
+            next_due: None,
+            last_callback: None,
+            average_callback: None,
             is_frame_scheduled: false,
         }
     }
 
-    fn set_target_fps(&mut self, target_fps: Option<f32>) {
-        self.target_interval = target_fps.and_then(|fps| {
+    fn fps_to_interval(target_fps: Option<f32>) -> Option<Duration> {
+        target_fps.and_then(|fps| {
             if fps > 0.0 {
                 Some(Duration::from_secs_f32(1.0 / fps))
             } else {
                 None
             }
-        });
-        self.accumulator = Duration::ZERO;
-        self.last_tick = None;
+        })
+    }
+
+    fn set_target_fps(&mut self, target_fps: Option<f32>) {
+        self.target_interval = Self::fps_to_interval(target_fps);
+        self.next_due = None;
+        self.last_callback = None;
+        self.average_callback = None;
         self.is_frame_scheduled = false;
     }
 
     fn reset(&mut self) {
-        self.accumulator = Duration::ZERO;
-        self.last_tick = Some(Instant::now());
+        self.next_due = None;
+        self.last_callback = None;
+        self.average_callback = None;
         self.is_frame_scheduled = false;
     }
 
     fn should_render(&mut self) -> bool {
         let now = Instant::now();
-        match (self.target_interval, self.last_tick) {
-            (Some(interval), Some(last)) => {
-                let delta = now.saturating_duration_since(last);
-                self.last_tick = Some(now);
-                self.accumulator = self.accumulator.saturating_add(delta);
-                if self.accumulator + Duration::from_micros(250) < interval {
-                    self.is_frame_scheduled = false;
-                    false
-                } else {
-                    self.accumulator = self.accumulator.saturating_sub(interval);
-                    self.is_frame_scheduled = false;
+        self.is_frame_scheduled = false;
+
+        let Some(target_interval) = self.target_interval else {
+            self.last_callback = Some(now);
+            self.next_due = None;
+            self.average_callback = None;
+            return true;
+        };
+
+        if let Some(last) = self.last_callback {
+            let delta = now.saturating_duration_since(last);
+            if delta > Duration::ZERO {
+                self.average_callback = Some(match self.average_callback {
+                    Some(avg) => Self::blend_interval(avg, delta),
+                    None => delta,
+                });
+            }
+        }
+        self.last_callback = Some(now);
+
+        let interval = self.cadence_interval(target_interval);
+        let tolerance = Self::tolerance(interval);
+
+        match self.next_due {
+            None => {
+                self.next_due = Some(now + interval);
+                true
+            }
+            Some(mut due) => {
+                if now + tolerance >= due {
+                    while now + tolerance >= due {
+                        due += interval;
+                    }
+                    self.next_due = Some(due);
                     true
+                } else {
+                    false
                 }
             }
-            (Some(_), None) => {
-                self.last_tick = Some(now);
-                self.is_frame_scheduled = false;
-                true
+        }
+    }
+
+    fn blend_interval(existing: Duration, observed: Duration) -> Duration {
+        const ALPHA: f64 = 0.15;
+        let existing_secs = existing.as_secs_f64();
+        let observed_secs = observed.as_secs_f64();
+        Duration::from_secs_f64(existing_secs * (1.0 - ALPHA) + observed_secs * ALPHA)
+    }
+
+    fn cadence_interval(&self, target_interval: Duration) -> Duration {
+        let average = self.average_callback.unwrap_or(target_interval);
+        if average.is_zero() {
+            return target_interval;
+        }
+
+        let target_secs = target_interval.as_secs_f64();
+        let callback_secs = average.as_secs_f64();
+        if target_secs <= callback_secs {
+            return target_interval;
+        }
+
+        let ratio = target_secs / callback_secs;
+        let candidates = [
+            ratio.floor().max(1.0),
+            ratio.ceil().max(1.0),
+            ratio.round().max(1.0),
+        ];
+
+        let mut best_interval = target_interval;
+        let mut best_error = f64::MAX;
+
+        for step in candidates {
+            if step.is_finite() && step >= 1.0 {
+                let interval_secs = callback_secs * step;
+                let error = (interval_secs - target_secs).abs() / target_secs;
+                if error <= 0.15 && error < best_error {
+                    best_error = error;
+                    best_interval = Duration::from_secs_f64(interval_secs);
+                }
             }
-            (None, _) => {
-                self.last_tick = Some(now);
-                self.is_frame_scheduled = false;
-                true
-            }
+        }
+
+        best_interval
+    }
+
+    fn tolerance(interval: Duration) -> Duration {
+        let candidate = Duration::from_secs_f64(interval.as_secs_f64() / 40.0);
+        let minimum = Duration::from_millis(1);
+        if candidate > minimum {
+            candidate
+        } else {
+            minimum
         }
     }
 }
