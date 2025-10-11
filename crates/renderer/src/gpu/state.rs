@@ -1,8 +1,13 @@
+use std::collections::HashMap;
 use std::fmt;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use tracing::{debug, warn};
 use wgpu::util::DeviceExt;
@@ -15,10 +20,140 @@ use crate::types::{
 };
 
 use super::channels::{KEYBOARD_BYTES_PER_PIXEL, KEYBOARD_TEXTURE_HEIGHT, KEYBOARD_TEXTURE_WIDTH};
-use super::context::GpuContext;
+use super::context::{GpuContext, SurfaceColorSpace};
 use super::pipeline::{PipelineLayouts, ShaderPipeline};
 use super::timeline::FadeEnvelope;
 use super::uniforms::{fill_parameters, logical_dimensions, ShadertoyUniforms};
+
+const PIPELINE_CACHE_MODE: PipelineCacheMode = PipelineCacheMode::OnDemand;
+const PIPELINE_BUILD_STRATEGY: PipelineBuildStrategy = PipelineBuildStrategy::Threaded;
+const PIPELINE_PRIME_ON_SUBMIT: bool = true;
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PipelineCacheMode {
+    Disabled,
+    OnDemand,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PipelineBuildStrategy {
+    Immediate,
+    Threaded,
+}
+
+#[derive(Clone)]
+struct PipelineHandle(Arc<ShaderPipeline>);
+
+impl PipelineHandle {
+    fn from_pipeline(pipeline: ShaderPipeline) -> Self {
+        Self(Arc::new(pipeline))
+    }
+
+    fn shader_path(&self) -> &Path {
+        &self.0.shader_source
+    }
+}
+
+impl Deref for PipelineHandle {
+    type Target = ShaderPipeline;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct PipelineKey {
+    shader_path: PathBuf,
+    channel_signature: u8,
+    compiler: ShaderCompiler,
+    sample_count: u32,
+    surface_format: wgpu::TextureFormat,
+    linear_color_space: bool,
+}
+
+impl PipelineKey {
+    fn new(
+        shader_path: &Path,
+        channel_signature: u8,
+        compiler: ShaderCompiler,
+        sample_count: u32,
+        surface_format: wgpu::TextureFormat,
+        color_space: SurfaceColorSpace,
+    ) -> Self {
+        Self {
+            shader_path: shader_path.to_path_buf(),
+            channel_signature,
+            compiler,
+            sample_count,
+            surface_format,
+            linear_color_space: matches!(color_space, SurfaceColorSpace::Linear),
+        }
+    }
+}
+
+struct PipelineCache {
+    mode: PipelineCacheMode,
+    entries: HashMap<PipelineKey, PipelineHandle>,
+}
+
+impl PipelineCache {
+    fn new(mode: PipelineCacheMode) -> Self {
+        Self {
+            mode,
+            entries: HashMap::new(),
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        !matches!(self.mode, PipelineCacheMode::Disabled)
+    }
+
+    fn get(&self, key: &PipelineKey) -> Option<PipelineHandle> {
+        self.entries.get(key).cloned()
+    }
+
+    fn store(&mut self, key: PipelineKey, handle: PipelineHandle) {
+        if self.enabled() {
+            self.entries.insert(key, handle);
+        }
+    }
+}
+
+enum PipelineFuture {
+    Ready(PipelineHandle),
+    Threaded {
+        receiver: Receiver<anyhow::Result<PipelineHandle>>,
+    },
+}
+
+impl PipelineFuture {
+    fn ready(handle: PipelineHandle) -> Self {
+        PipelineFuture::Ready(handle)
+    }
+
+    fn poll(&mut self) -> anyhow::Result<Option<PipelineHandle>> {
+        match self {
+            PipelineFuture::Ready(handle) => Ok(Some(handle.clone())),
+            PipelineFuture::Threaded { receiver } => match receiver.try_recv() {
+                Ok(result) => result.map(Some),
+                Err(TryRecvError::Empty) => Ok(None),
+                Err(TryRecvError::Disconnected) => Err(anyhow!(
+                    "pipeline build worker disconnected before returning a result"
+                )),
+            },
+        }
+    }
+}
+
+fn compute_channel_signature(kinds: &[ChannelTextureKind; CHANNEL_COUNT]) -> u8 {
+    kinds.iter().enumerate().fold(0u8, |acc, (index, kind)| {
+        let bit = matches!(kind, ChannelTextureKind::Cubemap) as u8;
+        acc | (bit << index)
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct FileExportTarget {
@@ -76,9 +211,10 @@ pub(crate) struct GpuState {
     render_scale: f32,
     fill_method: FillMethod,
     crossfade_curve: CrossfadeCurve,
-    current: ShaderPipeline,
-    previous: Option<ShaderPipeline>,
+    current: PipelineHandle,
+    previous: Option<PipelineHandle>,
     pending: Option<PendingPipeline>,
+    pipeline_cache: PipelineCache,
     fade: Option<FadeEnvelope>,
     multisample_target: Option<MultisampleTarget>,
     start_time: Instant,
@@ -93,10 +229,70 @@ pub(crate) struct GpuState {
 }
 
 struct PendingPipeline {
-    pipeline: ShaderPipeline,
-    warmup_end: Instant,
+    key: PipelineKey,
+    future: PipelineFuture,
+    handle: Option<PipelineHandle>,
     crossfade: Duration,
+    warmup: Duration,
+    warmup_deadline: Option<Instant>,
     warmed: bool,
+}
+
+impl PendingPipeline {
+    fn new(
+        key: PipelineKey,
+        future: PipelineFuture,
+        crossfade: Duration,
+        warmup: Duration,
+    ) -> Self {
+        Self {
+            key,
+            future,
+            handle: None,
+            crossfade,
+            warmup,
+            warmup_deadline: None,
+            warmed: false,
+        }
+    }
+
+    fn from_ready(
+        key: PipelineKey,
+        handle: PipelineHandle,
+        crossfade: Duration,
+        warmup: Duration,
+        now: Instant,
+    ) -> Self {
+        let mut pending = Self::new(
+            key,
+            PipelineFuture::ready(handle.clone()),
+            crossfade,
+            warmup,
+        );
+        pending.mark_ready(handle, now);
+        pending
+    }
+
+    fn poll(&mut self, cache: &mut PipelineCache, now: Instant) -> anyhow::Result<bool> {
+        if self.handle.is_some() {
+            return Ok(true);
+        }
+
+        if let Some(handle) = self.future.poll()? {
+            cache.store(self.key.clone(), handle.clone());
+            self.mark_ready(handle, now);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn mark_ready(&mut self, handle: PipelineHandle, now: Instant) {
+        self.handle = Some(handle);
+        if self.warmup_deadline.is_none() {
+            self.warmup_deadline = Some(now + self.warmup);
+        }
+    }
 }
 
 struct MultisampleTarget {
@@ -198,6 +394,20 @@ impl GpuState {
             shader_compiler,
         )?;
 
+        let current = PipelineHandle::from_pipeline(current);
+        let mut pipeline_cache = PipelineCache::new(PIPELINE_CACHE_MODE);
+        if pipeline_cache.enabled() {
+            let key = PipelineKey::new(
+                shader_source,
+                compute_channel_signature(&channel_kinds),
+                shader_compiler,
+                context.sample_count,
+                context.surface_format,
+                context.color_space,
+            );
+            pipeline_cache.store(key, current.clone());
+        }
+
         let mut uniforms = ShadertoyUniforms::new(context.size.width, context.size.height);
         uniforms.set_fade(1.0);
         Self::write_uniforms(&context.queue, &uniform_buffer, &uniforms);
@@ -227,6 +437,7 @@ impl GpuState {
             current,
             previous: None,
             pending: None,
+            pipeline_cache,
             fade: None,
             multisample_target,
             start_time: Instant::now(),
@@ -263,7 +474,8 @@ impl GpuState {
             || self
                 .pending
                 .as_ref()
-                .map(|pipeline| pipeline.pipeline.has_keyboard_channel())
+                .and_then(|pending| pending.handle.as_ref())
+                .map(|handle| handle.has_keyboard_channel())
                 .unwrap_or(false)
     }
 
@@ -280,7 +492,9 @@ impl GpuState {
             previous.update_keyboard_channels(queue, data);
         }
         if let Some(pending) = &self.pending {
-            pending.pipeline.update_keyboard_channels(queue, data);
+            if let Some(handle) = &pending.handle {
+                handle.update_keyboard_channels(queue, data);
+            }
         }
     }
 
@@ -323,6 +537,46 @@ impl GpuState {
             anyhow::bail!("channel layout changed; rebuild renderer to account for new resources");
         }
 
+        let key = PipelineKey::new(
+            shader_source,
+            compute_channel_signature(&self.channel_kinds),
+            self.shader_compiler,
+            self.context.sample_count,
+            self.context.surface_format,
+            self.context.color_space,
+        );
+
+        self.crossfade_curve = curve;
+
+        if let Some(handle) = self.pipeline_cache.get(&key) {
+            self.pending = Some(PendingPipeline::from_ready(
+                key, handle, crossfade, warmup, now,
+            ));
+            return Ok(());
+        }
+
+        match PIPELINE_BUILD_STRATEGY {
+            PipelineBuildStrategy::Immediate => {
+                let handle = self.build_pipeline_immediate(shader_source, channel_bindings)?;
+                self.pipeline_cache.store(key.clone(), handle.clone());
+                self.pending = Some(PendingPipeline::from_ready(
+                    key, handle, crossfade, warmup, now,
+                ));
+            }
+            PipelineBuildStrategy::Threaded => {
+                let future = self
+                    .build_pipeline_threaded(shader_source.to_path_buf(), channel_bindings.clone());
+                self.pending = Some(PendingPipeline::new(key, future, crossfade, warmup));
+            }
+        }
+        Ok(())
+    }
+
+    fn build_pipeline_immediate(
+        &self,
+        shader_source: &Path,
+        channel_bindings: &ChannelBindings,
+    ) -> Result<PipelineHandle> {
         let pipeline = ShaderPipeline::new(
             &self.context.device,
             &self.context.queue,
@@ -335,15 +589,43 @@ impl GpuState {
             self.context.color_space,
             self.shader_compiler,
         )?;
+        Ok(PipelineHandle::from_pipeline(pipeline))
+    }
 
-        self.crossfade_curve = curve;
-        self.pending = Some(PendingPipeline {
-            pipeline,
-            warmup_end: now + warmup,
-            crossfade,
-            warmed: false,
+    fn build_pipeline_threaded(
+        &self,
+        shader_path: PathBuf,
+        channel_bindings: ChannelBindings,
+    ) -> PipelineFuture {
+        let device = self.context.device.clone();
+        let queue = self.context.queue.clone();
+        let layouts = self.layouts.clone();
+        let surface_format = self.context.surface_format;
+        let sample_count = self.context.sample_count;
+        let channel_kinds = self.channel_kinds;
+        let color_space = self.context.color_space;
+        let compiler = self.shader_compiler;
+
+        let (sender, receiver) = mpsc::channel();
+
+        thread::spawn(move || {
+            let result = ShaderPipeline::new(
+                &device,
+                &queue,
+                &layouts,
+                surface_format,
+                sample_count,
+                shader_path.as_path(),
+                &channel_bindings,
+                &channel_kinds,
+                color_space,
+                compiler,
+            )
+            .map(PipelineHandle::from_pipeline);
+            let _ = sender.send(result);
         });
-        Ok(())
+
+        PipelineFuture::Threaded { receiver }
     }
 
     pub(crate) fn render(
@@ -414,12 +696,14 @@ impl GpuState {
             mouse,
         );
 
-        let mut pending_action = None;
-        if let Some(pending) = self.pending.take() {
-            if now >= pending.warmup_end {
-                self.promote_pending(pending, now);
-            } else {
-                pending_action = Some(pending);
+        let mut ready_pending = None;
+        if let Some(mut pending) = self.pending.take() {
+            match pending.poll(&mut self.pipeline_cache, now) {
+                Ok(true) => ready_pending = Some(pending),
+                Ok(false) => self.pending = Some(pending),
+                Err(err) => {
+                    warn!(error = %err, "failed to resolve pending pipeline");
+                }
             }
         }
 
@@ -433,7 +717,7 @@ impl GpuState {
                     label: Some("render encoder"),
                 });
 
-        let current_pipeline_ptr = &self.current as *const ShaderPipeline;
+        let current_pipeline = self.current.clone();
 
         let mut load = wgpu::LoadOp::Clear(wgpu::Color::BLACK);
         let mut previous_pipeline = self.previous.take();
@@ -455,9 +739,7 @@ impl GpuState {
                 load = wgpu::LoadOp::Load;
             }
             if curr_mix > f32::EPSILON {
-                unsafe {
-                    self.encode_draw(&mut encoder, &view, &*current_pipeline_ptr, curr_mix, load);
-                }
+                self.encode_draw(&mut encoder, &view, &current_pipeline, curr_mix, load);
             }
             if finished {
                 previous_pipeline = None;
@@ -469,9 +751,7 @@ impl GpuState {
                 }
             }
         } else {
-            unsafe {
-                self.encode_draw(&mut encoder, &view, &*current_pipeline_ptr, 1.0, load);
-            }
+            self.encode_draw(&mut encoder, &view, &current_pipeline, 1.0, load);
             previous_pipeline = None;
             fade_state = None;
         }
@@ -480,29 +760,36 @@ impl GpuState {
         self.previous = previous_pipeline;
         self.fade = fade_state;
 
-        if let Some(mut pending) = pending_action {
-            if !pending.warmed {
-                // Pre-warm the pending pipeline by encoding a draw with zero mix. This forces the
-                // driver to compile the shader and allocate resources before the crossfade begins,
-                // preventing a stutter on the first frame of the transition.
-                let prewarm_start = Instant::now();
-                self.encode_draw(
-                    &mut encoder,
-                    &view,
-                    &pending.pipeline,
-                    0.0,
-                    wgpu::LoadOp::Load,
-                );
-                let prewarm_duration = prewarm_start.elapsed();
-                debug!(
-                    shader = %pending.pipeline.shader_source.display(),
-                    duration_us = prewarm_duration.as_micros(),
-                    frame_acquisition_duration_us = frame_acquisition_duration.as_micros(),
-                    "pre-warmed new shader pipeline"
-                );
-                pending.warmed = true;
+        if let Some(mut pending) = ready_pending {
+            if let Some(handle) = pending.handle.as_ref() {
+                if PIPELINE_PRIME_ON_SUBMIT && !pending.warmed {
+                    // Pre-warm the pending pipeline by encoding a draw with zero mix. This forces the
+                    // driver to compile the shader and allocate resources before the crossfade begins,
+                    // preventing a stutter on the first frame of the transition.
+                    let prewarm_start = Instant::now();
+                    self.encode_draw(&mut encoder, &view, handle, 0.0, wgpu::LoadOp::Load);
+                    let prewarm_duration = prewarm_start.elapsed();
+                    debug!(
+                        shader = %handle.shader_path().display(),
+                        duration_us = prewarm_duration.as_micros(),
+                        frame_acquisition_duration_us = frame_acquisition_duration.as_micros(),
+                        "pre-warmed new shader pipeline"
+                    );
+                    pending.warmed = true;
+                }
+
+                if pending
+                    .warmup_deadline
+                    .is_none_or(|deadline| now >= deadline)
+                {
+                    self.promote_pending(pending, now);
+                } else {
+                    self.pending = Some(pending);
+                }
+            } else {
+                // Handle should always be ready in this branch, but keep the pipeline pending if not.
+                self.pending = Some(pending);
             }
-            self.pending = Some(pending);
         }
 
         self.context.queue.submit(std::iter::once(encoder.finish()));
@@ -599,14 +886,18 @@ impl GpuState {
     }
 
     fn promote_pending(&mut self, pending: PendingPipeline, now: Instant) {
+        let handle = pending
+            .handle
+            .expect("pending pipeline promoted without a resolved handle");
+
         if pending.crossfade <= Duration::from_millis(16) {
-            self.current = pending.pipeline;
+            self.current = handle;
             self.previous = None;
             self.fade = None;
             return;
         }
 
-        let previous = std::mem::replace(&mut self.current, pending.pipeline);
+        let previous = std::mem::replace(&mut self.current, handle);
         self.previous = Some(previous);
         self.fade = FadeEnvelope::new(pending.crossfade, self.crossfade_curve, now);
     }

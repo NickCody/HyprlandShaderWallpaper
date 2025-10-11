@@ -38,6 +38,15 @@ impl PipelineLayouts {
     }
 }
 
+impl Clone for PipelineLayouts {
+    fn clone(&self) -> Self {
+        Self {
+            uniform_layout: self.uniform_layout.clone(),
+            vertex_module: self.vertex_module.clone(),
+        }
+    }
+}
+
 pub(crate) struct ShaderPipeline {
     pub pipeline: wgpu::RenderPipeline,
     pub channel_bind_group: wgpu::BindGroup,
@@ -142,14 +151,32 @@ impl ShaderPipeline {
             .iter()
             .any(|resource| resource.is_keyboard());
 
-        Ok(Self {
+        Ok(Self::from_parts(
+            pipeline,
+            channel_bind_group,
+            channel_resources,
+            channel_layout,
+            has_keyboard,
+            shader_path.to_path_buf(),
+        ))
+    }
+
+    pub(crate) fn from_parts(
+        pipeline: wgpu::RenderPipeline,
+        channel_bind_group: wgpu::BindGroup,
+        channel_resources: Vec<ChannelResources>,
+        channel_layout: wgpu::BindGroupLayout,
+        has_keyboard: bool,
+        shader_source: PathBuf,
+    ) -> Self {
+        Self {
             pipeline,
             channel_bind_group,
             channel_resources,
             _channel_layout: channel_layout,
             has_keyboard,
-            shader_source: shader_path.to_path_buf(),
-        })
+            shader_source,
+        }
     }
 
     pub fn has_keyboard_channel(&self) -> bool {
@@ -166,7 +193,9 @@ impl ShaderPipeline {
     }
 }
 
-fn build_channel_entries(resources: &[ChannelResources]) -> Vec<wgpu::BindGroupEntry<'_>> {
+pub(crate) fn build_channel_entries(
+    resources: &[ChannelResources],
+) -> Vec<wgpu::BindGroupEntry<'_>> {
     let mut entries = Vec::with_capacity(resources.len() * 2);
     for (index, resource) in resources.iter().enumerate() {
         entries.push(wgpu::BindGroupEntry {
@@ -181,7 +210,7 @@ fn build_channel_entries(resources: &[ChannelResources]) -> Vec<wgpu::BindGroupE
     entries
 }
 
-fn build_channel_layout_entries(
+pub(crate) fn build_channel_layout_entries(
     kinds: &[ChannelTextureKind; CHANNEL_COUNT],
 ) -> Vec<wgpu::BindGroupLayoutEntry> {
     let mut entries = Vec::with_capacity(CHANNEL_COUNT * 2);

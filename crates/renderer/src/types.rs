@@ -41,6 +41,7 @@
 //!   rendering and colour handling policies.
 //! - `GpuPowerPreference`, `GpuMemoryMode` — adapter/device usage hints.
 //!
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -184,6 +185,16 @@ pub enum ShaderCompiler {
     Shaderc,
     /// Hand GLSL to naga's built-in frontend.
     NagaGlsl,
+}
+
+impl Hash for ShaderCompiler {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let value = match self {
+            ShaderCompiler::Shaderc => 0u8,
+            ShaderCompiler::NagaGlsl => 1u8,
+        };
+        value.hash(state);
+    }
 }
 
 impl Default for ShaderCompiler {
