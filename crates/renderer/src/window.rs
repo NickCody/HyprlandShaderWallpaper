@@ -76,6 +76,7 @@ pub(crate) struct WindowState {
     gpu_power: GpuPowerPreference,
     gpu_memory: GpuMemoryMode,
     gpu_latency: u32,
+    crossfade_curve: crate::types::CrossfadeCurve,
 }
 
 #[derive(Debug)]
@@ -112,13 +113,14 @@ impl WindowState {
             config.gpu_power,
             config.gpu_memory,
             config.gpu_latency,
+            config.crossfade_curve,
         )?;
 
         let frame_sink = match &config.policy {
             RenderPolicy::Export { path, format, .. } => FrameSinkDriver::Export(FileExportState {
                 target: FileExportTarget {
                     path: path.clone(),
-                    format: *format,
+                    _format: *format,
                 },
                 captured: false,
             }),
@@ -140,6 +142,7 @@ impl WindowState {
             gpu_power: config.gpu_power,
             gpu_memory: config.gpu_memory,
             gpu_latency: config.gpu_latency,
+            crossfade_curve: config.crossfade_curve,
         };
         state.sync_keyboard(true);
         Ok(state)
@@ -211,6 +214,7 @@ impl WindowState {
         surface_alpha: SurfaceAlpha,
         color_space: ColorSpaceMode,
         crossfade: Duration,
+        crossfade_curve: crate::types::CrossfadeCurve,
         warmup: Duration,
     ) -> Result<()> {
         let preferences_changed =
@@ -219,6 +223,7 @@ impl WindowState {
             self.surface_alpha = surface_alpha;
             self.color_space = color_space;
         }
+        self.crossfade_curve = crossfade_curve;
         let layout_signature = channel_bindings.layout_signature();
         let layout_changed =
             self.gpu.as_ref().expect("gpu initialized").channel_kinds() != &layout_signature;
@@ -246,6 +251,7 @@ impl WindowState {
                 self.gpu_power,
                 self.gpu_memory,
                 self.gpu_latency,
+                self.crossfade_curve,
             )?;
             self.gpu = Some(new_gpu);
         } else {
@@ -255,6 +261,7 @@ impl WindowState {
                 crossfade,
                 warmup,
                 Instant::now(),
+                self.crossfade_curve,
             )?;
         }
         self.sync_keyboard(true);
@@ -576,6 +583,7 @@ fn run_window_thread(
                         shader_source,
                         channel_bindings,
                         crossfade,
+                        crossfade_curve,
                         antialiasing,
                         surface_alpha,
                         color_space,
@@ -591,6 +599,7 @@ fn run_window_thread(
                         surface_alpha,
                         color_space,
                         crossfade,
+                        crossfade_curve,
                         warmup,
                     ) {
                         error!("failed to swap window shader: {err:?}");

@@ -28,9 +28,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use multiconfig::{AntialiasSetting, MultiConfig};
 use renderer::{
-    Antialiasing, ChannelBindings, ColorSpaceMode, OutputId, RenderMode, RenderPolicy,
-    RendererConfig, SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest,
-    WallpaperRuntime, WindowRuntime,
+    Antialiasing, ChannelBindings, ColorSpaceMode, CrossfadeCurve, OutputId, RenderMode,
+    RenderPolicy, RendererConfig, SurfaceAlpha, SurfaceId, SurfaceInfo, SurfaceSelector,
+    SwapRequest, WallpaperRuntime, WindowRuntime,
 };
 use scheduler::{ScheduledItem, Scheduler, TargetId};
 use serde::Deserialize;
@@ -121,6 +121,7 @@ fn run_wallpaper_multi(
             target_fps: normalize_fps(args.fps),
             adaptive: args.fps_adaptive,
         },
+        crossfade_curve: args.crossfade_curve.unwrap_or_default(),
         gpu_power: convert_gpu_power(args.gpu_power),
         gpu_memory: convert_gpu_memory(args.gpu_memory),
         gpu_latency: args.gpu_latency,
@@ -136,6 +137,7 @@ fn run_wallpaper_multi(
         global_antialias: args.antialias,
         global_color_space: args.color_space,
         prewarm: Duration::from_millis(args.prewarm_ms.unwrap_or(DEFAULT_PREWARM_MS)),
+        crossfade_curve: args.crossfade_curve.unwrap_or_default(),
     };
     let mut engine = PlaylistEngine::new(config, cache, seed, options);
 
@@ -189,6 +191,7 @@ fn run_window_multi(
             target_fps: None,
             adaptive: args.fps_adaptive,
         },
+        crossfade_curve: args.crossfade_curve.unwrap_or_default(),
         gpu_power: convert_gpu_power(args.gpu_power),
         gpu_memory: convert_gpu_memory(args.gpu_memory),
         gpu_latency: args.gpu_latency,
@@ -204,6 +207,7 @@ fn run_window_multi(
         global_antialias: args.antialias,
         global_color_space: args.color_space,
         prewarm: Duration::from_millis(args.prewarm_ms.unwrap_or(DEFAULT_PREWARM_MS)),
+        crossfade_curve: args.crossfade_curve.unwrap_or_default(),
     };
     let mut engine = PlaylistEngine::new(config, cache, seed, options);
 
@@ -318,6 +322,7 @@ struct EngineOptions {
     global_antialias: Antialiasing,
     global_color_space: ColorSpaceMode,
     prewarm: Duration,
+    crossfade_curve: CrossfadeCurve,
 }
 
 struct ShaderAssets {
@@ -766,6 +771,7 @@ impl<'a> PlaylistEngine<'a> {
                         self.options.global_antialias,
                         self.options.global_color_space,
                         crossfade,
+                        self.options.crossfade_curve,
                         self.options.prewarm,
                     );
                     return Some(SwapAction {
@@ -808,6 +814,7 @@ impl<'a> PlaylistEngine<'a> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_swap_request(
     item: &ScheduledItem,
     assets: &ShaderAssets,
@@ -815,6 +822,7 @@ fn build_swap_request(
     global_antialias: Antialiasing,
     global_color: ColorSpaceMode,
     crossfade: Duration,
+    crossfade_curve: CrossfadeCurve,
     warmup: Duration,
 ) -> SwapRequest {
     let fps = item.fps.or(global_fps);
@@ -840,6 +848,7 @@ fn build_swap_request(
         shader_source: assets.shader_path.clone(),
         channel_bindings: assets.channel_bindings.clone(),
         crossfade,
+        crossfade_curve,
         target_fps,
         antialiasing,
         surface_alpha: assets.surface_alpha,
@@ -1256,6 +1265,7 @@ handle = "alt"
             global_antialias: Antialiasing::Auto,
             global_color_space: ColorSpaceMode::Auto,
             prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+            crossfade_curve: CrossfadeCurve::default(),
         };
         let mut engine = PlaylistEngine::new(config, cache, 99, options);
 
@@ -1331,6 +1341,7 @@ handle = "${HYSHADERS_TEST_PACK}"
                 global_antialias: Antialiasing::Auto,
                 global_color_space: ColorSpaceMode::Auto,
                 prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+                crossfade_curve: CrossfadeCurve::default(),
             },
         );
 
@@ -1397,6 +1408,7 @@ handle = "focus-pack"
             global_antialias: Antialiasing::Auto,
             global_color_space: ColorSpaceMode::Auto,
             prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+            crossfade_curve: CrossfadeCurve::default(),
         };
         let mut engine = PlaylistEngine::new(config, cache, 7, options);
 
@@ -1481,6 +1493,7 @@ handle = "valid-pack"
             global_antialias: Antialiasing::Auto,
             global_color_space: ColorSpaceMode::Auto,
             prewarm: Duration::from_millis(DEFAULT_PREWARM_MS),
+            crossfade_curve: CrossfadeCurve::default(),
         };
         let mut engine = PlaylistEngine::new(config, cache, 55, options);
 
@@ -1542,6 +1555,7 @@ handle = "demo"
             gpu_power: crate::cli::GpuPowerPreference::Low,
             gpu_memory: crate::cli::GpuMemoryMode::Balanced,
             gpu_latency: 2,
+            crossfade_curve: None,
         };
 
         let resolver = PathResolver::with_cwd(temp.path());

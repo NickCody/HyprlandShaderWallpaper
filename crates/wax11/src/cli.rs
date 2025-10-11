@@ -17,7 +17,9 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use renderer::{Antialiasing, ColorSpaceMode, ExportFormat, FillMethod, ShaderCompiler};
+use renderer::{
+    Antialiasing, ColorSpaceMode, CrossfadeCurve, ExportFormat, FillMethod, ShaderCompiler,
+};
 
 use crate::handles::{LaunchHandleArg, PlaylistHandleArg};
 
@@ -158,6 +160,14 @@ pub struct RunArgs {
     /// GPU frame latency: number of frames (1-3, default 2 for balanced performance).
     #[arg(long, value_name = "FRAMES", default_value = "2")]
     pub gpu_latency: u32,
+
+    /// Crossfade easing curve: `linear`, `smoothstep`, or `ease-in-out`.
+    #[arg(
+        long,
+        value_name = "CURVE",
+        value_parser = parse_crossfade_curve
+    )]
+    pub crossfade_curve: Option<CrossfadeCurve>,
 }
 
 /// GPU power preference mode.
@@ -263,6 +273,23 @@ pub fn parse_color_space(value: &str) -> Result<ColorSpaceMode, String> {
         "linear" | "srgb" => Ok(ColorSpaceMode::Linear),
         other => Err(format!(
             "unknown color space '{other}'; expected auto, gamma, or linear"
+        )),
+    }
+}
+
+pub fn parse_crossfade_curve(value: &str) -> Result<CrossfadeCurve, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("crossfade curve must not be empty".to_string());
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    match normalized.as_str() {
+        "linear" => Ok(CrossfadeCurve::Linear),
+        "smoothstep" => Ok(CrossfadeCurve::Smoothstep),
+        "ease-in-out" | "ease_in_out" | "easeinout" => Ok(CrossfadeCurve::EaseInOut),
+        other => Err(format!(
+            "unknown crossfade curve '{other}'; expected linear, smoothstep, or ease-in-out"
         )),
     }
 }

@@ -239,6 +239,18 @@ pub enum SurfaceAlpha {
     Transparent,
 }
 
+/// Envelope applied to crossfades between shaders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CrossfadeCurve {
+    /// Linear progression from 0 → 1.
+    Linear,
+    /// Smoothstep easing (default) for gentle acceleration/deceleration.
+    #[default]
+    Smoothstep,
+    /// Quadratic ease-in/ease-out.
+    EaseInOut,
+}
+
 impl Default for SurfaceAlpha {
     fn default() -> Self {
         Self::Opaque
@@ -331,6 +343,8 @@ pub struct RendererConfig {
     pub exit_on_export: bool,
     /// High-level render behaviour requested by the caller.
     pub policy: RenderPolicy,
+    /// Shape to use when crossfading between shaders.
+    pub crossfade_curve: CrossfadeCurve,
     /// GPU power preference for adapter selection.
     pub gpu_power: GpuPowerPreference,
     /// GPU memory allocation mode.
@@ -359,6 +373,7 @@ impl Default for RendererConfig {
             show_window: true,
             exit_on_export: true,
             policy: RenderPolicy::default(),
+            crossfade_curve: CrossfadeCurve::default(),
             gpu_power: GpuPowerPreference::default(),
             gpu_memory: GpuMemoryMode::default(),
             gpu_latency: 2,

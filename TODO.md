@@ -150,3 +150,6 @@ Include `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and pointers from `A
 
 ### Quality Assurance Tools
 - **Validation tooling**: Capture side-by-side screenshots or numeric comparisons against Shadertoy for both gamma and linear modes to document expected output
+
+
+Test WINIT_UNIX_BACKEND=x11

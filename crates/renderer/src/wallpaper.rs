@@ -140,6 +140,7 @@ pub struct SwapRequest {
     pub shader_source: PathBuf,
     pub channel_bindings: ChannelBindings,
     pub crossfade: Duration,
+    pub crossfade_curve: crate::types::CrossfadeCurve,
     pub target_fps: Option<f32>,
     pub antialiasing: Antialiasing,
     pub surface_alpha: SurfaceAlpha,
@@ -318,6 +319,7 @@ struct WallpaperManager {
     gpu_power: GpuPowerPreference,
     gpu_memory: GpuMemoryMode,
     gpu_latency: u32,
+    crossfade_curve: crate::types::CrossfadeCurve,
 }
 
 impl WallpaperManager {
@@ -352,6 +354,7 @@ impl WallpaperManager {
             gpu_power: config.gpu_power,
             gpu_memory: config.gpu_memory,
             gpu_latency: config.gpu_latency,
+            crossfade_curve: config.crossfade_curve,
         })
     }
 
@@ -487,6 +490,7 @@ impl WallpaperManager {
             self.gpu_power,
             self.gpu_memory,
             self.gpu_latency,
+            self.crossfade_curve,
         )?;
         if let Some(size) = initial_size {
             if surface_state
@@ -543,6 +547,7 @@ impl WallpaperManager {
                     shader_source,
                     channel_bindings,
                     mut crossfade,
+                    crossfade_curve,
                     target_fps,
                     antialiasing,
                     surface_alpha,
@@ -586,6 +591,7 @@ impl WallpaperManager {
                             );
                             surface.gpu = None;
                         }
+                        surface.crossfade_curve = crossfade_curve;
                         surface.apply_render_preferences(
                             target_fps,
                             antialiasing,
@@ -603,6 +609,7 @@ impl WallpaperManager {
                             shader_source.as_path(),
                             &channel_bindings,
                             crossfade,
+                            crossfade_curve,
                             warmup,
                         ) {
                             tracing::error!(
@@ -860,6 +867,7 @@ struct SurfaceState {
     shader_source: PathBuf,
     channel_bindings: ChannelBindings,
     crossfade: Duration,
+    crossfade_curve: crate::types::CrossfadeCurve,
     output_key: Option<OutputId>,
     antialiasing: Antialiasing,
     surface_alpha: SurfaceAlpha,
@@ -895,6 +903,7 @@ impl SurfaceState {
         gpu_power: GpuPowerPreference,
         gpu_memory: GpuMemoryMode,
         gpu_latency: u32,
+        crossfade_curve: crate::types::CrossfadeCurve,
     ) -> Result<Self> {
         let time_source = time_source_for_policy(&policy)?;
         Ok(Self {
@@ -920,6 +929,7 @@ impl SurfaceState {
             gpu_power,
             gpu_memory,
             gpu_latency,
+            crossfade_curve,
         })
     }
 
@@ -949,6 +959,7 @@ impl SurfaceState {
             self.gpu_power,
             self.gpu_memory,
             self.gpu_latency,
+            self.crossfade_curve,
         )?;
         let is_software = gpu.adapter_profile().is_software();
         if is_software {
@@ -972,14 +983,23 @@ impl SurfaceState {
         shader_source: &Path,
         channel_bindings: &ChannelBindings,
         crossfade: Duration,
+        crossfade_curve: crate::types::CrossfadeCurve,
         warmup: Duration,
     ) -> Result<()> {
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.set_shader(shader_source, channel_bindings, crossfade, warmup, now)?;
+            gpu.set_shader(
+                shader_source,
+                channel_bindings,
+                crossfade,
+                warmup,
+                now,
+                crossfade_curve,
+            )?;
         }
         self.shader_source = shader_source.to_path_buf();
         self.channel_bindings = channel_bindings.clone();
         self.crossfade = crossfade;
+        self.crossfade_curve = crossfade_curve;
         self.rendered_once = false;
         Ok(())
     }
@@ -1069,7 +1089,7 @@ impl SurfaceState {
                 RenderPolicy::Export { path, format, .. } => {
                     let target = FileExportTarget {
                         path: path.clone(),
-                        format: *format,
+                        _format: *format,
                     };
                     Some(gpu.render_export([0.0; 4], Some(sample), &target))
                 }
@@ -1083,8 +1103,10 @@ impl SurfaceState {
                 match result {
                     Ok(_) => {}
                     Err(RenderExportError::Surface(surface_err)) => return Err(surface_err),
-                    Err(RenderExportError::Export(other)) => {
-                        tracing::error!(error = %other, "failed to export still frame");
+                    Err(RenderExportError::Unsupported) => {
+                        tracing::warn!(
+                            "still-frame export is currently unavailable in the simplified renderer"
+                        );
                     }
                 }
             }
