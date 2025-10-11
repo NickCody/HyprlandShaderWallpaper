@@ -11,7 +11,7 @@ use winit::dpi::PhysicalSize;
 use crate::runtime::{FillMethod, TimeSample};
 use crate::types::{
     AdapterProfile, Antialiasing, ChannelBindings, ChannelTextureKind, ColorSpaceMode,
-    CrossfadeCurve, GpuMemoryMode, GpuPowerPreference, ShaderCompiler, CHANNEL_COUNT,
+    CrossfadeCurve, GpuMemoryMode, GpuPowerPreference, ShaderCompiler, VsyncMode, CHANNEL_COUNT,
 };
 
 use super::channels::{KEYBOARD_BYTES_PER_PIXEL, KEYBOARD_TEXTURE_HEIGHT, KEYBOARD_TEXTURE_WIDTH};
@@ -88,6 +88,8 @@ pub(crate) struct GpuState {
     last_fps_update: Instant,
     frames_since_last_update: u32,
     frames_per_second: f32,
+    vsync_mode: VsyncMode,
+    is_crossfading: bool,
 }
 
 struct PendingPipeline {
@@ -148,6 +150,7 @@ impl GpuState {
         gpu_memory: GpuMemoryMode,
         gpu_latency: u32,
         crossfade_curve: CrossfadeCurve,
+        vsync_mode: VsyncMode,
     ) -> Result<Self>
     where
         T: HasDisplayHandle + HasWindowHandle,
@@ -160,6 +163,7 @@ impl GpuState {
             gpu_power,
             gpu_memory,
             gpu_latency,
+            vsync_mode,
         )?;
         let channel_kinds = channel_bindings.layout_signature();
         let layouts = PipelineLayouts::new(&context.device, shader_compiler)?;
@@ -232,6 +236,8 @@ impl GpuState {
             last_fps_update: Instant::now(),
             frames_since_last_update: 0,
             frames_per_second: 60.0,
+            vsync_mode,
+            is_crossfading: false,
         })
     }
 
@@ -433,8 +439,17 @@ impl GpuState {
         let mut previous_pipeline = self.previous.take();
         let mut fade_state = self.fade.take();
 
+        // Track whether we're starting or ending a crossfade
+        let was_crossfading = self.is_crossfading;
+
         if let (Some(previous), Some(fade)) = (previous_pipeline.as_ref(), fade_state.as_mut()) {
             let (prev_mix, curr_mix, finished) = fade.mixes(now);
+
+            // If this is the start of crossfade and mode is Crossfade, disable vsync
+            if !was_crossfading && matches!(self.vsync_mode, VsyncMode::Crossfade) {
+                self.context.set_vsync(false);
+            }
+
             if prev_mix > f32::EPSILON {
                 self.encode_draw(&mut encoder, &view, previous, prev_mix, load);
                 load = wgpu::LoadOp::Load;
@@ -447,6 +462,11 @@ impl GpuState {
             if finished {
                 previous_pipeline = None;
                 fade_state = None;
+
+                // Re-enable vsync when crossfade finishes
+                if matches!(self.vsync_mode, VsyncMode::Crossfade) {
+                    self.context.set_vsync(true);
+                }
             }
         } else {
             unsafe {
@@ -456,6 +476,7 @@ impl GpuState {
             fade_state = None;
         }
 
+        self.is_crossfading = fade_state.is_some();
         self.previous = previous_pipeline;
         self.fade = fade_state;
 

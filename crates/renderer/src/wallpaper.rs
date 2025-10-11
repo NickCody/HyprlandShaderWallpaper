@@ -68,7 +68,7 @@ use crate::gpu::{FileExportTarget, GpuState, RenderExportError};
 use crate::runtime::{time_source_for_policy, BoxedTimeSource, FillMethod, RenderPolicy};
 use crate::types::{
     AdapterProfile, Antialiasing, ChannelBindings, ColorSpaceMode, GpuMemoryMode,
-    GpuPowerPreference, RendererConfig, ShaderCompiler, SurfaceAlpha,
+    GpuPowerPreference, RendererConfig, ShaderCompiler, SurfaceAlpha, VsyncMode,
 };
 
 const SOFTWARE_FPS_CAP: f32 = 15.0;
@@ -320,6 +320,7 @@ struct WallpaperManager {
     gpu_memory: GpuMemoryMode,
     gpu_latency: u32,
     crossfade_curve: crate::types::CrossfadeCurve,
+    vsync_mode: VsyncMode,
 }
 
 impl WallpaperManager {
@@ -355,6 +356,7 @@ impl WallpaperManager {
             gpu_memory: config.gpu_memory,
             gpu_latency: config.gpu_latency,
             crossfade_curve: config.crossfade_curve,
+            vsync_mode: config.vsync_mode,
         })
     }
 
@@ -491,6 +493,7 @@ impl WallpaperManager {
             self.gpu_memory,
             self.gpu_latency,
             self.crossfade_curve,
+            self.vsync_mode,
         )?;
         if let Some(size) = initial_size {
             if surface_state
@@ -882,6 +885,7 @@ struct SurfaceState {
     gpu_power: GpuPowerPreference,
     gpu_memory: GpuMemoryMode,
     gpu_latency: u32,
+    vsync_mode: VsyncMode,
 }
 
 impl SurfaceState {
@@ -904,6 +908,7 @@ impl SurfaceState {
         gpu_memory: GpuMemoryMode,
         gpu_latency: u32,
         crossfade_curve: crate::types::CrossfadeCurve,
+        vsync_mode: VsyncMode,
     ) -> Result<Self> {
         let time_source = time_source_for_policy(&policy)?;
         Ok(Self {
@@ -930,6 +935,7 @@ impl SurfaceState {
             gpu_memory,
             gpu_latency,
             crossfade_curve,
+            vsync_mode,
         })
     }
 
@@ -960,6 +966,7 @@ impl SurfaceState {
             self.gpu_memory,
             self.gpu_latency,
             self.crossfade_curve,
+            self.vsync_mode,
         )?;
         let is_software = gpu.adapter_profile().is_software();
         if is_software {

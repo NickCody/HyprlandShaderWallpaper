@@ -50,7 +50,7 @@ pub use runtime::{
 pub use types::{
     AdapterProfile, Antialiasing, ChannelBindings, ChannelSource, ChannelTextureKind,
     ColorSpaceMode, CrossfadeCurve, GpuMemoryMode, GpuPowerPreference, RenderMode, RendererConfig,
-    ShaderCompiler, SurfaceAlpha, CUBEMAP_FACE_STEMS,
+    ShaderCompiler, SurfaceAlpha, VsyncMode, CUBEMAP_FACE_STEMS,
 };
 pub use wallpaper::{
     OutputId, SurfaceId, SurfaceInfo, SurfaceSelector, SwapRequest, WallpaperRuntime,

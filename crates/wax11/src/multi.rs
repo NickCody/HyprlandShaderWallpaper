@@ -125,6 +125,7 @@ fn run_wallpaper_multi(
         gpu_power: convert_gpu_power(args.gpu_power),
         gpu_memory: convert_gpu_memory(args.gpu_memory),
         gpu_latency: args.gpu_latency,
+        vsync_mode: args.vsync_mode,
     };
 
     let runtime = WallpaperRuntime::spawn(renderer_config)?;
@@ -195,6 +196,7 @@ fn run_window_multi(
         gpu_power: convert_gpu_power(args.gpu_power),
         gpu_memory: convert_gpu_memory(args.gpu_memory),
         gpu_latency: args.gpu_latency,
+        vsync_mode: args.vsync_mode,
     };
 
     let runtime = WindowRuntime::spawn(renderer_config)?;
@@ -1556,6 +1558,7 @@ handle = "demo"
             gpu_memory: crate::cli::GpuMemoryMode::Balanced,
             gpu_latency: 2,
             crossfade_curve: None,
+            vsync_mode: renderer::VsyncMode::default(),
         };
 
         let resolver = PathResolver::with_cwd(temp.path());

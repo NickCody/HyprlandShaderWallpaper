@@ -304,6 +304,23 @@ impl Default for GpuMemoryMode {
     }
 }
 
+/// VSync behavior control for testing stutter mitigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VsyncMode {
+    /// VSync always enabled (default, prevents tearing).
+    Never,
+    /// VSync disabled only during shader crossfades.
+    Crossfade,
+    /// VSync always disabled (may cause tearing but eliminates vsync-related stutter).
+    Always,
+}
+
+impl Default for VsyncMode {
+    fn default() -> Self {
+        Self::Never
+    }
+}
+
 /// Immutable configuration passed to the renderer at start-up.
 ///
 /// `RendererConfig` mirrors CLI flags and tells the renderer which shader file
@@ -351,6 +368,8 @@ pub struct RendererConfig {
     pub gpu_memory: GpuMemoryMode,
     /// GPU frame latency (number of frames buffered).
     pub gpu_latency: u32,
+    /// VSync behavior (never disable, disable during crossfade, or always disable).
+    pub vsync_mode: VsyncMode,
 }
 
 impl Default for RendererConfig {
@@ -377,6 +396,7 @@ impl Default for RendererConfig {
             gpu_power: GpuPowerPreference::default(),
             gpu_memory: GpuMemoryMode::default(),
             gpu_latency: 2,
+            vsync_mode: VsyncMode::default(),
         }
     }
 }

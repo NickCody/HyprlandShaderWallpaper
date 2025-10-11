@@ -277,6 +277,7 @@ fn prepare_single_run(
         gpu_power: convert_gpu_power(args.gpu_power),
         gpu_memory: convert_gpu_memory(args.gpu_memory),
         gpu_latency: args.gpu_latency,
+        vsync_mode: args.vsync_mode,
     };
 
     Ok(SingleRunConfig { renderer_config })

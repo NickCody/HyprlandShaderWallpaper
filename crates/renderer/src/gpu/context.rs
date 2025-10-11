@@ -4,7 +4,7 @@ use wgpu::TextureFormatFeatureFlags;
 use winit::dpi::PhysicalSize;
 
 use crate::types::{
-    AdapterProfile, Antialiasing, ColorSpaceMode, GpuMemoryMode, GpuPowerPreference,
+    AdapterProfile, Antialiasing, ColorSpaceMode, GpuMemoryMode, GpuPowerPreference, VsyncMode,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +25,9 @@ pub(crate) struct GpuContext {
     pub color_space: SurfaceColorSpace,
     pub adapter_profile: AdapterProfile,
     pub _surface_supports_copy: bool,
+    #[allow(dead_code)]
+    vsync_mode: VsyncMode,
+    surface_caps: wgpu::SurfaceCapabilities,
 }
 
 impl GpuContext {
@@ -37,6 +40,7 @@ impl GpuContext {
         gpu_power: GpuPowerPreference,
         gpu_memory: GpuMemoryMode,
         gpu_latency: u32,
+        vsync_mode: VsyncMode,
     ) -> Result<Self>
     where
         T: HasDisplayHandle + HasWindowHandle,
@@ -236,7 +240,30 @@ impl GpuContext {
             .copied()
             .find(|mode| *mode == wgpu::PresentMode::Fifo)
             .unwrap_or_else(|| surface_caps.present_modes[0]);
-        tracing::debug!(?present_mode, "using present mode");
+
+        // Apply initial vsync setting based on mode
+        let present_mode = match vsync_mode {
+            VsyncMode::Never => present_mode, // Keep Fifo (vsync on)
+            VsyncMode::Always => {
+                // Prefer Immediate (no vsync), fallback to Mailbox, then Fifo
+                surface_caps
+                    .present_modes
+                    .iter()
+                    .copied()
+                    .find(|mode| *mode == wgpu::PresentMode::Immediate)
+                    .or_else(|| {
+                        surface_caps
+                            .present_modes
+                            .iter()
+                            .copied()
+                            .find(|mode| *mode == wgpu::PresentMode::Mailbox)
+                    })
+                    .unwrap_or(present_mode)
+            }
+            VsyncMode::Crossfade => present_mode, // Start with vsync, will toggle dynamically
+        };
+
+        tracing::debug!(?present_mode, ?vsync_mode, "using present mode");
 
         let config = wgpu::SurfaceConfiguration {
             usage: surface_usage,
@@ -262,6 +289,8 @@ impl GpuContext {
             color_space,
             adapter_profile,
             _surface_supports_copy: surface_supports_copy,
+            vsync_mode,
+            surface_caps,
         })
     }
 
@@ -274,5 +303,44 @@ impl GpuContext {
         self.config.width = new_size.width.max(1);
         self.config.height = new_size.height.max(1);
         self.surface.configure(&self.device, &self.config);
+    }
+
+    /// Enable or disable VSync by reconfiguring the surface present mode.
+    /// When `enabled` is false, prefers Immediate mode (no vsync) for lowest latency.
+    pub(crate) fn set_vsync(&mut self, enabled: bool) {
+        let target_mode = if enabled {
+            // Prefer Fifo (vsync) for tear-free presentation
+            self.surface_caps
+                .present_modes
+                .iter()
+                .copied()
+                .find(|mode| *mode == wgpu::PresentMode::Fifo)
+                .unwrap_or(self.config.present_mode)
+        } else {
+            // Prefer Immediate (no vsync), fallback to Mailbox, then current
+            self.surface_caps
+                .present_modes
+                .iter()
+                .copied()
+                .find(|mode| *mode == wgpu::PresentMode::Immediate)
+                .or_else(|| {
+                    self.surface_caps
+                        .present_modes
+                        .iter()
+                        .copied()
+                        .find(|mode| *mode == wgpu::PresentMode::Mailbox)
+                })
+                .unwrap_or(self.config.present_mode)
+        };
+
+        if target_mode != self.config.present_mode {
+            self.config.present_mode = target_mode;
+            self.surface.configure(&self.device, &self.config);
+            tracing::debug!(
+                ?target_mode,
+                vsync_enabled = enabled,
+                "reconfigured surface present mode"
+            );
+        }
     }
 }
