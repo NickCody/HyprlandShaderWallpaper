@@ -66,6 +66,7 @@ jobs:
   build-appimage:
     name: Build AppImage
     runs-on: ubuntu-22.04
+    if: ${{ github.ref_type == 'tag' }}
     needs: test  # Only run if tests pass
     
     steps:
